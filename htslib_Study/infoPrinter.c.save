@@ -1,0 +1,102 @@
+#include "infoPrinter.h"
+
+void printVcfHeader(bcf_hdr_t *header){
+  printf("vcf version: %s\n", bcf_hdr_get_version(header));
+  printf("\n");
+}
+
+void printVcfRecord(bcf1_t *record) {
+  /*
+   * The ids of chroms correspond to the sequence they appear in the
+   * vcf/bcf file. For example, if contigs are written as follows, 
+   * ##contig=<ID=5>
+   * ##contig=<ID=1>
+   * 
+  printf("chrom: %d\n", record->rid);
+  /*
+   * The output on console looks like 0-based index. But that's
+   * for the convenience of array in C.
+   */
+  printf("pos: %ld\n", record->pos);
+  printf("qual: %f\n", record->qual);
+  /*
+   * Including the reference allele, which is "record->d.allele[0]".
+   */
+  printf("number of alleles: %d\n", record->n_allele);
+  printf("alleles: ");
+  for(int i = 0; i < record->n_allele; i++){
+    printf("%s ", record->d.allele[i]);
+  }
+  printf("\n");
+
+  printf("variant types:");
+  for(int i = 1; i < record->n_allele; i++){
+    printf("%d ", bcf_get_variant_type(record, i));
+  }
+  printf("\n");
+
+  printf("\n");
+}
+
+void printSamHeader(bam_hdr_t *header){
+  printf("reference count: %d\n", header->ref_count);
+  printf("number of reference sequences: %d\n", header->n_targets);
+  printf("name and length of reference sequences:\n");
+  for(int i = 0; i < header->n_targets; i++){
+    printf("\t%s\t%d\n", header->target_name[i], header->target_len[i]);
+  }
+  printf("\n");
+}
+
+void printSamRecord(bam1_t *record){
+  printf("seq length: %d\n", record->core.l_qseq);
+  /*
+   * The output on console looks like 0-based index. But that's
+   * for the convenience of array in C.
+   */
+  printf("pos: %ld\n", record->core.pos);
+  /*
+   * The output is not the same as in the original *.sam file.
+   * Chrom IDs are re-ordered by the htslib.
+   */
+  printf("chrom id: %d\n", record->core.tid);
+  printf("flag: 0x%08x\n", record->core.flag);
+  printf("sequence length: %d\n", record->core.l_qseq);
+  /*
+   * It is recommended to use bam_seqi() macro instead of array
+   * manipulations on array retrieved by bam_get_seq().
+   */
+  printf("seq(0x, 1-A, 2-C, 4-G, 8-T, 15-N):\n\t");
+  for(int i = 0; i < record->core.l_qseq; i++){
+    printf("%x", bam_seqi(bam_get_seq(record), i));
+  }
+  printf("\n");
+  /*
+   * For example, cigar "22S86M" - cigar operation is 2, and
+   * the cigar array is a 2-element array.
+   * The element is coded in the following format, and each
+   * element corresponds to a cigar operation:
+   *   (0x) [count of cigar operation][integer operation type code]
+   * Thus, "22S86M" may look like "0x 0164 0560"
+   */
+  printf("cigar operations type count: %d\n", record->core.n_cigar);
+  printf("cigar(0x):\n\t");
+  for(int i = 0; i < record->core.n_cigar; i++){
+    printf("0x%04x ", bam_get_cigar(record)[i]);
+  }
+  printf("\n");
+
+  printf("qname: %s\n", bam_get_qname(record));
+
+  /*
+   * "+33" is necessary. The original value in the array is as
+   * the BAM specification instead of the SAM ASCII printable method.
+   */
+  printf("qual: \n\t");
+  for(int i = 0; i < record->core.l_qseq; i++){
+    printf("%c", bam_get_qual(record)[i]+33);
+  }
+  printf("\n");
+
+  printf("\n");
+}
