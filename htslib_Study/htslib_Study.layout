@@ -2,37 +2,7 @@
 <CodeBlocks_layout_file>
 	<FileVersion major="1" minor="0" />
 	<ActiveTarget name="Debug" />
-	<File name="reference_codes/test-vcf-api.c" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="14258" topLine="80" />
-		</Cursor>
-		<Folding>
-			<Collapse line="49" />
-			<Collapse line="225" />
-			<Collapse line="399" />
-		</Folding>
-	</File>
-	<File name="dataReader.h" open="1" top="0" tabpos="4" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="221" topLine="0" />
-		</Cursor>
-	</File>
-	<File name="reference_codes/test-bcf-translate.c" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="1276" topLine="6" />
-		</Cursor>
-	</File>
-	<File name="myMacros.h" open="1" top="0" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="76" topLine="0" />
-		</Cursor>
-	</File>
-	<File name="main.c" open="1" top="0" tabpos="6" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="997" topLine="40" />
-		</Cursor>
-	</File>
-	<File name="reference_codes/test_view.c" open="0" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+	<File name="reference_codes\test_view.c" open="0" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
 			<Cursor1 position="8078" topLine="230" />
 		</Cursor>
@@ -40,9 +10,9 @@
 			<Collapse line="322" />
 		</Folding>
 	</File>
-	<File name="dataReader.c" open="1" top="1" tabpos="7" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+	<File name="dataReader.c" open="1" top="0" tabpos="6" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="1687" topLine="8" />
+			<Cursor1 position="1687" topLine="0" />
 		</Cursor>
 		<Folding>
 			<Collapse line="9" />
@@ -53,7 +23,47 @@
 			<Collapse line="54" />
 		</Folding>
 	</File>
-	<File name="reference_codes/sam.c" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+	<File name="reference_codes\test-vcf-api.c" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="14258" topLine="80" />
+		</Cursor>
+		<Folding>
+			<Collapse line="49" />
+			<Collapse line="225" />
+			<Collapse line="399" />
+		</Folding>
+	</File>
+	<File name="reference_codes\test-bcf-translate.c" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="1276" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="infoPrinter.c" open="1" top="0" tabpos="7" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="182" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="reference_codes\test-bcf-sr.c" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="2645" topLine="75" />
+		</Cursor>
+	</File>
+	<File name="myMacros.h" open="1" top="0" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="76" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="dataReader.h" open="1" top="1" tabpos="4" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="221" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="main.c" open="1" top="0" tabpos="5" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="997" topLine="39" />
+		</Cursor>
+	</File>
+	<File name="reference_codes\sam.c" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
 			<Cursor1 position="76682" topLine="2103" />
 		</Cursor>
@@ -62,14 +72,5 @@
 			<Collapse line="126" />
 		</Folding>
 	</File>
-	<File name="reference_codes/test-bcf-sr.c" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="2645" topLine="75" />
-		</Cursor>
-	</File>
-	<File name="infoPrinter.c" open="1" top="0" tabpos="8" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="182" topLine="0" />
-		</Cursor>
-	</File>
+	<EditorTabsLayout layout="0819f98060111c3b00003c3c00000002=0;htslib_Study:myMacros.h,1;htslib_Study:reference_codes\test-bcf-translate.c,2;htslib_Study:reference_codes\test-bcf-sr.c,*3;htslib_Study:dataReader.h,4;htslib_Study:main.c,5;htslib_Study:dataReader.c,6;htslib_Study:infoPrinter.c@layout2|name=dummy;caption=;state=2098174;dir=3;layer=0;row=0;pos=0;prop=100000;bestw=780;besth=473;minw=780;minh=473;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=0819f98060111c3b00003c3c00000002;caption=;state=2098172;dir=5;layer=0;row=0;pos=0;prop=100000;bestw=200;besth=200;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|dock_size(5,0,0)=202|" />
 </CodeBlocks_layout_file>
