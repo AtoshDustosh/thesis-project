@@ -1,13 +1,15 @@
 /*
  * @Author: Atosh Dustosh
  * @Date: 2021-01-28 21:02:40
- * @LastEditTime: 2021-01-28 21:54:41
- * @LastEditors: Please set LastEditors
+ * @LastEditTime: 2021-01-29 14:26:38
+ * @LastEditors: Atosh Dustosh
  * @Description: In User Settings Edit
  * @FilePath: /Genome Re-aligner Based on Variants/variantsStruct.h
  */
-#ifndef VARIANTSSTRUCT_H_INCLUDED
+#ifndef VARIATNSSTRUCT_H_INCLUDED
 #define VARIATNSSTRUCT_H_INCLUDED
+
+#pragma once
 
 #include <htslib/vcf.h>
 
