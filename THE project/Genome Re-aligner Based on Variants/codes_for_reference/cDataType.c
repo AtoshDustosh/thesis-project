@@ -1,3 +1,6 @@
+/*
+ * @LastEditors: Atosh Dustosh
+ */
 #include "cDataType.h"
 
 

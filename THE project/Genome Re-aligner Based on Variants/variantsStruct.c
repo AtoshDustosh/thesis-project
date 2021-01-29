@@ -3,7 +3,7 @@
  */
 #include "variantsStruct.h"
 
-BcfData *initBcfData()
+inline BcfData *initBcfData()
 {
   BcfData *bD = (BcfData *)malloc(sizeof(BcfData));
   if (bD == NULL)
@@ -14,7 +14,7 @@ BcfData *initBcfData()
   return bD;
 }
 
-void destroyBcfData(BcfData *bD)
+inline void destroyBcfData(BcfData *bD)
 {
   bcf_hdr_destroy(bD->header);
   for (int i = 0; i < bD->n_variants; i++)

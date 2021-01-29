@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2021-01-28 21:26:34
- * @LastEditTime: 2021-01-29 16:54:26
+ * @LastEditTime: 2021-01-29 20:05:31
  * @LastEditors: Atosh Dustosh
  * @Description: In User Settings Edit
  * @FilePath: /Genome Re-aligner Based on Variants/dataReader.h
@@ -20,7 +20,7 @@
 #include <htslib/vcf.h>
 
 #include "convenience.h"
-#include "helperFunc.h"
+#include "fileFormatAnalyzer.h"
 #include "variantsStruct.h"
 
 
