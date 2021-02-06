@@ -21,4 +21,4 @@ Options for command lines are not realized yet.
 
 ## *Project of stage 2*
 
-- [ ] TODO
+- [ ] WORKING_ON fetch reads and then use BWA tools to align reads

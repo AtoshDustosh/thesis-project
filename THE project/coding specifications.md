@@ -60,7 +60,3 @@ RetType funcTest(ArgType1 arg1, ArgType2 arg2, ...)
 
 for example, ./main -i data/example.vcf -g --firstlines 100，
 表示设定输入文件为data/example.vcf，控制台输出该文件的前100行内容
-
-### 4. 项目组织的规范
-
-参见程序本身所在文件夹的文件组织
