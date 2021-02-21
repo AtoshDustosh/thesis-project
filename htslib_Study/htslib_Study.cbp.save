@@ -49,21 +49,6 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="myMacros.h" />
-		<Unit filename="reference_codes/sam.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="reference_codes/test-bcf-sr.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="reference_codes/test-bcf-translate.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="reference_codes/test-vcf-api.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="reference_codes/test_view.c">
-			<Option compilerVar="CC" />
-		</Unit>
 		<Extensions>
 			<lib_finder disable_auto="1" />
 		</Extensions>

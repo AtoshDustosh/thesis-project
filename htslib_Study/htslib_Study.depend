@@ -1,0 +1,46 @@
+# depslib dependency file v1.0
+1611796958 source:/home/atoshdustosh/Projects/thesis-project/htslib_Study/C_revise.c
+	"C_revise.h"
+
+1611796958 /home/atoshdustosh/Projects/thesis-project/htslib_Study/C_revise.h
+	<stdio.h>
+	<stdlib.h>
+
+1611796958 source:/home/atoshdustosh/Projects/thesis-project/htslib_Study/dataReader.c
+	"dataReader.h"
+
+1611796958 /home/atoshdustosh/Projects/thesis-project/htslib_Study/dataReader.h
+	<stdio.h>
+	<stdlib.h>
+	<htslib/hts.h>
+	<htslib/sam.h>
+	<htslib/vcf.h>
+	"myMacros.h"
+	"infoPrinter.h"
+
+1611796958 /home/atoshdustosh/Projects/thesis-project/htslib_Study/myMacros.h
+	<time.h>
+	"myMacros.h"
+
+1611796958 /home/atoshdustosh/Projects/thesis-project/htslib_Study/infoPrinter.h
+	<stdio.h>
+	<stdlib.h>
+	<htslib/hts.h>
+	<htslib/sam.h>
+	<htslib/vcf.h>
+
+1611796958 source:/home/atoshdustosh/Projects/thesis-project/htslib_Study/main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<htslib/hts.h>
+	<htslib/sam.h>
+	<htslib/vcf.h>
+	"C_revise.h"
+	"myMacros.h"
+	"dataReader.h"
+	"infoPrinter.h"
+
+1611796958 source:/home/atoshdustosh/Projects/thesis-project/htslib_Study/infoPrinter.c
+	"infoPrinter.h"
+
