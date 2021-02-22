@@ -1,4 +1,4 @@
-# ***Thesis Project***
+# ***Thesis Project Bioinfo***
 
 **note** *: This is a repository for code storage and communication when working on the thesis project.*
 
