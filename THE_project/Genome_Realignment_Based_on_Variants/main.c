@@ -1,11 +1,10 @@
 /*
- * @Author: Atosh Dustosh
- * @Date: 2021-01-28 09:23:44
- * @LastEditTime: 2021-02-21 21:07:33
- * @LastEditors: Atosh Dustosh
- * @Description: In User Settings Edit
- * @FilePath: /Genome Re-aligner Based on Variants/main.c
+ * @Date: 2021-02-11 11:31:34
+ * @LastEditors: AtoshDustosh
+ * @LastEditTime: 2021-02-22 13:09:01
+ * @FilePath: /Genome_Realignment_Based_on_Variants/main.c
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
