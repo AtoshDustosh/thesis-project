@@ -10,153 +10,131 @@
 #include <getopt.h>
 #include <htslib/vcf.h>
 
-#include "convenience.h"
-#include "dataReader.h"
-#include "variantsStruct.h"
-#include "grbov.h"
+#include "grbvOptions.h"
+#include "simpleOperations.h"
 
-const char *optStr = "i:o:gF:C";
-int lopt = 0;
+const char *optStr = "";
+int loptArg = 0;
 static struct option optInitArray[] = {
-    {"output", required_argument, NULL, 'o'},
-    {"input", required_argument, NULL, 'i'},
-    {"glimpse", no_argument, NULL, 'g'},
-    {"firstlines", required_argument, NULL, 'F'},
-    {"count", no_argument, NULL, 'C'},
-    {"selectbadreads", no_argument, &lopt, 1},
+
+    {"outputFile", required_argument, NULL, OPT_SET_OUTPUTFILE},
+    {"faFile", required_argument, NULL, OPT_SET_FAFILE},
+    {"fastqFile", required_argument, NULL, OPT_SET_FASTQFILE},
+    {"samFile", required_argument, NULL, OPT_SET_SAMFILE},
+    {"vcfFile", required_argument, NULL, OPT_SET_VCFFILE},
+
+    {"countRec", no_argument, NULL, OPT_COUNTREC},
+    {"firstLines", required_argument, NULL, OPT_FIRSTLINES},
+
+    {"selectBadReads", required_argument, NULL, OPT_SELECTBADREADS},
     {0, 0, 0, 0},
 };
 
-void Usage()
+static void Usage()
 {
-    printf("Usage: program <command> <arguments>\n");
-    printf("\n");
-    printf("Options:\n");
-    printf("\t<-i|--input> [input file] set input file\n");
-    printf("\t<-o|--output> [output file] set output file\n");
-    printf("\t<-g|--glimpse> glimpse the input file\n");
-    printf("\t\t<-F|--firstlines> [integer number] scan the first [integer number] lines of input file\n");
-    printf("\t\t<-C|--count> count record number or lines of input file\n");
-    printf("\t<--selectbadreads> select bad mapping reads from input file (*.sam/bam) and put them into the output file (*.sam/bam) with necessary infos.\n");
+  printf("Usage: grbv [commands] [arguments]\n");
+  printf("\n");
+
+  printf("Commands:\n");
+  printf(" -- Set files. Do this first!\n");
+  printf("\toutputFile [filepath]\tset output file\n");
+  printf("\tfaFile [filepath]\tset reference genome file\n");
+  printf("\tfastqFile [filepath]\tset fastq file\n");
+  printf("\tsamFile [filepath]\tset sam file\n");
+  printf("\tvcfFile [filepath]\tset vcf file\n");
+  printf("\n");
+
+  printf(" -- Simple operations\n");
+  printf("\tcountRec\tcount records in previously set filess\n");
+  printf("\tfirstLines [number]\tprint the first [number] lines of all files to console\n");
+  printf("\n");
+
+  printf(" -- GRBV operations\n");
+  printf("\tselectBadReads [MAPQ_threshold]\tselect reads with MAPQ lower than MAPQ_threshold from previously set sam file and then output them into the previously set output file\n");
+}
+
+static void printOptions(Options *opts)
+{
+  printf("faFile: %s\n", opts->faFile);
+  printf("fastqFile: %s\n", opts->fastqFile);
+  printf("samFile: %s\n", opts->samFile);
+  printf("vcfFile: %s\n", opts->vcfFile);
+  printf("outputFile: %s\n", opts->outputFile);
+  printf("countRec: %d\n", opts->countRec);
+  printf("firstLines: %d\n", opts->firstLines);
 }
 
 int main(int argc, char *argv[])
 {
-    Options options;
+  Options options;
 
-    options.inputFilePath = NULL;
-    options.outputFilePath = NULL;
-    options.operationType = NO_OPERATION;
-    options.glimpse.type = GLIMPSE_NOT_DESIGNATED;
-    options.glimpse.n_firstLines = 0;
+  options.faFile = NULL;
+  options.fastqFile = NULL;
+  options.samFile = NULL;
+  options.vcfFile = NULL;
+  options.outputFile = NULL;
 
-    int optRet = 0;
-    while ((optRet = getopt_long(argc, argv, optStr, optInitArray, NULL)) != -1)
+  options.countRec = 0;
+  options.firstLines = 0;
+
+  options.selectBadReads = 0;
+
+  int optRet = getopt_long(argc, argv, optStr, optInitArray, NULL);
+  while (1)
+  {
+    printf("optRet: %d\n", optRet);
+    switch (optRet)
     {
-        switch (optRet)
-        {
-        // short options
-        case 'i':
-        {
-            printf("input file: %s\n", optarg);
-            options.inputFilePath = optarg;
-            break;
-        }
-        case 'o':
-        {
-            printf("output file: %s\n", optarg);
-            options.outputFilePath = optarg;
-            break;
-        }
-        case 'g':
-        {
-            if (options.operationType != NO_OPERATION)
-            {
-                fprintf(stderr, "Error: multiple options conflicted.\n");
-                return EXIT_SUCCESS;
-            }
-            else
-            {
-                options.operationType = OPT_GLIMPSE;
-            }
-            break;
-        }
-        case 'F':
-        {
-            if (options.glimpse.type != GLIMPSE_NOT_DESIGNATED)
-            {
-                fprintf(stderr, "Error: multiple glimpse options conflicted. \n");
-                return EXIT_SUCCESS;
-            }
-            else
-            {
-                options.glimpse.type = GLIMPSE_FIRST_LINES;
-                options.glimpse.n_firstLines = atoi(optarg);
-            }
-            break;
-        }
-        case 'C':
-        {
-            if (options.glimpse.type != GLIMPSE_NOT_DESIGNATED)
-            {
-                fprintf(stderr, "Error: multiple glimpse options conflicted. \n");
-                return EXIT_SUCCESS;
-            }
-            else
-            {
-                options.glimpse.type = GLIMPSE_COUNT_RECORDS;
-            }
-            break;
-        }
-            // TODO other options to be realized
-        }
-    // long options
-    case 0:
+    case OPT_SET_OUTPUTFILE:
     {
-        switch (lopt)
-        {
-        case 1:
-        {
-            if (options.operationType != NO_OPERATION)
-            {
-                fprintf(stderr, "Error: multiple options conflicted.\n");
-                return EXIT_SUCCESS;
-            }
-            else
-            {
-                options.operationType = OPT_SELECT_BAD_READS;
-            }
-            break;
-        }
-        default:
-            exit(EXIT_SUCCESS);
-            break;
-        }
+      printf("Output file: %s\n", optarg);
+      options.outputFile = optarg;
+      break;
     }
-    }
-
-    /*
-     * The switch block above sets the basic and subsequent operations,
-     * but does no process on the data files. The switch block below is
-     * the actual processing block. 
-     */
-    switch (options.operationType)
+    case OPT_SET_FAFILE:
     {
-    case NO_OPERATION:
-        printf("No operation type selected. \n");
-        Usage();
-        return EXIT_SUCCESS;
-    case OPT_GLIMPSE:
-        printf("Glipmse file %s\n", options.inputFilePath);
-        glimpseFile(&options);
-        break;
-    case OPT_SELECT_BAD_READS:
-        printf("Select bad mapping reads from %s, and then output them into %s with necessary information", options.inputFilePath, options.outputFilePath);
-        break;
+      printf("Fa/Fna (Reference Genome) file: %s\n", optarg);
+      options.faFile = optarg;
+      break;
+    }
+    case OPT_SET_FASTQFILE:
+    {
+      printf("Fastq (Runs) file: %s\n", optarg);
+      options.fastqFile = optarg;
+      break;
+    }
+    case OPT_SET_SAMFILE:
+    {
+      printf("Sam (alignment) file: %s\n", optarg);
+      options.samFile = optarg;
+      break;
+    }
+    case OPT_SET_VCFFILE:
+    {
+      printf("Vcf (variants) file: %s\n", optarg);
+      options.vcfFile = optarg;
+      break;
+    }
+    case OPT_COUNTREC:
+    {
+      printf("Count records of files.\n");
+      options.countRec = 1;
+      countRec(&options);
+      break;
+    }
+    case OPT_FIRSTLINES:
+    {
+      printf("Print first %s lines of files.\n", optarg);
+      options.firstLines = atoi(optarg);
+      firstLines(&options);
+      break;
+    }
     default:
-        printf("Unknown operation.\n");
-        Usage();
-        return EXIT_SUCCESS;
+      Usage();
+      break;
     }
-    return EXIT_SUCCESS;
+    optRet = getopt_long(argc, argv, optStr, optInitArray, NULL);
+    if(optRet == -1) break;
+  }
+  return 0;
 }
