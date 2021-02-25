@@ -11,11 +11,21 @@
       "request": "launch",
       "program": "${fileDirname}/${fileBasenameNoExtension}",
       "args": [
+        "--verbose",
+
         "--faFile",
-        "example.fa",
+        "data/example.fa",
+        "--fastqFile",
+        "data/example.fastq",
         "--samFile",
-        "example.sam",
-        "--firstLines",
+        "data/example.sam",
+        "--vcfFile",
+        "data/example.vcf",
+
+        "--outputFile",
+        "data/grbvOut.txt",
+
+        "--selectBadReads",
         "20",
       ],
       "stopAtEntry": true,

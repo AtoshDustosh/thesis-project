@@ -11,3 +11,9 @@ THE_project/Genome_Realignment_Based_on_Variants/data/
 *.bam
 
 *.fastq
+
+./THE_project/Genome_Realignment_Based_on_Variants/data/GRCh38_full_analysis_set_plus_decoy_hla.fa.bwt
+./THE_project/Genome_Realignment_Based_on_Variants/data/GRCh38_full_analysis_set_plus_decoy_hla.fa.sa
+./THE_project/Genome_Realignment_Based_on_Variants/data/ori.vcf
+./THE_project/Genome_Realignment_Based_on_Variants/data/GRCh38_full_analysis_set_plus_decoy_hla.fa.pac
+./THE_project/Genome_Realignment_Based_on_Variants/data/GRCh38_full_analysis_set_plus_decoy_hla.fa

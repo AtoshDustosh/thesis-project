@@ -12,11 +12,12 @@
 
 #include "grbvOptions.h"
 #include "simpleOperations.h"
+#include "grbvOperations.h"
 
 const char *optStr = "";
 int loptArg = 0;
 static struct option optInitArray[] = {
-
+    {"verbose", no_argument, NULL, OPT_VERBOSE},
     {"outputFile", required_argument, NULL, OPT_SET_OUTPUTFILE},
     {"faFile", required_argument, NULL, OPT_SET_FAFILE},
     {"fastqFile", required_argument, NULL, OPT_SET_FASTQFILE},
@@ -44,8 +45,12 @@ static void Usage()
   printf("\tvcfFile [filepath]\tset vcf file\n");
   printf("\n");
 
+  printf(" -- Program infos\n");
+  printf("\tverbose\tverbose mode\n");
+  printf("\n");
+
   printf(" -- Simple operations\n");
-  printf("\tcountRec\tcount records in previously set filess\n");
+  printf("\tcountRec\tcount records in previously set files. Only works on the right file format\n");
   printf("\tfirstLines [number]\tprint the first [number] lines of all files to console\n");
   printf("\n");
 
@@ -53,20 +58,11 @@ static void Usage()
   printf("\tselectBadReads [MAPQ_threshold]\tselect reads with MAPQ lower than MAPQ_threshold from previously set sam file and then output them into the previously set output file\n");
 }
 
-static void printOptions(Options *opts)
-{
-  printf("faFile: %s\n", opts->faFile);
-  printf("fastqFile: %s\n", opts->fastqFile);
-  printf("samFile: %s\n", opts->samFile);
-  printf("vcfFile: %s\n", opts->vcfFile);
-  printf("outputFile: %s\n", opts->outputFile);
-  printf("countRec: %d\n", opts->countRec);
-  printf("firstLines: %d\n", opts->firstLines);
-}
-
 int main(int argc, char *argv[])
 {
   Options options;
+
+  options.verbose = 0;
 
   options.faFile = NULL;
   options.fastqFile = NULL;
@@ -82,9 +78,13 @@ int main(int argc, char *argv[])
   int optRet = getopt_long(argc, argv, optStr, optInitArray, NULL);
   while (1)
   {
-    printf("optRet: %d\n", optRet);
     switch (optRet)
     {
+    case OPT_VERBOSE:
+    {
+      options.verbose = 1;
+      break;
+    }
     case OPT_SET_OUTPUTFILE:
     {
       printf("Output file: %s\n", optarg);
@@ -129,12 +129,32 @@ int main(int argc, char *argv[])
       firstLines(&options);
       break;
     }
+    case OPT_SELECTBADREADS:
+    {
+      printf("Select bad reads with MAPQ lower than %s\n", optarg);
+      options.selectBadReads = atoi(optarg);
+      if (options.selectBadReads < 0)
+      {
+        printf("Arg invalid: [MAPQ] lower than 0\n");
+        exit(EXIT_FAILURE);
+      }
+      else if (options.selectBadReads > 255)
+      {
+        printf("Arg warning: [MAPQ] higher than max [255]\n");
+      }
+      else
+      {
+        selectBadReads(&options);
+      }
+      break;
+    }
     default:
       Usage();
       break;
     }
     optRet = getopt_long(argc, argv, optStr, optInitArray, NULL);
-    if(optRet == -1) break;
+    if (optRet == -1)
+      break;
   }
   return 0;
 }
