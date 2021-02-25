@@ -1,0 +1,32 @@
+reference website: https://www.jianshu.com/p/3b86615d647b
+
+index Usage：
+      bwa index [ –p prefix ] [ –a algoType ] <in.db.fasta>
+OPTIONS: 
+      -p STR   输出数据库的前缀/name；【默认和输入的文件名一致，输出的数据库在其输入文件所在的文件夹，并以该文件名为前缀。】
+      -a [is|bwtsw]   构建index的算法，有两个算法： is 是默认的算法，虽然相对较快，但是需要较大的内存，当构建的数据库大于
+               2GB的时候就不能正常工作了。 bwtsw 对于短的参考序列式不工作的，必须要大于等于10MB, 但能用于较大的基因组数据，比如人的全基因组。
+
+#根据reference genome data(e.g. ref.fa) 建立 Index File例子：
+$ bwa index ref.fa -p genome###可以不加-p genome，这样建立索引都是以ref.fa为前缀
+
+
+mem Usage: bwa mem [options] ref.fa reads.fq [mates.fq]
+-t   INT 线程数，默认是1。
+-M   将 shorter split hits 标记为次优，以兼容 Picard’s markDuplicates 软件。
+-p   若无此参数：输入文件只有1个，则进行单端比对；若输入文件有2个，则作为paired reads进行比对。若加入此参数：则仅以第1个文件作为输入(输入的文件若有2个，则忽略之)，该文件必须是read1.fq和read2.fa进行reads交叉的数据。
+-R   STR 完整的read group的头部，可以用 '\t' 作为分隔符， 在输出的SAM文件中被解释为制表符TAB. read group 的ID，会被添加到输出文件的每一个read的头部。
+-T   INT   当比对的分值比 INT 小时，不输出该比对结果，这个参数只影响输出的结果，不影响比对的过程。-a 将所有的比对结果都输出，包括 single-end 和 unpaired paired-end的 reads，但是这些比对的结果会被标记为次优。
+
+#例子：
+$ bwa mem ref.fa reads.fq > mem-se.sam
+$ bwa mem ref.fa read1.fq read2.fq > mem-pe.sam
+
+#对于single-read
+bwa aln [options] ref.fa read.fq > aln_sa.sai
+bwa samse [options] ref.fa aln_sa.sai read.fq > aln-se.sam
+#对于pair-reads：
+bwa aln [options] ref.fa read1.fq > aln_sa1.sai
+bwa aln [options] ref.fa read2.fq > aln_sa2.sai
+bwa sampe [options] ref.fa aln_sa1.sai aln_sa2.sai read1.fq read2.fq > aln-pe.sam
+
