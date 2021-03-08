@@ -78,7 +78,7 @@ typedef struct _define_FileList
  * @brief Get the files designated by command inputs. 
  * 
  * @param opts command inputs
- * @return FileList* a list of designated files. You can access the value "count" to get the size of it. The list must be freed mannually later with destroyFileList(). 
+ * @retval FileList* a list of designated files. You can access the value "count" to get the size of it. The list must be freed mannually later with destroyFileList(). 
  */
 FileList* designatedFiles(Options *opts);
 

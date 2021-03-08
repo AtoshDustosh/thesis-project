@@ -13,8 +13,9 @@
       "args": [
         // "--verbose",
 
-        // "--faFile",
-        // "data/example.fa",
+        // initialize paths to files 
+        "--faFile",
+        "data/example.fa",
         // "--fastqFile",
         // "data/example.fastq",
         "--samFile",
@@ -25,8 +26,13 @@
         "--outputFile",
         "data/grbvOut.txt",
 
-        "--selectBadReads",
-        "20",
+        // test grbv operations
+        // "--selectBadReads",
+        // "20",
+
+        // test simple operations
+        "--countRec",
+        "--firstLines 30",
       ],
       "stopAtEntry": true,
       "cwd": "${workspaceFolder}",
