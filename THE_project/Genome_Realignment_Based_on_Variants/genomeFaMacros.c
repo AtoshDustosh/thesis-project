@@ -1,4 +1,4 @@
-#include "genomeMacros.h"
+#include "genomeFaMacros.h"
 
 char charOfBase(Base bp) {
   switch (bp) {

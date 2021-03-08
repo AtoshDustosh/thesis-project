@@ -9,7 +9,7 @@
 #include <string.h>
 
 #include "debug.h"
-#include "genomeMacros.h"
+#include "genomeFaMacros.h"
 
 // *****************
 // Basic Structures
@@ -78,12 +78,6 @@ Base getBase(ChromFa *cf, uint32_t pos);
  * the doubly-linked-list). Should not be called by the user.
  */
 static void addChromToGenome(ChromFa *cf, GenomeFa *gf);
-
-/**
- * @brief Remove a ChromFa object from the GenomeFa object. Should not be called
- * by the user.
- */
-static void removeChromFromGenome(ChromFa *cf, GenomeFa *gf);
 
 /**
  * @brief Destroy a ChromFa object. Should not be called by the user.

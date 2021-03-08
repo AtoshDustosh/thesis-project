@@ -21,4 +21,8 @@ Options for command lines are not realized yet.
 
 ## *Project of stage 2*
 
-- [ ] WORKING_ON fetch reads and then use BWA tools to align reads
+- [x] Load and index all reference genome files (\*.fa/\*.fna)
+
+- [ ] Load and index all reads files (\*.sam)
+
+- [ ] Load and index all variation files (\*.vcf)

@@ -277,25 +277,6 @@ void addChromToGenome(ChromFa *cf, GenomeFa *gf) {
   }
 }
 
-void removeChromFromGenome(ChromFa *cf, GenomeFa *gf) {
-  if (cf == NULL || gf == NULL) {
-    fprintf(stderr, "Error: null pointer occurred for ChromFa or GenomeFa\n");
-    exit(EXIT_FAILURE);
-  }
-  ChromFa *tmpCf = gf->chroms;
-  while (tmpCf != NULL) {
-    if (strcmp(tmpCf->info, cf->info) == 0) {
-      destroy_ChromFa(tmpCf);
-      gf->chromNum--;
-      return;
-    } else {
-      tmpCf = tmpCf->nextChrom;
-    }
-  }
-  // if no such chrom in the genome
-  return;
-}
-
 void destroy_ChromFa(ChromFa *cf) {
   if (cf == NULL) {
     fprintf(stderr,
