@@ -1,6 +1,6 @@
 #include "infoPrinter.h"
 
-void printVcfHeader(bcf_hdr_t *header){
+void printVcfHeader(bcf_hdr_t *header) {
   printf("vcf version: %s\n", bcf_hdr_get_version(header));
   printf("\n");
 }
@@ -27,31 +27,58 @@ void printVcfRecord(bcf1_t *record) {
    */
   printf("number of alleles: %d\n", record->n_allele);
   printf("alleles: ");
-  for(int i = 0; i < record->n_allele; i++){
+  for (int i = 0; i < record->n_allele; i++) {
     printf("%s ", record->d.allele[i]);
   }
   printf("\n");
 
   printf("variant types:");
-  for(int i = 1; i < record->n_allele; i++){
+  for (int i = 1; i < record->n_allele; i++) {
     printf("%d ", bcf_get_variant_type(record, i));
   }
   printf("\n");
-
+  // other fields are temporarily not needed
   printf("\n");
 }
 
-void printSamHeader(bam_hdr_t *header){
+void printVcfRecord_brief(bcf_hdr_t *hdr, bcf1_t *record) {
+  // chrom
+  printf("%s\t", bcf_seqname_safe(hdr, record));
+  // pos
+  printf("%" PRId64 "\t", record->pos);
+  // id
+  printf("%s\t", record->d.id);
+  // ref alt
+  printf("%s\t", record->d.allele[0]);
+  if (record->n_allele == 1) {
+    printf(".");
+  } else {
+    for (int i = 1; i < record->n_allele; i++) {
+      if (i >= 2) {
+        printf(",%s", record->d.allele[i]);
+      } else {
+        printf("%s", record->d.allele[i]);
+      }
+    }
+  }
+  printf("\t");
+  // qual
+  printf("%f\t", record->qual);
+  // filter, info, format and other fields are ignored
+  printf("\n");
+}
+
+void printSamHeader(bam_hdr_t *header) {
   printf("reference count: %d\n", header->ref_count);
   printf("number of reference sequences: %d\n", header->n_targets);
   printf("name and length of reference sequences:\n");
-  for(int i = 0; i < header->n_targets; i++){
+  for (int i = 0; i < header->n_targets; i++) {
     printf("\t%s\t%d\n", header->target_name[i], header->target_len[i]);
   }
   printf("\n");
 }
 
-void printSamRecord(bam1_t *record){
+void printSamRecord(bam1_t *record) {
   printf("seq length: %d\n", record->core.l_qseq);
   /*
    * The output on console looks like 0-based index. But that's
@@ -70,7 +97,7 @@ void printSamRecord(bam1_t *record){
    * manipulations on array retrieved by bam_get_seq().
    */
   printf("seq(0x, 1-A, 2-C, 4-G, 8-T, 15-N):\n\t");
-  for(int i = 0; i < record->core.l_qseq; i++){
+  for (int i = 0; i < record->core.l_qseq; i++) {
     printf("%x", bam_seqi(bam_get_seq(record), i));
   }
   printf("\n");
@@ -84,7 +111,7 @@ void printSamRecord(bam1_t *record){
    */
   printf("cigar operations type count: %d\n", record->core.n_cigar);
   printf("cigar(0x):\n\t");
-  for(int i = 0; i < record->core.n_cigar; i++){
+  for (int i = 0; i < record->core.n_cigar; i++) {
     printf("0x%04x ", bam_get_cigar(record)[i]);
   }
   printf("\n");
@@ -96,10 +123,61 @@ void printSamRecord(bam1_t *record){
    * the BAM specification instead of the SAM ASCII printable method.
    */
   printf("qual: \n\t");
-  for(int i = 0; i < record->core.l_qseq; i++){
-    printf("%c", bam_get_qual(record)[i]+33);
+  for (int i = 0; i < record->core.l_qseq; i++) {
+    printf("%c", bam_get_qual(record)[i] + 33);
   }
   printf("\n");
 
+  printf("\n");
+}
+
+void printSamRecord_brief(bam1_t *record) {
+  // qname flag rname pos mapq
+  printf("%s\t0x%0" PRIx16 "\t%" PRId32 "\t%" PRId64 "\t%" PRIu8 "\t",
+         bam_get_qname(record), record->core.flag, record->core.tid,
+         record->core.pos, record->core.qual);
+  // cigar
+  for (int i = 0; i < record->core.n_cigar; i++) {
+    uint32_t cigarOpt = bam_get_cigar(record)[i];
+    uint32_t oplen = bam_cigar_oplen(cigarOpt);
+    char opchar = bam_cigar_opchr(cigarOpt);
+    printf("%" PRId32 "%c", oplen, opchar);
+  }
+  printf("\t");
+  // rnext pnext tlen seq qual
+  printf("%" PRId32 "\t%" PRId64 "\t", record->core.mtid, record->core.mpos);
+  // tlen ... this field is not necessary for this project and there has been
+  // some differences on the definition of this field seq
+  printf("*\t");
+  // seq
+  for (int i = 0; i < record->core.l_qseq; i++) {
+    switch (bam_seqi(bam_get_seq(record), i)) {
+      case 1: {
+        printf("A");
+        break;
+      }
+      case 2: {
+        printf("C");
+        break;
+      }
+      case 4: {
+        printf("G");
+        break;
+      }
+      case 8: {
+        printf("T");
+        break;
+      }
+      case 15: {
+        printf("N");
+        break;
+      }
+    }
+  }
+  printf("\t");
+  // qual
+  for (int i = 0; i < record->core.l_qseq; i++) {
+    printf("%c", bam_get_qual(record)[i] + 33);
+  }
   printf("\n");
 }
