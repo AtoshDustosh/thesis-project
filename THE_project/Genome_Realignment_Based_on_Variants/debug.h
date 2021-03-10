@@ -16,4 +16,6 @@
 #include <assert.h>
 #endif
 
+#include <time.h>
+
 #endif

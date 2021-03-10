@@ -37,6 +37,6 @@ void printSamRecord(bam1_t *record);
 /**
  * @brief  Print sam record using standard format of *.sam files.
  */
-void printSamRecord_brief(bam1_t *record);
+void printSamRecord_brief(bam_hdr_t *hdr,bam1_t *record);
 
 #endif  // INFOPRINTER_H_INCLUDED

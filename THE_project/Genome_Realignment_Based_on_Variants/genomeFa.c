@@ -150,7 +150,7 @@ static void _test_Loader() {
 
 static void _test_Writer() {
   FILE *pFa = fopen("data/testFa.fa", "r");
-  FILE *pO = fopen("output.fa", "w");  // It's an "O", not a "0"
+  FILE *pO = fopen("data/output.fa", "w");  // It's an "O", not a "0"
   if (pFa == NULL || pO == NULL) {
     fprintf(stderr, "Error: failed to open file. \n");
     exit(EXIT_FAILURE);
@@ -319,9 +319,9 @@ void printGenomeFa(GenomeFa *gf) {
   }
 }
 
-void printGenomeFa_brief(GenomeFa *gf){
+void printGenomeFa_brief(GenomeFa *gf) {
   ChromFa *tmpCf = gf->chroms;
-  while(tmpCf != NULL){
+  while (tmpCf != NULL) {
     printf("%s\n", tmpCf->info);
     tmpCf = tmpCf->nextChrom;
   }
@@ -428,12 +428,14 @@ void loadGenomeFaFromFile(GenomeFa *gf, FILE *fp) {
   int bpPosWithinChrom =
       1;  // 1-base position of bases within chrom. The index of coded bases
           // element index in the ChromFa object needs to be calculated
-  int isBpLine = 0;           // if the current line contains the bases
-  int ifIgnore = 0; // selectively ignore chroms whose info lines do not match the specifications
+  int isBpLine = 0;  // if the current line contains the bases
+  int ifIgnore = 0;  // selectively ignore chroms whose info lines do not match
+                     // the specifications
   ChromFa *currentCf = NULL;  // current chrom to be loaded from file. This can
                               // accelerate the program by cutting off repeative
                               // steps of getting the ChromFa object
   char tmpCh;
+  clock_t start = clock(), end = 0;
   while ((tmpCh = fgetc(fp)) != EOF) {
     // use some little tricks to set the value of isBpLine and initialize the
     // GenomeFa object for following base-coding process
@@ -442,11 +444,6 @@ void loadGenomeFaFromFile(GenomeFa *gf, FILE *fp) {
                             // executed when the bpBuf is not filled up but the
                             // chromosome has already reached its end.
         bpBuf[bpBufIdx] = '\0';
-        // printf("currentCf array idx: %ld\n",
-        //        (bpPosWithinChrom - 1) / BP_PER_UINT64);
-        // printf("bpPos: %d\n", bpPosWithinChrom);
-        // printf("\tbpBuf: %s\n", bpBuf);
-        // printf("\tcoded: 0x%" PRIx64 "\n", codeBpBuf(bpBuf));
         currentCf->codedBases[(bpPosWithinChrom - 1) / BP_PER_UINT64] =
             codeBpBuf(bpBuf);
         bpBufIdx = 0;
@@ -457,7 +454,7 @@ void loadGenomeFaFromFile(GenomeFa *gf, FILE *fp) {
       ifIgnore = 0;
       continue;
     }
-    if(ifIgnore == 1){
+    if (ifIgnore == 1) {
       continue;
     }
     if (isBpLine == 0) {
@@ -465,10 +462,6 @@ void loadGenomeFaFromFile(GenomeFa *gf, FILE *fp) {
         infoBuf[infoBufIdx] = '\0';  // pad the end of a string
         // pass the info string to the helper function for process
         if (newInfoForGenomeFa(gf, infoBuf) == 0) {
-          // fprintf(
-          //     stderr,
-          //     "Error: failed to modify GenomeFa according to info line. \n");
-          // exit(EXIT_FAILURE);
           // if the format does not match the specifications, ignore it
           fprintf(stderr, "chrom ignored: \"%s\"\n", infoBuf);
           ifIgnore = 1;
@@ -501,12 +494,6 @@ void loadGenomeFaFromFile(GenomeFa *gf, FILE *fp) {
         bpBuf[bpBufIdx++] = tmpCh;
         if (bpBufIdx == BP_PER_UINT64) {  // when the bpBuf is full
           bpBuf[bpBufIdx] = '\0';
-          // printf("currentCf array idx: %ld\n",
-          //        (bpPosWithinChrom - 1) / BP_PER_UINT64);
-          // printf("bpPos: %d\n", bpPosWithinChrom);
-          // printf("\tbpBuf: %s\n", bpBuf);
-          // printf("\tcoded: 0x%" PRIx64 "\n", codeBpBuf(bpBuf));
-          // TODO fix the bpPos problem (print to see the odd results)
           currentCf->codedBases[(bpPosWithinChrom - 1) / BP_PER_UINT64] =
               codeBpBuf(bpBuf);
           bpBufIdx = 0;
@@ -519,15 +506,13 @@ void loadGenomeFaFromFile(GenomeFa *gf, FILE *fp) {
   // not filled up but the chromosome has already reached its end.
   if (bpBufIdx != 0) {
     bpBuf[bpBufIdx] = '\0';
-    // printf("currentCf array idx: %ld\n",
-    //        (bpPosWithinChrom - 1) / BP_PER_UINT64);
-    // printf("bpPos: %d\n", bpPosWithinChrom);
-    // printf("\tbpBuf: %s\n", bpBuf);
-    // printf("\tcoded: 0x%" PRIx64 "\n", codeBpBuf(bpBuf));
     currentCf->codedBases[(bpPosWithinChrom - 1) / BP_PER_UINT64] =
         codeBpBuf(bpBuf);
     bpBufIdx = 0;
   }
+  end = clock();
+  assert(printf("... fa data loading finished. total time(s): %f\n",
+         (double)(end - start) / CLOCKS_PER_SEC)>=0);
 }
 
 void writeGenomeFaIntoFile(GenomeFa *gf, FILE *fp) {

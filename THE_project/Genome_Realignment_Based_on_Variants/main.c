@@ -11,6 +11,8 @@
 #include <stdlib.h>
 
 #include "genomeFa.h"
+#include "genomeSam.h"
+#include "genomeVcf.h"
 #include "grbvOperations.h"
 #include "grbvOptions.h"
 #include "simpleOperations.h"
@@ -68,7 +70,8 @@ static void Usage() {
 static void _testSet_full() {
   // TODO debug session ...
   _testSet_genomeFa();
-  _testSet_genomeFa();
+  _testSet_genomeSam();
+  _testSet_genomeVcf();
   printf("... all test passed :)\n");
   printf("press \"Enter\" to continue. \n");
   getchar();

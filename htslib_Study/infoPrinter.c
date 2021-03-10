@@ -131,11 +131,17 @@ void printSamRecord(bam1_t *record) {
   printf("\n");
 }
 
-void printSamRecord_brief(bam1_t *record) {
-  // qname flag rname pos mapq
-  printf("%s\t0x%0" PRIx16 "\t%" PRId32 "\t%" PRId64 "\t%" PRIu8 "\t",
-         bam_get_qname(record), record->core.flag, record->core.tid,
-         record->core.pos, record->core.qual);
+void printSamRecord_brief(bam_hdr_t *hdr, bam1_t *record) {
+  // qname
+  printf("%s\t", bam_get_qname(record));
+  // flag
+  printf("0x%" PRIx16 "\t", record->core.flag);
+  // rname
+  printf("%s\t", sam_hdr_tid2name(hdr, record->core.tid));
+  // pos
+  printf("%" PRId64 "\t", record->core.pos);
+  // mapq
+  printf("%" PRIu8 "\t", record->core.qual);
   // cigar
   for (int i = 0; i < record->core.n_cigar; i++) {
     uint32_t cigarOpt = bam_get_cigar(record)[i];
@@ -144,12 +150,14 @@ void printSamRecord_brief(bam1_t *record) {
     printf("%" PRId32 "%c", oplen, opchar);
   }
   printf("\t");
-  // rnext pnext tlen seq qual
-  printf("%" PRId32 "\t%" PRId64 "\t", record->core.mtid, record->core.mpos);
+  // rnext pnext
+  printf("%" PRId32 "\t", record->core.mtid);
+  // pnext
+  printf("%" PRId64 "\t", record->core.mpos);
   // tlen ... this field is not necessary for this project and there has been
-  // some differences on the definition of this field seq
+  // some differences on the definition of this field
   printf("*\t");
-  // seq
+  // seq (long string)
   for (int i = 0; i < record->core.l_qseq; i++) {
     switch (bam_seqi(bam_get_seq(record), i)) {
       case 1: {
@@ -175,7 +183,7 @@ void printSamRecord_brief(bam1_t *record) {
     }
   }
   printf("\t");
-  // qual
+  // qual (long string)
   for (int i = 0; i < record->core.l_qseq; i++) {
     printf("%c", bam_get_qual(record)[i] + 33);
   }

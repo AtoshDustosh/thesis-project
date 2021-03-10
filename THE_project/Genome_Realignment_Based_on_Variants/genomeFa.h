@@ -15,11 +15,11 @@
 // Basic Structures
 // *****************
 
-// This is actually a doubly linked list with a header
 // TODO note that if "cf->length" == 0, it may result in an ArrayOutOfBounder
 // error. Planning to rewrite this macro.
 #define getChromFaArrayLen(cf) ((cf->length - 1) / BP_PER_UINT64 + 1)
 
+// This is actually a doubly linked list with a header
 typedef struct _define_ChromFa {
   uint64_t *codedBases;          // binary coded bases using uint64_t array
   uint32_t length;               // length of chrom / number of bases (uncoded)
@@ -105,9 +105,9 @@ void printGenomeFa_brief(GenomeFa *gf);
  */
 void printChromFa(ChromFa *cf);
 
-// *****************
-// Loading Functions
-// *****************
+// ********************************
+// Functions for Data Manipulating
+// ********************************
 
 /**
  * @brief  (helper function) Code the bpBuf array (a string with A,C,G,T) into a
@@ -128,13 +128,12 @@ static uint64_t codeBpBuf(char *bpBuf);
 static int newInfoForGenomeFa(GenomeFa *gf, char *infoBuf);
 
 /**
- * @brief Load genome data into a GenomeFa object from designated file. Note
- * that the *.fa/*.fna file must match specifications.
+ * @brief Load genome data into a GenomeFa object from designated file. Note that the *.fa/*.fna file must match specifications. 
  */
 void loadGenomeFaFromFile(GenomeFa *gf, FILE *fp);
 
 /**
- * @brief Write genome data into a designated file.
+ * @brief Write genome data into a designated file. 
  */
 void writeGenomeFaIntoFile(GenomeFa *gf, FILE *fp);
 
