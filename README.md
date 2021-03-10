@@ -26,9 +26,15 @@ Options for command lines are not realized yet.
 
 - [x] Load and index all reference genome files (\*.fa/\*.fna)
 
+It takes about 50 seconds to load and index all bases in GRCh38_full_analysis_set_plus_decoy_hla.fa. Not bad! :)
+
 - [x] Load and index all reads files (\*.sam)
 
+2.5 seconds for about 80,000 records. The time will explode if there are too many records. 
+
 - [x] Load and index all variation files (\*.vcf)
+
+The time will explode if there are too many records. Almost unable to process ori.vcf
 
 - [ ] Optimize loading processs (put aside for the moment)
 
