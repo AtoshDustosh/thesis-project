@@ -17,7 +17,7 @@
 #include "grbvOptions.h"
 #include "simpleOperations.h"
 
-const char* optStr = "";
+const char *optStr = "";
 int loptArg = 0;
 static struct option optInitArray[] = {
     {"verbose", no_argument, NULL, OPT_VERBOSE},
@@ -34,7 +34,8 @@ static struct option optInitArray[] = {
     {0, 0, 0, 0},
 };
 
-static void Usage() {
+static void Usage()
+{
   printf("Usage: grbv [commands] [arguments]\n");
   printf("\n");
 
@@ -67,7 +68,8 @@ static void Usage() {
       "the previously set output file\n");
 }
 
-static void _testSet_full() {
+static void _testSet_full()
+{
   // TODO debug session ...
   _testSet_genomeFa();
   _testSet_genomeSam();
@@ -78,7 +80,8 @@ static void _testSet_full() {
   // ... debug session
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[])
+{
   _testSet_full();
 
   Options options;
@@ -96,76 +99,100 @@ int main(int argc, char* argv[]) {
 
   options.selectBadReads = 0;
 
-  GenomeFa* gf = init_GenomeFa();
+  GenomeFa *gf = init_GenomeFa();
+  GenomeSam *gs = init_GenomeSam();
+  GenomeVcf *gv = init_GenomeVcf();
 
   int optRet = getopt_long(argc, argv, optStr, optInitArray, NULL);
-  while (1) {
-    switch (optRet) {
-      case OPT_VERBOSE: {
-        options.verbose = 1;
-        break;
+  while (1)
+  {
+    switch (optRet)
+    {
+    case OPT_VERBOSE:
+    {
+      options.verbose = 1;
+      break;
+    }
+    case OPT_SET_OUTPUTFILE:
+    {
+      printf("Output file: %s\n", optarg);
+      options.outputFile = optarg;
+      break;
+    }
+    case OPT_SET_FAFILE:
+    {
+      printf("Fa/Fna (Reference Genome) file: %s\n", optarg);
+      options.faFile = optarg;
+      FILE *fp = fopen(optarg, "r");
+      loadGenomeFaFromFile(gf, fp);
+      printf("... genome data (*.fa) loaded successfully. \n");
+      printGenomeFa_brief(gf);
+      fclose(fp);
+      break;
+    }
+    case OPT_SET_FASTQFILE:
+    {
+      printf("Fastq (Runs) file: %s\n", optarg);
+      options.fastqFile = optarg;
+      break;
+    }
+    case OPT_SET_SAMFILE:
+    {
+      printf("Sam (alignment) file: %s\n", optarg);
+      options.samFile = optarg;
+      break;
+    }
+    case OPT_SET_VCFFILE:
+    {
+      printf("Vcf (variants) file: %s\n", optarg);
+      options.vcfFile = optarg;
+      break;
+    }
+    case OPT_COUNTREC:
+    {
+      printf("Count records of files.\n");
+      options.countRec = 1;
+      countRec(&options);
+      break;
+    }
+    case OPT_FIRSTLINES:
+    {
+      printf("Print first %s lines of files.\n", optarg);
+      options.firstLines = atoi(optarg);
+      firstLines(&options);
+      break;
+    }
+    case OPT_SELECTBADREADS:
+    {
+      printf("Select bad reads with MAPQ lower than %s\n", optarg);
+      options.selectBadReads = atoi(optarg);
+      if (options.selectBadReads < 0)
+      {
+        printf("Arg invalid: [MAPQ] lower than 0\n");
+        exit(EXIT_FAILURE);
       }
-      case OPT_SET_OUTPUTFILE: {
-        printf("Output file: %s\n", optarg);
-        options.outputFile = optarg;
-        break;
+      else if (options.selectBadReads > 255)
+      {
+        printf("Arg warning: [MAPQ] higher than max [255]\n");
       }
-      case OPT_SET_FAFILE: {
-        printf("Fa/Fna (Reference Genome) file: %s\n", optarg);
-        options.faFile = optarg;
-        FILE* fp = fopen(optarg, "r");
-        loadGenomeFaFromFile(gf, fp);
-        printf("... genome data (*.fa) loaded successfully. \n");
-        printGenomeFa_brief(gf);
-        fclose(fp);
-        break;
+      else
+      {
+        selectBadReads(&options);
       }
-      case OPT_SET_FASTQFILE: {
-        printf("Fastq (Runs) file: %s\n", optarg);
-        options.fastqFile = optarg;
-        break;
-      }
-      case OPT_SET_SAMFILE: {
-        printf("Sam (alignment) file: %s\n", optarg);
-        options.samFile = optarg;
-        break;
-      }
-      case OPT_SET_VCFFILE: {
-        printf("Vcf (variants) file: %s\n", optarg);
-        options.vcfFile = optarg;
-        break;
-      }
-      case OPT_COUNTREC: {
-        printf("Count records of files.\n");
-        options.countRec = 1;
-        countRec(&options);
-        break;
-      }
-      case OPT_FIRSTLINES: {
-        printf("Print first %s lines of files.\n", optarg);
-        options.firstLines = atoi(optarg);
-        firstLines(&options);
-        break;
-      }
-      case OPT_SELECTBADREADS: {
-        printf("Select bad reads with MAPQ lower than %s\n", optarg);
-        options.selectBadReads = atoi(optarg);
-        if (options.selectBadReads < 0) {
-          printf("Arg invalid: [MAPQ] lower than 0\n");
-          exit(EXIT_FAILURE);
-        } else if (options.selectBadReads > 255) {
-          printf("Arg warning: [MAPQ] higher than max [255]\n");
-        } else {
-          selectBadReads(&options);
-        }
-        break;
-      }
-      default:
-        Usage();
-        break;
+      break;
+    }
+    default:
+      Usage();
+      break;
     }
     optRet = getopt_long(argc, argv, optStr, optInitArray, NULL);
-    if (optRet == -1) break;
+    if (optRet == -1)
+      break;
   }
+
+  destroy_GenomeFa(gf);
+  destroy_GenomeSam(gs);
+  destroy_GenomeVcf(gv);
+
   return 0;
 }
