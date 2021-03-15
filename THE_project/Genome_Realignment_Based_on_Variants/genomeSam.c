@@ -2,7 +2,7 @@
 
 void _testSet_genomeSam() {
   GenomeSam *gs = init_GenomeSam();
-  htsFile *fp = hts_open("data/example.sam", "r");
+  htsFile *fp = hts_open("data/mem_SRR13269630.sam", "r");
 
   loadGenomeSamFromFile(gs, fp);
 
@@ -171,7 +171,7 @@ static ChromSam *init_ChromSam() {
   cs->recCnt = 0;
   cs->rs = init_RecSam();
   cs->rs->rec = bam_init1();
-  cs->rs->rec->core.pos = -1;  // smaller than any record's pos in a vcf file
+  cs->rs->rec->core.pos = -2;  // smaller than any record's pos in a vcf file
   cs->next = NULL;
   return cs;
 }
@@ -179,9 +179,13 @@ static ChromSam *init_ChromSam() {
 static void destroy_ChromSam(ChromSam *cs) {
   if (cs == NULL) return;
   RecSam *rs = cs->rs;
+  RecSam *tmpRs = NULL;
+  uint32_t hit = 0;
   while (rs != NULL) {
-    RecSam *tmpRs = rs->next;
+    hit++;
+    tmpRs = rs->next;
     destroy_RecSam(rs);
+    cs->recCnt--;
     rs = tmpRs;
   }
   free(cs->name);
@@ -208,6 +212,7 @@ void destroy_GenomeSam(GenomeSam *gs) {
   while (cs != NULL) {
     ChromSam *tmpCs = cs->next;
     destroy_ChromSam(cs);
+    gs->chromCnt--;
     cs = tmpCs;
   }
   free(gs);
@@ -291,8 +296,21 @@ RecSam *getRecFromChromSam(uint32_t idx, ChromSam *cs) {
   }
 }
 
-char *getRecSam_chNam(RecSam *rs, GenomeSam *gs){
-  return strdup(sam_hdr_tid2name(gs->hdr, rs->rec->core.tid));
+char *getRecSam_chNam(RecSam *rs, GenomeSam *gs) {
+  const char *chNam = sam_hdr_tid2name(gs->hdr, rs->rec->core.tid);
+  if (chNam == NULL) {
+    /*
+     * This part of code was originally only "return 'unknown'". And that
+     * resulted in a bug. Because you cannot free a string that is pre-allocated
+     * by the compiler instead allocated dynamically.
+     */
+    static const int len = strlen("unknown)");
+    char *unknownNam = (char *)malloc(sizeof(char) * (len + 1));
+    strcpy(unknownNam, "(unknown)");
+    return unknownNam;
+  } else {
+    return strdup(chNam);
+  }
 }
 
 void loadGenomeSamFromFile(GenomeSam *gs, htsFile *fp) {
@@ -312,9 +330,13 @@ void loadGenomeSamFromFile(GenomeSam *gs, htsFile *fp) {
 
   clock_t start = clock(), end = 0;
   ChromSam *lastUsedChrom = NULL;
+  uint32_t loadedCnt = 0;
   while (sam_read1(fp, hdr, rec) >= 0) {
+    // printSamRecord_brief(hdr, rec);
+    loadedCnt++;
     RecSam *newRs = init_RecSam();
     newRs->rec = bam_dup1(rec);
+
     // TODO add the record into GenomeSam object
     char *rsChNam = getRecSam_chNam(newRs, gs);
     if (lastUsedChrom != NULL &&
@@ -336,8 +358,9 @@ void loadGenomeSamFromFile(GenomeSam *gs, htsFile *fp) {
     }
   }
   end = clock();
-  assert(printf("... sam data loading finished. total time(s): %f\n",
-         (double)(end - start) / CLOCKS_PER_SEC)>=0);
+  printf("... sam data loading finished. Processed %" PRIu32
+         " records. Total time(s): %f\n",
+         loadedCnt, (double)(end - start) / CLOCKS_PER_SEC);
 
   bam_destroy1(rec);
   sam_hdr_destroy(hdr);
