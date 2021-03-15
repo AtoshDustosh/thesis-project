@@ -128,8 +128,8 @@ char *getRecVcf_chNam(RecVcf *rv, GenomeVcf *gv);
  * Methods for users
  *******************/
 
-void loadGenomeVcfFromFile(GenomeVcf *gv, htsFile *fp);
+void loadGenomeVcfFromFile(GenomeVcf *gv, char *filePath);
 
-void writeGenomeVcfIntoFile(GenomeVcf *gv, htsFile *fp);
+void writeGenomeVcfIntoFile(GenomeVcf *gv, char *filePath);
 
 #endif

@@ -123,11 +123,9 @@ int main(int argc, char *argv[])
     {
       printf("Fa/Fna (Reference Genome) file: %s\n", optarg);
       options.faFile = optarg;
-      FILE *fp = fopen(optarg, "r");
-      loadGenomeFaFromFile(gf, fp);
-      printf("... genome data (*.fa) loaded successfully. \n");
+      loadGenomeFaFromFile(gf, optarg);
+      printf("... genome data (%s) loaded successfully. \n", optarg);
       printGenomeFa_brief(gf);
-      fclose(fp);
       break;
     }
     case OPT_SET_FASTQFILE:
@@ -140,12 +138,17 @@ int main(int argc, char *argv[])
     {
       printf("Sam (alignment) file: %s\n", optarg);
       options.samFile = optarg;
+      loadGenomeSamFromFile(gs, optarg);
+      printf("... genome data (%s) loaded successfully. \n", optarg);
       break;
     }
     case OPT_SET_VCFFILE:
     {
       printf("Vcf (variants) file: %s\n", optarg);
       options.vcfFile = optarg;
+      loadGenomeVcfFromFile(gv, optarg);
+      printf("... genome data (%s) loaded successfully. \n", optarg);
+      printGenomeVcf(gv);
       break;
     }
     case OPT_COUNTREC:

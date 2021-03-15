@@ -130,11 +130,11 @@ static int newInfoForGenomeFa(GenomeFa *gf, char *infoBuf);
 /**
  * @brief Load genome data into a GenomeFa object from designated file. Note that the *.fa/*.fna file must match specifications. 
  */
-void loadGenomeFaFromFile(GenomeFa *gf, FILE *fp);
+void loadGenomeFaFromFile(GenomeFa *gf, char *filePath);
 
 /**
  * @brief Write genome data into a designated file. 
  */
-void writeGenomeFaIntoFile(GenomeFa *gf, FILE *fp);
+void writeGenomeFaIntoFile(GenomeFa *gf, char *filePath);
 
 #endif

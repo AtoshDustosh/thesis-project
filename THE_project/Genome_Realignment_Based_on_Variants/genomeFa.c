@@ -92,14 +92,9 @@ static void _test_CodingBases() {
 }
 
 static void _test_Loader() {
-  FILE *faFile = fopen("data/testFa.fa", "r");
-  if (faFile == NULL) {
-    fprintf(stderr, "Error: failed to open file. \n");
-    exit(EXIT_FAILURE);
-  }
   GenomeFa *gf = init_GenomeFa();
 
-  loadGenomeFaFromFile(gf, faFile);
+  loadGenomeFaFromFile(gf, "data/example.fa");
 
   uint32_t testFaCfs_length[] = {151, 203, 152, 142};
   char *testFaCfs_info[] = {
@@ -145,31 +140,21 @@ static void _test_Loader() {
   }
 
   destroy_GenomeFa(gf);
-  fclose(faFile);
 }
 
 static void _test_Writer() {
-  FILE *pFa = fopen("data/example.fa", "r");
-  FILE *pO = fopen("output.fa", "w");  // It's an "O", not a "0"
-  if (pFa == NULL || pO == NULL) {
-    fprintf(stderr, "Error: failed to open file. \n");
-    exit(EXIT_FAILURE);
-  }
-
   GenomeFa *gf = init_GenomeFa();
 
-  loadGenomeFaFromFile(gf, pFa);
-  writeGenomeFaIntoFile(gf, pO);
+  loadGenomeFaFromFile(gf, "data/example.fa");
+  writeGenomeFaIntoFile(gf, "output.fa");
 
   destroy_GenomeFa(gf);
-  fclose(pFa);
-  fclose(pO);
 }
 
 void _testSet_genomeFa() {
-  // _test_StructureLinks();
-  // _test_CodingBases();
-  // _test_Loader();
+  _test_StructureLinks();
+  _test_CodingBases();
+  _test_Loader();
   _test_Writer();
 }
 
@@ -411,9 +396,10 @@ int newInfoForGenomeFa(GenomeFa *gf, char *infoBuf) {
   return 0;
 }
 
-void loadGenomeFaFromFile(GenomeFa *gf, FILE *fp) {
+void loadGenomeFaFromFile(GenomeFa *gf, char *filePath) {
+  FILE *fp = fopen(filePath, "r");
   if (fp == NULL) {
-    fprintf(stderr, "Error: empty file pointer. \n");
+    fprintf(stderr, "Error: failed to open %s. \n", filePath);
     exit(EXIT_FAILURE);
   }
   if (gf == NULL) {
@@ -438,6 +424,7 @@ void loadGenomeFaFromFile(GenomeFa *gf, FILE *fp) {
   clock_t start = clock(), end = 0;
   char tmpCh;
   uint32_t loadedCnt = 0;
+  printf("Loading %s ... \n", filePath);
   while ((tmpCh = fgetc(fp)) != EOF) {
     // use some little tricks to set the value of isBpLine and initialize the
     // GenomeFa object for following base-coding process
@@ -537,10 +524,11 @@ void loadGenomeFaFromFile(GenomeFa *gf, FILE *fp) {
   printf("... fa data loading finished. Processed %" PRIu32
          " records. Total time(s): %f\n",
          loadedCnt, (double)(end - start) / CLOCKS_PER_SEC);
+  fclose(fp);
 }
 
-void writeGenomeFaIntoFile(GenomeFa *gf, FILE *fp) {
-  // TODO
+void writeGenomeFaIntoFile(GenomeFa *gf, char *filePath) {
+  FILE *fp = fopen(filePath, "w");
   ChromFa *tmpCf = gf->chroms->nextChrom;
 
   while (tmpCf != NULL) {
@@ -559,4 +547,5 @@ void writeGenomeFaIntoFile(GenomeFa *gf, FILE *fp) {
     }
     tmpCf = tmpCf->nextChrom;
   }
+  fclose(fp);
 }

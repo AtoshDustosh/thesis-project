@@ -2,9 +2,8 @@
 
 void _testSet_genomeSam() {
   GenomeSam *gs = init_GenomeSam();
-  htsFile *fp = hts_open("data/mem_SRR13269630.sam", "r");
 
-  loadGenomeSamFromFile(gs, fp);
+  loadGenomeSamFromFile(gs, "data/example.sam");
 
   // printGenomeSam(gs);
 
@@ -313,7 +312,8 @@ char *getRecSam_chNam(RecSam *rs, GenomeSam *gs) {
   }
 }
 
-void loadGenomeSamFromFile(GenomeSam *gs, htsFile *fp) {
+void loadGenomeSamFromFile(GenomeSam *gs, char *filePath) {
+  htsFile *fp = hts_open(filePath, "r");
   sam_hdr_t *hdr = sam_hdr_read(fp);
   bam1_t *rec = bam_init1();
 
@@ -331,6 +331,7 @@ void loadGenomeSamFromFile(GenomeSam *gs, htsFile *fp) {
   clock_t start = clock(), end = 0;
   ChromSam *lastUsedChrom = NULL;
   uint32_t loadedCnt = 0;
+  printf("Loading %s ... \n", filePath);
   while (sam_read1(fp, hdr, rec) >= 0) {
     // printSamRecord_brief(hdr, rec);
     loadedCnt++;
@@ -364,9 +365,10 @@ void loadGenomeSamFromFile(GenomeSam *gs, htsFile *fp) {
 
   bam_destroy1(rec);
   sam_hdr_destroy(hdr);
+  hts_close(fp);
 }
 
-void writeGenomeSamIntoFile(GenomeSam *gs, htsFile *fp) {
+void writeGenomeSamIntoFile(GenomeSam *gs, char *filePath) {
   // TODO
   fprintf(stderr, "Warning: method writeGenomeVcfIntoFile not implemented. \n");
 }

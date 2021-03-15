@@ -2,9 +2,8 @@
 
 void _testSet_genomeVcf() {
   GenomeVcf *gv = init_GenomeVcf();
-  htsFile *fp = hts_open("data/example.vcf", "r");
 
-  loadGenomeVcfFromFile(gv, fp);
+  loadGenomeVcfFromFile(gv, "data/example.vcf");
 
   // printGenomeVcf(gv);
 
@@ -244,7 +243,8 @@ char *getRecVcf_chNam(RecVcf *rv, GenomeVcf *gv) {
   return strdup(bcf_seqname_safe(gv->hdr, rv->rec));
 }
 
-void loadGenomeVcfFromFile(GenomeVcf *gv, htsFile *fp) {
+void loadGenomeVcfFromFile(GenomeVcf *gv, char *filePath) {
+  htsFile *fp = hts_open(filePath, "r");
   bcf_hdr_t *hdr = bcf_hdr_read(fp);
   bcf1_t *rec = bcf_init1();
 
@@ -262,6 +262,7 @@ void loadGenomeVcfFromFile(GenomeVcf *gv, htsFile *fp) {
   clock_t start = clock(), end = 0;
   ChromVcf *lastUsedChrom = NULL;
   uint32_t loadedCnt = 0;
+  printf("Loading %s ... \n", filePath);
   while (bcf_read1(fp, hdr, rec) >= 0) {
     // The "bcf_unpack" method must be called for every new bcf1_t object
     bcf_unpack(rec, BCF_UN_ALL);
@@ -299,9 +300,10 @@ void loadGenomeVcfFromFile(GenomeVcf *gv, htsFile *fp) {
 
   bcf_destroy1(rec);
   bcf_hdr_destroy(hdr);
+  hts_close(fp);
 }
 
-void writeGenomeVcfIntoFile(GenomeVcf *gv, htsFile *fp) {
+void writeGenomeVcfIntoFile(GenomeVcf *gv, char *filePath) {
   // TODO
   fprintf(stderr, "Warning: method writeGenomeVcfIntoFile not implemented. \n");
 }

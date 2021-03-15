@@ -118,9 +118,9 @@ char *getRecSam_chNam(RecSam *rs, GenomeSam *gs);
  * Methods for users
  *******************/
 
-void loadGenomeSamFromFile(GenomeSam *gs, htsFile *fp);
+void loadGenomeSamFromFile(GenomeSam *gs, char *filePath);
 
-void writeGenomeSamIntoFile(GenomeSam *gs, htsFile *fp);
+void writeGenomeSamIntoFile(GenomeSam *gs, char *filePath);
 
 
 #endif
