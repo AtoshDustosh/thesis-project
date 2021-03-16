@@ -37,10 +37,12 @@ typedef struct _define_VarTodoChrom {
 } VarTodoChrom;
 
 typedef struct _define_VarIntegration {
-  // note that this gv is not a copy of other GenomeVcf. It's only a reference
-  // to another gv object. Thus, you can but must not destroy the gv object
-  // using destroy_GenomeVcf() when you want to destroy this VarIntegration
-  // Object.
+  /*
+   * note that this gv is not a copy of other GenomeVcf. It's only a reference
+   * to another gv object. Thus, you can but must not destroy the gv object
+   * using destroy_GenomeVcf() when you want to destroy this VarIntegration
+   * Object. 
+   */
   GenomeVcf *gv;
   // vtcs is a linked-list without header. We don't need to sort the
   // chromosomes, so this is not implemented with a header.
@@ -71,15 +73,22 @@ void printVarIntegration(VarIntegration *vi);
  * Methods for manipulating VarIntegration
  ****************************************/
 
-void addVtToVtc(VarTodo *vt, VarTodoChrom *vtc);
 
-void addVtcToVarInt(VarTodoChrom *vtc, VarIntegration *vi);
+/**
+ * @brief  Add a VarTodo object into the VarTodoChrom object. 
+ * @note   This actually serves as a function for marking which variants should be integrated later. 
+ */
+static void addVtToVtc(uint32_t varIdx, VarTodoChrom *vtc);
 
-VarTodo getVtFromVtc(uint32_t vtIdx, VarTodoChrom *vtc);
+static void addVtcToVarInt(VarTodoChrom *vtc, VarIntegration *vi);
 
-VarTodoChrom getVtcFromVarInt(char *chromName, VarIntegration *vi);
+/**
+ * @brief  Get the (vtIdx+1)-th VarTodo object in vtc. 
+ * @param  vtIdx: 0-based index/id for the VarTodo object
+ */
+static VarTodo getVtFromVtc(uint32_t vtIdx, VarTodoChrom *vtc);
 
-void markVar(char *chromName, uint32_t varIdx);
+static VarTodoChrom getVtcFromVarInt(char *chromName, VarIntegration *vi);
 
 /*******************
  * Methods for users
