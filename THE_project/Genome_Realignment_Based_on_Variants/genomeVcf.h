@@ -22,7 +22,7 @@
  */
 
 /**
- * @brief  This is actually a linked-list with header. 
+ * @note  This is actually a linked-list with header. 
  */
 typedef struct _define_RecVcf {
   bcf1_t *rec;

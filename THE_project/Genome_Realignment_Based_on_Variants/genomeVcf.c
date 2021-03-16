@@ -273,7 +273,6 @@ void loadGenomeVcfFromFile(GenomeVcf *gv, char *filePath) {
 
     RecVcf *newRv = init_RecVcf();
     newRv->rec = tmpRec;
-    // TODO add the record into GenomeVcf object
     char *rvChNam = getRecVcf_chNam(newRv, gv);
     if (lastUsedChrom != NULL &&
         strcmp(rvChNam, lastUsedChrom->name) ==

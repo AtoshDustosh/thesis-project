@@ -16,6 +16,7 @@
 #include "grbvOperations.h"
 #include "grbvOptions.h"
 #include "simpleOperations.h"
+#include "varIntegration.h"
 
 const char *optStr = "";
 int loptArg = 0;
