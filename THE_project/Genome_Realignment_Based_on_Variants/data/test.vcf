@@ -1,0 +1,20 @@
+##fileformat=VCFv4.3
+##fileDate=20210315
+##reference=GRCh38
+##phasing=partial
+##contig=<ID=chr1>
+##contig=<ID=chr2>
+##contig=<ID=chr3>
+##contig=<ID=chr4>
+##FILTER=<ID=LowQual,Description="Low quality">
+##INFO=<ID=TRAILING,Number=.,Type=Integer,Description="This line contains trailing spaces for testing purposes">               
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	76	PTV003	ACGT	A	81	PASS	.
+chr3	50	PTV006	T	C,A	32	PASS	.
+chr1	7	PTV001	AAAC	A	29	PASS	.
+chr2	100	PTV021	G	.	77	PASS	.
+chr1	50	PTV002	C	CTTT	77	PASS	.
+chr3	7	PTV005	G	T	31	PASS	.
+chr2	50	PTV007	G	T	35	PASS	.
+chr1	146	PTV097	A	C	99	PASS	.
+chr4	100	PTV056	A	ACC	68	PASS	.
