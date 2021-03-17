@@ -22,7 +22,7 @@
  */
 
 /**
- * @note  This is actually a linked-list with header. 
+ * @note  This is actually a linked-list with header.
  */
 typedef struct _define_RecVcf {
   bcf1_t *rec;
@@ -35,7 +35,7 @@ typedef struct _define_ChromVcf {
    */
   char *name;
   uint32_t recCnt;
-  RecVcf *rv;
+  RecVcf *rvs;
   struct _define_ChromVcf *next;
 } ChromVcf;
 
@@ -43,8 +43,96 @@ typedef struct _define_GenomeVcf {
   // TODO optimize the structure
   uint32_t chromCnt;
   bcf_hdr_t *hdr;
-  ChromVcf *cv;
+  ChromVcf *cvs;
 } GenomeVcf;
+
+typedef struct _define_GenomeVcfIterator {
+  GenomeVcf *gv;
+  ChromVcf *tmpCv;
+  RecVcf *tmpRec;
+} GenomeVcfIterator;
+
+static inline bcf1_t *rvData(RecVcf *rv) { return rv->rec; }
+
+static inline uint64_t rvDataPos(RecVcf *rv) { return rv->rec->pos; }
+
+static inline char *cvName(ChromVcf *cv) { return cv->name; }
+
+static inline uint32_t cvRecCnt(ChromVcf *cv) { return cv->recCnt; }
+
+static inline uint32_t gvChromCnt(GenomeVcf *gv) { return gv->chromCnt; }
+
+RecVcf *init_RecVcf();
+
+void destroy_RecVcf(RecVcf *rv);
+
+ChromVcf *init_ChromVcf();
+
+void destroy_ChromVcf(ChromVcf *cv);
+
+/**
+ * @brief  Create and initialize a GenomeVcf object.
+ *
+ * @retval pointer to the GenomeVcf object. Note that it must be freed using
+ * destory_GenomeVcf() manually later.
+ */
+GenomeVcf *init_GenomeVcf();
+
+void destroy_GenomeVcf(GenomeVcf *gv);
+
+GenomeVcfIterator *init_GenomeVcfIterator(GenomeVcf *gv);
+
+/**
+ * @brief  This iterator return the next chrom to be iterated.
+ * @retval pointer to the next ChromVcf object to be iterated; NULL if there
+ * is no chroms left or the iterator is not initialized with a non-NULL
+ * GenomeVcf.
+ */
+ChromVcf *gvItNextChrom(GenomeVcfIterator *gvIt);
+
+/**
+ * @brief  This iterator return the next vcf record to be iterated.
+ * @retval pointer to the next RecVcf object to be i terated. NULL if there is
+ * no records left in the temporary chrom, chrom is not selected for iteration
+ * (use @viItNextChrom before using this), or the iterator is not intialized
+ * with a non-NULL GenomeVcf.
+ */
+RecVcf *gvItNextRec(GenomeVcfIterator *gvIt);
+
+void destroy_GenomeVcfIterator(GenomeVcfIterator *gvIt);
+
+/************************************
+ * Methods for manipulating GenomeVcf
+ ************************************/
+
+void addChromToGenomeVcf(ChromVcf *cv, GenomeVcf *gv);
+
+/**
+ * @brief  Add a vcf record into the ChromVcf object.
+ * // TODO Please do not add any duplicated vcf records. This method does
+ * not provide duplication detection. I didn't found any effective method to
+ * judege whether 2 vcf records are the same. And there is actually no necessity
+ * to do the check if you are loading data from a vcf file.
+ */
+void addRecToChromVcf(RecVcf *rv, ChromVcf *cv);
+
+ChromVcf *getChromFromGenomeVcf(char *chromName, GenomeVcf *gv);
+
+/**
+ * @brief  Get the vcf record with designated index.
+ * @param  idx: 0-based index/id for the vcf record.
+ */
+RecVcf *getRecFromChromVcf(uint32_t idx, ChromVcf *cv);
+
+/**
+ * @brief  Return a copy of chrom name got from RecVcf object.
+ * @retval chrom name. The returned string must be freed manually later.
+ */
+char *getRecVcf_chNam(RecVcf *rv, GenomeVcf *gv);
+
+void loadGenomeVcfFromFile(GenomeVcf *gv, char *filePath);
+
+void writeGenomeVcfIntoFile(GenomeVcf *gv, char *filePath);
 
 /**********************************
  * Debugging Methods for GenomeVcf
@@ -66,70 +154,10 @@ void printVcfRecord(bcf1_t *rec);
 /**
  * @brief  Print vcf record using standard format of *.vcf files.
  */
-void printVcfRecord_brief(bcf_hdr_t *hdr, bcf1_t *rec);
+void printVcfRecord_brief(GenomeVcf *gv, bcf1_t *rec);
 
 void printGenomeVcf(GenomeVcf *gv);
 
 void printChromVcf(GenomeVcf *gv, ChromVcf *cv);
-
-/************************************
- * Methods for manipulating GenomeVcf
- ************************************/
-
-static RecVcf *init_RecVcf();
-
-static void destroy_RecVcf(RecVcf *rv);
-
-static ChromVcf *init_ChromVcf();
-
-static void destroy_ChromVcf(ChromVcf *cv);
-
-/**
- * @brief  Create and initialize a GenomeVcf object.
- *
- * @retval pointer to the GenomeVcf object. Note that it must be freed using
- * destory_GenomeVcf() manually later.
- */
-GenomeVcf *init_GenomeVcf();
-
-void destroy_GenomeVcf(GenomeVcf *gv);
-
-void addChromToGenomeVcf(ChromVcf *cv, GenomeVcf *gv);
-
-/**
- * @brief  Add a vcf record into the ChromVcf object.
- * // TODO Please do not add any duplicated vcf records. This method does
- * not provide duplication detection. I didn't found any effective method to
- * judege whether 2 vcf records are the same. And there is actually no necessity
- * to do the check if you are loading data from a vcf file.
- */
-void addRecToChromVcf(RecVcf *rv, ChromVcf *cv);
-
-ChromVcf *getChromFromGenomeVcf(char *chromName, GenomeVcf *gv);
-
-/**
- * @brief  Get the vcf record with designated index. 
- * @param  idx: 0-based index/id for the vcf record.
- */
-RecVcf *getRecFromChromVcf(uint32_t idx, ChromVcf *cv);
-
-/**
- * @brief  Get the position field of the vcf record
- */
-#define getRecVcf_pos(rv) rv->rec->pos
-
-/**
- * @brief  Return a copy of chrom name got from RecVcf object.
- * @retval chrom name. The returned string must be freed manually later. 
- */
-char *getRecVcf_chNam(RecVcf *rv, GenomeVcf *gv);
-
-/*******************
- * Methods for users
- *******************/
-
-void loadGenomeVcfFromFile(GenomeVcf *gv, char *filePath);
-
-void writeGenomeVcfIntoFile(GenomeVcf *gv, char *filePath);
 
 #endif

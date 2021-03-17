@@ -1,130 +1,33 @@
 #include "genomeVcf.h"
 
-void _testSet_genomeVcf() {
-  GenomeVcf *gv = init_GenomeVcf();
-
-  loadGenomeVcfFromFile(gv, "data/example.vcf");
-
-  // printGenomeVcf(gv);
-
-  destroy_GenomeVcf(gv);
-}
-
-void printVcfHeader(bcf_hdr_t *hdr) {
-  printf("vcf version: %s\n", bcf_hdr_get_version(hdr));
-  printf("\n");
-}
-
-void printVcfRecord(bcf1_t *rec) {
-  /*
-   * The ids of chroms correspond to the sequence they appear in the
-   * vcf/bcf file. For example, if contigs are written as follows,
-   * ##contig=<ID=5>
-   * ##contig=<ID=1>
-   * ##contig=<ID=3>
-   * id array of the 3 chroms/contigs should be 0, 1, 2, instead of
-   * 3, 1, 2.
-   */
-  printf("chrom: %d\t", rec->rid);
-  /*
-   * The output on console looks like 0-based index. But that's
-   * for the convenience of array in C.
-   */
-  printf("pos: %ld\t", rec->pos);
-  printf("qual: %f\n", rec->qual);
-  /*
-   * Including the reference allele, which is "record->d.allele[0]".
-   */
-  printf("number of alleles: %d\n", rec->n_allele);
-  printf("alleles: ");
-  for (int i = 0; i < rec->n_allele; i++) {
-    printf("%s ", rec->d.allele[i]);
-  }
-  printf("\n");
-
-  printf("variant types:");
-  for (int i = 1; i < rec->n_allele; i++) {
-    printf("%d ", bcf_get_variant_type(rec, i));
-  }
-  printf("\n");
-  // other fields are temporarily not needed
-  printf("\n");
-}
-
-void printVcfRecord_brief(bcf_hdr_t *hdr, bcf1_t *rec) {
-  // chrom
-  printf("%s\t", bcf_seqname_safe(hdr, rec));
-  // pos
-  printf("%" PRId64 "\t", rec->pos);
-  // id
-  printf("%s\t", rec->d.id);
-  // ref alt
-  printf("%s\t", rec->d.allele[0]);
-  if (rec->n_allele == 1) {
-    printf(".");
-  } else {
-    for (int i = 1; i < rec->n_allele; i++) {
-      if (i >= 2) {
-        printf(",%s", rec->d.allele[i]);
-      } else {
-        printf("%s", rec->d.allele[i]);
-      }
-    }
-  }
-  printf("\t");
-  // qual
-  printf("%f\t", rec->qual);
-  // filter, info, format and other fields are ignored
-  printf("\n");
-}
-
-void printGenomeVcf(GenomeVcf *gv) {
-  if (gv == NULL) return;
-  printVcfHeader(gv->hdr);
-  ChromVcf *tmpCv = gv->cv;
-  while (tmpCv != NULL) {
-    printChromVcf(gv, tmpCv);
-    tmpCv = tmpCv->next;
-  }
-}
-
-void printChromVcf(GenomeVcf *gv, ChromVcf *cv) {
-  if (cv == NULL || gv == NULL) return;
-  printf("chrom: %s, recCnt: %" PRIu32 "\n", cv->name, cv->recCnt);
-  RecVcf *rv = cv->rv->next;
-  while (rv != NULL) {
-    printVcfRecord_brief(gv->hdr, rv->rec);
-    rv = rv->next;
-  }
-}
-
-static RecVcf *init_RecVcf() {
+RecVcf *init_RecVcf() {
   RecVcf *rv = (RecVcf *)malloc(sizeof(RecVcf));
   rv->rec = NULL;
   rv->next = NULL;
   return rv;
 }
 
-static void destroy_RecVcf(RecVcf *rv) {
+void destroy_RecVcf(RecVcf *rv) {
   if (rv == NULL) return;
   bcf_destroy1(rv->rec);
   free(rv);
 }
 
-static ChromVcf *init_ChromVcf() {
+ChromVcf *init_ChromVcf() {
+  // TODO refactor this with a name initailized
   ChromVcf *cv = (ChromVcf *)malloc(sizeof(ChromVcf));
   cv->name = "";
   cv->recCnt = 0;
-  cv->rv = init_RecVcf();
-  cv->rv->rec = bcf_init1();
-  cv->rv->rec->pos = -1;  // smaller than any record's pos in a vcf file
+  cv->rvs = init_RecVcf();
+  cv->rvs->rec = bcf_init1();
+  cv->rvs->rec->pos = -1;  // smaller than any record's pos in a vcf file
   cv->next = NULL;
   return cv;
 }
 
-static void destroy_ChromVcf(ChromVcf *cv) {
+void destroy_ChromVcf(ChromVcf *cv) {
   if (cv == NULL) return;
-  RecVcf *rv = cv->rv;
+  RecVcf *rv = cv->rvs;
   while (rv != NULL) {
     RecVcf *tmpRv = rv->next;
     destroy_RecVcf(rv);
@@ -143,7 +46,7 @@ GenomeVcf *init_GenomeVcf() {
   }
   gv->chromCnt = 0;
   gv->hdr = NULL;
-  gv->cv = NULL;
+  gv->cvs = NULL;
   return gv;
 }
 
@@ -151,7 +54,7 @@ void destroy_GenomeVcf(GenomeVcf *gv) {
   if (gv == NULL) return;
   bcf_hdr_destroy(gv->hdr);
 
-  ChromVcf *cv = gv->cv;
+  ChromVcf *cv = gv->cvs;
   while (cv != NULL) {
     ChromVcf *tmpCv = cv->next;
     destroy_ChromVcf(cv);
@@ -161,10 +64,53 @@ void destroy_GenomeVcf(GenomeVcf *gv) {
   free(gv);
 }
 
+GenomeVcfIterator *init_GenomeVcfIterator(GenomeVcf *gv) {
+  GenomeVcfIterator *gvIt =
+      (GenomeVcfIterator *)malloc(sizeof(GenomeVcfIterator));
+  gvIt->gv = gv;
+  gvIt->tmpCv = NULL;
+  gvIt->tmpRec = NULL;
+  return gvIt;
+}
+
+ChromVcf *gvItNextChrom(GenomeVcfIterator *gvIt) {
+  if (gvIt->gv == NULL) {
+    fprintf(stderr, "Warning: gvIterator not initialized. \n");
+    return NULL;
+  }
+  if (gvIt->tmpCv != NULL) {
+    gvIt->tmpCv = gvIt->tmpCv->next;
+  } else {
+    gvIt->tmpCv = gvIt->gv->cvs;
+  }
+  return gvIt->tmpCv;
+}
+
+RecVcf *gvItNextRec(GenomeVcfIterator *gvIt) {
+  if (gvIt->gv == NULL) {
+    fprintf(stderr, "Warning: gvIterator not initialized. \n");
+    return NULL;
+  }
+  if (gvIt->tmpRec != NULL) {
+    gvIt->tmpRec = gvIt->tmpRec->next;
+  } else {
+    if (gvIt->tmpCv != NULL) {
+      gvIt->tmpRec = gvIt->tmpCv->rvs;
+      // Remember that the rvs in cv is a linked-list with an empty header
+      gvIt->tmpRec = gvIt->tmpRec->next;
+    } else {
+      gvIt->tmpRec = NULL;
+    }
+  }
+  return gvIt->tmpRec;
+}
+
+void destroy_GenomeVcfIterator(GenomeVcfIterator *gvIt) { free(gvIt); }
+
 void addChromToGenomeVcf(ChromVcf *cv, GenomeVcf *gv) {
-  ChromVcf *tmpCv = gv->cv;
+  ChromVcf *tmpCv = gv->cvs;
   if (tmpCv == NULL) {  // if there is no chrom in GenomeVcf
-    gv->cv = cv;
+    gv->cvs = cv;
     gv->chromCnt++;
     return;
   }
@@ -183,8 +129,8 @@ void addChromToGenomeVcf(ChromVcf *cv, GenomeVcf *gv) {
 }
 
 void addRecToChromVcf(RecVcf *rv, ChromVcf *cv) {
-  RecVcf *tmpRec = cv->rv->next;
-  RecVcf *lastRec = cv->rv;
+  RecVcf *tmpRec = cv->rvs->next;
+  RecVcf *lastRec = cv->rvs;
 
   if (tmpRec == NULL) {
     lastRec->next = rv;
@@ -192,7 +138,7 @@ void addRecToChromVcf(RecVcf *rv, ChromVcf *cv) {
     return;
   }
   while (tmpRec != NULL) {
-    if (getRecVcf_pos(tmpRec) <= getRecVcf_pos(rv)) {
+    if (rvDataPos(tmpRec) <= rvDataPos(rv)) {
       lastRec = tmpRec;
       tmpRec = tmpRec->next;
     } else {  // when pos(rv) < pos(tmpRec), insert rv between
@@ -209,7 +155,7 @@ void addRecToChromVcf(RecVcf *rv, ChromVcf *cv) {
 }
 
 ChromVcf *getChromFromGenomeVcf(char *chromName, GenomeVcf *gv) {
-  ChromVcf *tmpCv = gv->cv;
+  ChromVcf *tmpCv = gv->cvs;
   while (tmpCv != NULL) {
     if (strcmp(tmpCv->name, chromName) == 0) {
       return tmpCv;
@@ -223,7 +169,7 @@ ChromVcf *getChromFromGenomeVcf(char *chromName, GenomeVcf *gv) {
 
 RecVcf *getRecFromChromVcf(uint32_t idx, ChromVcf *cv) {
   // TODO not tested
-  RecVcf *tmpRv = cv->rv->next;  // pass the header rv
+  RecVcf *tmpRv = cv->rvs->next;  // pass the header rv
   if (idx >= cv->recCnt) {
     fprintf(stderr,
             "Error: index out of bounder when getting record from a chrom. \n");
@@ -305,4 +251,130 @@ void loadGenomeVcfFromFile(GenomeVcf *gv, char *filePath) {
 void writeGenomeVcfIntoFile(GenomeVcf *gv, char *filePath) {
   // TODO
   fprintf(stderr, "Warning: method writeGenomeVcfIntoFile not implemented. \n");
+}
+
+/****************************************************************/
+/****************************************************************/
+/****************************************************************/
+/****************************************************************/
+/************************* Debug Methods ************************/
+/****************************************************************/
+/****************************************************************/
+/****************************************************************/
+/****************************************************************/
+
+static int _test_LoadingAndIterator() {
+  GenomeVcf *gv = init_GenomeVcf();
+
+  loadGenomeVcfFromFile(gv, "data/test.vcf");
+
+  // printGenomeVcf(gv);
+
+  GenomeVcfIterator *gvIt = init_GenomeVcfIterator(gv);
+  ChromVcf *tmpCv = gvItNextChrom(gvIt);
+  RecVcf *tmpRv = gvItNextRec(gvIt);
+
+  while (tmpRv != NULL) {
+    // printVcfRecord_brief(gv, rvData(tmpRv));
+
+    tmpRv = gvItNextRec(gvIt);
+    if (tmpRv == NULL) {
+      tmpCv = gvItNextChrom(gvIt);
+      tmpRv = gvItNextRec(gvIt);
+    }
+  }
+
+  destroy_GenomeVcfIterator(gvIt);
+  destroy_GenomeVcf(gv);
+  return 1;
+}
+
+void _testSet_genomeVcf() { assert(_test_LoadingAndIterator()); }
+
+void printVcfHeader(bcf_hdr_t *hdr) {
+  printf("vcf version: %s\n", bcf_hdr_get_version(hdr));
+  printf("\n");
+}
+
+void printVcfRecord(bcf1_t *rec) {
+  /*
+   * The ids of chroms correspond to the sequence they appear in the
+   * vcf/bcf file. For example, if contigs are written as follows,
+   * ##contig=<ID=5>
+   * ##contig=<ID=1>
+   * ##contig=<ID=3>
+   * id array of the 3 chroms/contigs should be 0, 1, 2, instead of
+   * 3, 1, 2.
+   */
+  printf("chrom: %d\t", rec->rid);
+  /*
+   * The output on console looks like 0-based index. But that's
+   * for the convenience of array in C.
+   */
+  printf("pos: %ld\t", rec->pos);
+  printf("qual: %f\n", rec->qual);
+  /*
+   * Including the reference allele, which is "record->d.allele[0]".
+   */
+  printf("number of alleles: %d\n", rec->n_allele);
+  printf("alleles: ");
+  for (int i = 0; i < rec->n_allele; i++) {
+    printf("%s ", rec->d.allele[i]);
+  }
+  printf("\n");
+
+  printf("variant types:");
+  for (int i = 1; i < rec->n_allele; i++) {
+    printf("%d ", bcf_get_variant_type(rec, i));
+  }
+  printf("\n");
+  // other fields are temporarily not needed
+  printf("\n");
+}
+
+void printVcfRecord_brief(GenomeVcf *gv, bcf1_t *rec) {
+  // chrom
+  printf("%s\t", bcf_seqname_safe(gv->hdr, rec));
+  // pos
+  printf("%" PRId64 "\t", rec->pos);
+  // id
+  printf("%s\t", rec->d.id);
+  // ref alt
+  printf("%s\t", rec->d.allele[0]);
+  if (rec->n_allele == 1) {
+    printf(".");
+  } else {
+    for (int i = 1; i < rec->n_allele; i++) {
+      if (i >= 2) {
+        printf(",%s", rec->d.allele[i]);
+      } else {
+        printf("%s", rec->d.allele[i]);
+      }
+    }
+  }
+  printf("\t");
+  // qual
+  printf("%f\t", rec->qual);
+  // filter, info, format and other fields are ignored
+  printf("\n");
+}
+
+void printGenomeVcf(GenomeVcf *gv) {
+  if (gv == NULL) return;
+  printVcfHeader(gv->hdr);
+  ChromVcf *tmpCv = gv->cvs;
+  while (tmpCv != NULL) {
+    printChromVcf(gv, tmpCv);
+    tmpCv = tmpCv->next;
+  }
+}
+
+void printChromVcf(GenomeVcf *gv, ChromVcf *cv) {
+  if (cv == NULL || gv == NULL) return;
+  printf("chrom: %s, recCnt: %" PRIu32 "\n", cv->name, cv->recCnt);
+  RecVcf *rv = cv->rvs->next;
+  while (rv != NULL) {
+    printVcfRecord_brief(gv, rv->rec);
+    rv = rv->next;
+  }
 }

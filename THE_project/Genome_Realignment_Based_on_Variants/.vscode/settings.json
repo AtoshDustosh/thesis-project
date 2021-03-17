@@ -2,6 +2,7 @@
   "C_Cpp.errorSquiggles": "Disabled",
   "files.associations": {
     "genomefa.h": "c",
-    "varintegration.h": "c"
+    "varintegration.h": "c",
+    "type_traits": "cpp"
   }
 }

@@ -8,7 +8,7 @@ inline static void assert_bases_equal(Base x, Base y) {
                             x, y) >= 0));
 }
 
-static void _test_StructureLinks() {
+static int _test_StructureLinks() {
   /*
    * Please note that this test is not the valid usage of the APIs.
    * Normally you should not access the fields of the structures directly.
@@ -61,9 +61,10 @@ static void _test_StructureLinks() {
   addChromToGenome(cf5, gf);
 
   destroy_GenomeFa(gf);
+  return 1;
 }
 
-static void _test_CodingBases() {
+static int _test_CodingBases() {
   char *bases[] = {"AAAACCCCGGGGTTTTAAAAC", "ACGTACGTACGTACGTACGTA", "ACGT"};
   uint64_t codedBases[] = {0x2494926DB9242494, 0x29C29C29C29C29C2,
                            0x29C0000000000000};
@@ -89,9 +90,10 @@ static void _test_CodingBases() {
   assert_bases_equal(getBase(cf, 44), BASE_C);
   assert_bases_equal(getBase(cf, 46), BASE_T);
   assert_bases_equal(getBase(cf, 999), BASE_INVALID);
+  return 1;
 }
 
-static void _test_Loader() {
+static int _test_Loading() {
   GenomeFa *gf = init_GenomeFa();
 
   loadGenomeFaFromFile(gf, "data/example.fa");
@@ -140,22 +142,24 @@ static void _test_Loader() {
   }
 
   destroy_GenomeFa(gf);
+  return 1;
 }
 
-static void _test_Writer() {
+static int _test_Writer() {
   GenomeFa *gf = init_GenomeFa();
 
   loadGenomeFaFromFile(gf, "data/example.fa");
   writeGenomeFaIntoFile(gf, "output.fa");
 
   destroy_GenomeFa(gf);
+  return 1;
 }
 
 void _testSet_genomeFa() {
-  _test_StructureLinks();
-  _test_CodingBases();
-  _test_Loader();
-  _test_Writer();
+  assert(_test_StructureLinks());
+  assert(_test_CodingBases());
+  assert(_test_Loading());
+  assert(_test_Writer());
 }
 
 // *********************** above are tests *************************

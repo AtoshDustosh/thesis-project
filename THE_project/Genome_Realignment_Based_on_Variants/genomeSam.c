@@ -1,6 +1,6 @@
 #include "genomeSam.h"
 
-void _testSet_genomeSam() {
+static int _test_Loading(){
   GenomeSam *gs = init_GenomeSam();
 
   loadGenomeSamFromFile(gs, "data/example.sam");
@@ -8,6 +8,11 @@ void _testSet_genomeSam() {
   // printGenomeSam(gs);
 
   destroy_GenomeSam(gs);
+  return 1;
+}
+
+void _testSet_genomeSam() {
+  assert(_test_Loading());
 }
 
 void printSamHeader(bam_hdr_t *header) {

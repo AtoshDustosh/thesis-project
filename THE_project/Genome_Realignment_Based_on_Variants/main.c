@@ -75,6 +75,7 @@ static void _testSet_full()
   _testSet_genomeFa();
   _testSet_genomeSam();
   _testSet_genomeVcf();
+  _testSet_varIntegration();
   printf("... all test passed :)\n");
   printf("press \"Enter\" to continue. \n");
   getchar();

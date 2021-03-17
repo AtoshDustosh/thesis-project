@@ -27,6 +27,8 @@ typedef struct _define_VarTodo {
 /**
  * @note vts is actually a linked-list with a header. This structure is easier
  * to sort by field values than a linked-list without a header.
+ * Every field except the vts is just a reference to another object and thus
+ * doesn't need to be freed.
  */
 typedef struct _define_VarTodoChrom {
   char *name;
@@ -41,7 +43,7 @@ typedef struct _define_VarIntegration {
    * note that this gv is not a copy of other GenomeVcf. It's only a reference
    * to another gv object. Thus, you can but must not destroy the gv object
    * using destroy_GenomeVcf() when you want to destroy this VarIntegration
-   * Object. 
+   * Object.
    */
   GenomeVcf *gv;
   // vtcs is a linked-list without header. We don't need to sort the
@@ -50,17 +52,69 @@ typedef struct _define_VarIntegration {
   VarTodoChrom *vtcs;
 } VarIntegration;
 
-static VarTodo *init_VarTodo();
+typedef struct _define_VarIntegrationIterator {
+  VarIntegration *vi;
+  VarTodoChrom *tmpVtc;
+  VarTodo *tmpVt;
+} VarIntegrationIterator;
 
-static void destroy_VarTodo(VarTodo *vt);
+static inline uint32_t vtData(VarTodo *vt) { return vt->varIdx; }
 
-static VarTodoChrom *init_VarTodoChrom();
+static inline char *vtcName(VarTodoChrom *vtc) { return vtc->name; }
 
-static void destroy_VarTodoChrom(VarTodoChrom *vtc);
+VarIntegrationIterator *init_VarIntegrationIterator(VarIntegration *vi);
 
-VarIntegration *init_VarIntegration();
+/**
+ * @brief  This iterator return the next chrom to be iterated.
+ * @retval pointer to the next VarTodoChrom object to be iterated; NULL if there
+ * is no chroms left or the iterator is not initialized with a non-NULL
+ * VarIntegration.
+ */
+VarTodoChrom *viItNextChrom(VarIntegrationIterator *viIt);
+
+/**
+ * @brief  This iterator return the next variant to be iterated.
+ * @retval pointer to the next VarTodo object to be i terated. NULL if there is
+ * no variants left in the temporary chrom, chrom is not selected for iteration
+ * (use @viItNextChrom before using this), or the iterator is not intialized
+ * with a non-NULL VarIntegration.
+ */
+VarTodo *viItNextVar(VarIntegrationIterator *viIt);
+
+void destroy_VarIntegrationIterator(VarIntegrationIterator *viIt);
+
+VarTodo *init_VarTodo();
+
+void destroy_VarTodo(VarTodo *vt);
+
+VarTodoChrom *init_VarTodoChrom();
+
+void destroy_VarTodoChrom(VarTodoChrom *vtc);
+
+VarIntegration *init_VarIntegration(GenomeVcf *gv);
 
 void destroy_VarIntegration(VarIntegration *vi);
+
+/*****************************************
+ * Methods for manipulating VarIntegration
+ ****************************************/
+
+/**
+ * @brief  Add a VarTodo object into the VarTodoChrom object.
+ * @note   This actually serves as a function for marking which variants should
+ * be integrated later.
+ */
+void addVtToVtc(uint32_t varIdx, VarTodoChrom *vtc);
+
+void addVtcToVarInt(VarTodoChrom *vtc, VarIntegration *vi);
+
+/**
+ * @brief  Get the (vtIdx+1)-th VarTodo object in vtc.
+ * @param  vtIdx: 0-based index/id for the VarTodo object
+ */
+VarTodo *getVtFromVtc(uint32_t vtIdx, VarTodoChrom *vtc);
+
+VarTodoChrom *getVtcFromVarInt(char *chromName, VarIntegration *vi);
 
 /*************************************
  * Debugging Methods for VarIntegration
@@ -68,30 +122,5 @@ void destroy_VarIntegration(VarIntegration *vi);
 void _testSet_varIntegration();
 
 void printVarIntegration(VarIntegration *vi);
-
-/*****************************************
- * Methods for manipulating VarIntegration
- ****************************************/
-
-
-/**
- * @brief  Add a VarTodo object into the VarTodoChrom object. 
- * @note   This actually serves as a function for marking which variants should be integrated later. 
- */
-static void addVtToVtc(uint32_t varIdx, VarTodoChrom *vtc);
-
-static void addVtcToVarInt(VarTodoChrom *vtc, VarIntegration *vi);
-
-/**
- * @brief  Get the (vtIdx+1)-th VarTodo object in vtc. 
- * @param  vtIdx: 0-based index/id for the VarTodo object
- */
-static VarTodo getVtFromVtc(uint32_t vtIdx, VarTodoChrom *vtc);
-
-static VarTodoChrom getVtcFromVarInt(char *chromName, VarIntegration *vi);
-
-/*******************
- * Methods for users
- *******************/
 
 #endif
