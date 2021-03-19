@@ -1,5 +1,6 @@
 {
   "files.associations": {
-    "edlib.h": "c"
+    "edlib.h": "c",
+    "ksw2.h": "c"
   }
 }

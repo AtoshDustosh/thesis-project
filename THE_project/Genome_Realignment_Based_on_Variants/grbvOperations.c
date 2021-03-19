@@ -1,24 +1,11 @@
 #include "grbvOperations.h"
 
-/**
- * @brief Check whether opts is valid. 
- * 
- * @return int 1 if valid; 0 otherwise
- */
-static int checkOpt_selectBadReads(Options *opts)
-{
-  if (getSamFile(opts) == NULL || getOutputFile(opts) == NULL)
-  {
-    fprintf(stderr, "Error: arguments not complete for \'selectBadReads\' option.\n");
-    return 0;
+void selectBadReads(Options *opts) {
+  if (getSamFile(opts) == NULL || getOutputFile(opts) == NULL) {
+    fprintf(stderr,
+            "Error: arguments not complete for \'selectBadReads\' option.\n");
+    exit(EXIT_FAILURE);
   }
-  return 1;
-}
-
-void selectBadReads(Options *opts)
-{
-  if (!checkOpt_selectBadReads(opts))
-    return;
   htsFile *samFile = hts_open(getSamFile(opts), "r");
   htsFile *outputFile = hts_open(getOutputFile(opts), "w");
 
@@ -28,18 +15,15 @@ void selectBadReads(Options *opts)
   bam1_t *record = bam_init1();
 
   int initError = 0;
-  if (samHeader == NULL || outputHeader == NULL)
-  {
+  if (samHeader == NULL || outputHeader == NULL) {
     fprintf(stderr, "Error: failed creating BAM header struct.\n");
     initError = 1;
   }
-  if (record == NULL)
-  {
+  if (record == NULL) {
     fprintf(stderr, "Error: out of memory allocating BAM struct.\n");
     initError = 1;
   }
-  if (initError)
-  {
+  if (initError) {
     bam_destroy1(record);
     sam_hdr_destroy(samHeader);
     sam_hdr_destroy(outputHeader);
@@ -48,16 +32,15 @@ void selectBadReads(Options *opts)
     exit(EXIT_FAILURE);
   }
 
-  if (sam_hdr_write(outputFile, samHeader) < 0)
-    exit(EXIT_FAILURE);
+  if (sam_hdr_write(outputFile, samHeader) < 0) exit(EXIT_FAILURE);
   const int threshold = MAPQ_threshold(opts);
-  for (int ret = sam_read1(samFile, samHeader, record); ret >= 0; ret = sam_read1(samFile, samHeader, record))
-  {
-    // I did not find any method or macros to access "qual", so I directly access using pointers and structures ...
+  for (int ret = sam_read1(samFile, samHeader, record); ret >= 0;
+       ret = sam_read1(samFile, samHeader, record)) {
+    // I did not find any method or macros to access "qual", so I directly
+    // access using pointers and structures ...
     uint8_t quality = record->core.qual;
     if (quality < threshold)
-      if (sam_write1(outputFile, samHeader, record) < 0)
-        exit(EXIT_FAILURE);
+      if (sam_write1(outputFile, samHeader, record) < 0) exit(EXIT_FAILURE);
   }
 
   bam_destroy1(record);
@@ -67,4 +50,27 @@ void selectBadReads(Options *opts)
 
   hts_close(outputFile);
   hts_close(samFile);
+}
+
+void integrateVcfToSam(Options *opts) {
+  if (opts->samFile == NULL || opts->vcfFile == NULL) {
+    fprintf(
+        stderr,
+        "Error: arguments not complete for \"integrateVcfToSam\" option. \n");
+    exit(EXIT_FAILURE);
+  }
+
+  GenomeFa *gf = init_GenomeFa();
+  GenomeSam *gs = init_GenomeSam();
+  GenomeVcf *gv = init_GenomeVcf();
+
+  loadGenomeFaFromFile(gf, opts->faFile);
+  loadGenomeSamFromFile(gs, opts->samFile);
+  loadGenomeVcfFromFile(gv, opts->vcfFile);
+
+  printGenomeFa(gf);
+  printGenomeSam(gs);
+  printGenomeVcf(gv);
+  
+  
 }

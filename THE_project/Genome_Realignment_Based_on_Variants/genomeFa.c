@@ -148,8 +148,11 @@ static int _test_Loading() {
 static int _test_Writer() {
   GenomeFa *gf = init_GenomeFa();
 
-  loadGenomeFaFromFile(gf, "data/example.fa");
-  writeGenomeFaIntoFile(gf, "output.fa");
+  loadGenomeFaFromFile(gf, "data/test.fa");
+
+  printGenomeFa(gf);
+
+  writeGenomeFaIntoFile(gf, "data/testOut.fa");
 
   destroy_GenomeFa(gf);
   return 1;
@@ -299,38 +302,35 @@ void destroy_GenomeFa(GenomeFa *gf) {
   free(gf);
 }
 
-void printGenomeFa(GenomeFa *gf) {
-  printf("number of chroms: %d\n", gf->chromNum);
+void printGenomeFa_brief(GenomeFa *gf) {
   ChromFa *tmpCf = gf->chroms;
   while (tmpCf != NULL) {
-    printChromFa(tmpCf);
-    tmpCf = tmpCf->nextChrom;
-  }
-}
-
-void printGenomeFa_brief(GenomeFa *gf){
-  ChromFa *tmpCf = gf->chroms;
-  while(tmpCf != NULL){
     printf("%s\n", tmpCf->info);
     tmpCf = tmpCf->nextChrom;
   }
 }
 
-void printChromFa(ChromFa *cf) {
-  printf("info: %s\n", cf->info);
-  printf("length: %" PRIu32 "\n", cf->length);
+void printGenomeFa(GenomeFa *gf) {
+  printf("number of chroms: %d\n", gf->chromNum);
+  ChromFa *tmpCf = gf->chroms->nextChrom;
+  while (tmpCf != NULL) {
+    printf("info: %s\n", tmpCf->info);
+    printf("length: %" PRIu32 "\n", tmpCf->length);
 
-  uint32_t arrayLength = 0;
-  if (cf->length != 0) {
-    arrayLength = (cf->length - 1) / BP_PER_UINT64 + 1;
-  }
-  for (int i = 0; i < arrayLength; i++) {
-    printf("\t0x%" PRIx64 "\t", cf->codedBases[i]);
-    if ((i + 1) % 5 == 0) {
-      printf("\n");
+    uint32_t baseCnt = tmpCf->length;
+    int i = 0;
+    for (i = 1; i <= baseCnt; i++) {
+      char tmpBp = charOfBase((getBase(tmpCf, i)));
+      fprintf(stdout, "%c", tmpBp);
+      if (i % BP_PER_LINE == 0) {
+        fprintf(stdout, "\n");
+      }
     }
+    if (i % BP_PER_LINE != 0) {
+      fprintf(stdout, "\n");
+    }
+    tmpCf = tmpCf->nextChrom;
   }
-  printf("\n");
 }
 
 uint64_t codeBpBuf(char *bpBuf) {
@@ -411,8 +411,8 @@ void loadGenomeFaFromFile(GenomeFa *gf, char *filePath) {
     exit(EXIT_FAILURE);
   }
 
-  char bpBuf[BP_PER_UINT64 + 1];    // buffer for bases in *.fa file
-  char infoBuf[MAX_RECORD_LENGTH];  // buffer for info line in *.fa file
+  static char bpBuf[BP_PER_UINT64 + 1];    // buffer for bases in *.fa file
+  static char infoBuf[MAX_RECORD_LENGTH];  // buffer for info line in *.fa file
   int bpBufIdx = 0;
   int infoBufIdx = 0;
   int bpPosWithinChrom =
@@ -424,11 +424,9 @@ void loadGenomeFaFromFile(GenomeFa *gf, char *filePath) {
   ChromFa *currentCf = NULL;  // current chrom to be loaded from file. This can
                               // accelerate the program by cutting off repeative
                               // steps of getting the ChromFa object
-  
-  clock_t start = clock(), end = 0;
+
   char tmpCh;
   uint32_t loadedCnt = 0;
-  printf("Loading %s ... \n", filePath);
   while ((tmpCh = fgetc(fp)) != EOF) {
     // use some little tricks to set the value of isBpLine and initialize the
     // GenomeFa object for following base-coding process
@@ -524,10 +522,6 @@ void loadGenomeFaFromFile(GenomeFa *gf, char *filePath) {
         codeBpBuf(bpBuf);
     bpBufIdx = 0;
   }
-  end = clock();
-  printf("... fa data loading finished. Processed %" PRIu32
-         " records. Total time(s): %f\n",
-         loadedCnt, (double)(end - start) / CLOCKS_PER_SEC);
   fclose(fp);
 }
 

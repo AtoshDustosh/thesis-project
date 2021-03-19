@@ -3,6 +3,7 @@
   "files.associations": {
     "genomefa.h": "c",
     "varintegration.h": "c",
-    "type_traits": "cpp"
+    "type_traits": "cpp",
+    "debug.h": "c"
   }
 }

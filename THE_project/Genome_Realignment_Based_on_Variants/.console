@@ -1,0 +1,1 @@
+./main --faFile data/test.fa --fastqFile data/test.fastq --samFile data/test.sam --vcfFile data/test.vcf --outputFile data/grbvOut.txt --integrateVcfToSam

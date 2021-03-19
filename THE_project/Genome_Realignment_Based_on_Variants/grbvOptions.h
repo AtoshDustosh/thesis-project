@@ -50,6 +50,7 @@
  */
 #define OPT_SELECTBADREADS 301
 #define OPT_COMPARESAM 302
+#define OPT_INTEGRATEVCFTOSAM 303
 
 typedef struct _define_Options
 {
@@ -75,7 +76,7 @@ typedef struct _define_FileList
 } FileList;
 
 /**
- * @brief Get the files designated by command inputs. 
+ * @brief Get all files designated by command inputs. 
  * 
  * @param opts command inputs
  * @retval FileList* a list of designated files. You can access the value "count" to get the size of it. The list must be freed mannually later with destroyFileList(). 

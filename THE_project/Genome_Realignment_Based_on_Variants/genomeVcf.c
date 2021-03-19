@@ -205,10 +205,8 @@ void loadGenomeVcfFromFile(GenomeVcf *gv, char *filePath) {
     exit(EXIT_FAILURE);
   }
 
-  clock_t start = clock(), end = 0;
   ChromVcf *lastUsedChrom = NULL;
   uint32_t loadedCnt = 0;
-  printf("Loading %s ... \n", filePath);
   while (bcf_read1(fp, hdr, rec) >= 0) {
     // The "bcf_unpack" method must be called for every new bcf1_t object
     bcf_unpack(rec, BCF_UN_ALL);
@@ -238,10 +236,6 @@ void loadGenomeVcfFromFile(GenomeVcf *gv, char *filePath) {
       addRecToChromVcf(newRv, lastUsedChrom);
     }
   }
-  end = clock();
-  printf("... vcf data loading finished. Processed %" PRIu32
-         " records. Total time(s): %f\n",
-         loadedCnt, (double)(end - start) / CLOCKS_PER_SEC);
 
   bcf_destroy1(rec);
   bcf_hdr_destroy(hdr);

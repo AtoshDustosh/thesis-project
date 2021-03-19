@@ -9,8 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "genomeSamMacros.h"
-
 #include "debug.h"
 
 

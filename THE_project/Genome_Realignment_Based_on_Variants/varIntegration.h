@@ -12,6 +12,7 @@
 #include "debug.h"
 #include "genomeVcf.h"
 
+
 /******************
  * Basic Structures
  ******************/

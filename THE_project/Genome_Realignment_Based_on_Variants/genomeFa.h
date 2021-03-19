@@ -7,9 +7,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "genomeFaMacros.h"
 
 #include "debug.h"
-#include "genomeFaMacros.h"
 
 // *****************
 // Basic Structures
@@ -99,11 +99,6 @@ void printGenomeFa(GenomeFa *gf);
  * lines.
  */
 void printGenomeFa_brief(GenomeFa *gf);
-
-/**
- * @brief Print the ChromFa object using terminal.
- */
-void printChromFa(ChromFa *cf);
 
 // ********************************
 // Functions for Data Manipulating

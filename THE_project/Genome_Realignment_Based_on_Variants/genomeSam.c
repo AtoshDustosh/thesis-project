@@ -333,10 +333,8 @@ void loadGenomeSamFromFile(GenomeSam *gs, char *filePath) {
     exit(EXIT_FAILURE);
   }
 
-  clock_t start = clock(), end = 0;
   ChromSam *lastUsedChrom = NULL;
   uint32_t loadedCnt = 0;
-  printf("Loading %s ... \n", filePath);
   while (sam_read1(fp, hdr, rec) >= 0) {
     // printSamRecord_brief(hdr, rec);
     loadedCnt++;
@@ -363,10 +361,6 @@ void loadGenomeSamFromFile(GenomeSam *gs, char *filePath) {
       addRecToChromSam(newRs, lastUsedChrom);
     }
   }
-  end = clock();
-  printf("... sam data loading finished. Processed %" PRIu32
-         " records. Total time(s): %f\n",
-         loadedCnt, (double)(end - start) / CLOCKS_PER_SEC);
 
   bam_destroy1(rec);
   sam_hdr_destroy(hdr);

@@ -13,15 +13,14 @@
       "args": [
         // "--verbose",
 
-        // initialize paths to files 
         "--faFile",
-        "data/example.fa",
-        // "--fastqFile",
-        // "data/example.fastq",
+        "data/test.fa",
+        "--fastqFile",
+        "data/test.fastq",
         "--samFile",
-        "data/mem_SRR13269630.sam",
-        // "--vcfFile",
-        // "data/example.vcf",
+        "data/test.sam",
+        "--vcfFile",
+        "data/test.vcf",
 
         "--outputFile",
         "data/grbvOut.txt",
@@ -29,10 +28,11 @@
         // test grbv operations
         // "--selectBadReads",
         // "20",
+        "--integrateVcfToSam",
 
         // test simple operations
-        "--countRec",
-        "--firstLines 30",
+        // "--countRec",
+        // "--firstLines 30",
       ],
       "stopAtEntry": true,
       "cwd": "${workspaceFolder}",
