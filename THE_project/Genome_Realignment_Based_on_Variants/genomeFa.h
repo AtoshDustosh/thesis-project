@@ -1,5 +1,5 @@
-#ifndef GENOMEFA_H_INCLUDED
-#define GENOMEFA_H_INCLUDED
+#ifndef RE_GENOMEFA_H_INCLUDED
+#define RE_GENOMEFA_H_INCLUDED
 
 #pragma once
 
@@ -7,51 +7,59 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "genomeFaMacros.h"
 
 #include "debug.h"
+#include "genomeFaMacros.h"
 
-// *****************
-// Basic Structures
-// *****************
+/******************
+ * Basic Structures
+ ******************/
 
-// TODO note that if "cf->length" == 0, it may result in an ArrayOutOfBounder
-// error. Planning to rewrite this macro.
-#define getChromFaArrayLen(cf) ((cf->length - 1) / BP_PER_UINT64 + 1)
-
-// This is actually a doubly linked list with a header
+// This is actually a linked-list with an empty header
 typedef struct _define_ChromFa {
-  uint64_t *codedBases;          // binary coded bases using uint64_t array
-  uint32_t length;               // length of chrom / number of bases (uncoded)
-  char info[MAX_RECORD_LENGTH];  // info of chrom
-  struct _define_ChromFa *prevChrom;
-  struct _define_ChromFa *nextChrom;
+  uint64_t *codedBases;  // binary coded bases using uint64_t array
+  uint32_t length;       // length of chrom / number of bases (uncoded)
+  char *info;            // info of chrom
+  struct _define_ChromFa *next;
 } ChromFa;
 
 typedef struct _define_GenomeFa {
-  uint16_t chromNum;
+  uint16_t chromCnt;
   ChromFa *chroms;
 } GenomeFa;
 
-void _testSet_genomeFa();
-
 /**
- * @brief Initialize a ChromFa object and return the pointer to it. Should not
- * be called by the user.
+ * @brief Initialize a ChromFa object and return the pointer to it. The
+ * successfully returned object must be destroyed later using destroy_ChromFa()
  */
-static ChromFa *init_ChromFa();
+ChromFa *init_ChromFa();
 
 /**
- * @brief Initialize a GenomeFa object and return the pointer to it.
+ * @brief Initialize a GenomeFa object and return the pointer to it. The
+ * successfully returned object must be destroyed later using destroy_GenomeFa()
  */
 GenomeFa *init_GenomeFa();
+
+/**
+ * @brief Destroy a ChromFa object. Should not be called by the user.
+ */
+void destroy_ChromFa(ChromFa *cf);
+
+/**
+ * @brief Destroy a GenomeFa object.
+ */
+void destroy_GenomeFa(GenomeFa *gf);
+
+/************************************
+ * Methods for manipulating GenomeFa
+ ************************************/
 
 /**
  * @brief  Get the chrom according to given info of that chromosome.
  * @retval pointer to the ChromFa object matching the give info; NULL if not
  * found
  */
-static ChromFa *getChromFromGenome_info(char *info, GenomeFa *gf);
+ChromFa *getChromFromGenomeFabyInfo(char *info, GenomeFa *gf);
 
 /**
  * @brief Get the chrom according to given index of that chromosome in the
@@ -64,7 +72,7 @@ static ChromFa *getChromFromGenome_info(char *info, GenomeFa *gf);
  * @retval ChromFa* pointer to the ChromFa object matching the given info; NULL
  * if not found
  */
-static ChromFa *getChromFromGenome_Idx(int idx, GenomeFa *gf);
+ChromFa *getChromFromGenomeFabyIndex(uint32_t idx, GenomeFa *gf);
 
 /**
  * @brief  Get the base according to given position in the chromosome.
@@ -75,30 +83,19 @@ Base getBase(ChromFa *cf, uint32_t pos);
 
 /**
  * @brief Add a ChromFa object into the GenomeFa object (linked to the end of
- * the doubly-linked-list). Should not be called by the user.
+ * the linked-list with an empty header).
  */
-static void addChromToGenome(ChromFa *cf, GenomeFa *gf);
+void addChromToGenome(ChromFa *cf, GenomeFa *gf);
 
 /**
- * @brief Destroy a ChromFa object. Should not be called by the user.
+ * @brief Load genome data into a GenomeFa object from designated file. Note that the *.fa/*.fna file must match specifications. 
  */
-static void destroy_ChromFa(ChromFa *cf);
+void loadGenomeFaFromFile(GenomeFa *gf, char *filePath);
 
 /**
- * @brief Destroy a GenomeFa object.
+ * @brief Write genome data into a designated file.
  */
-void destroy_GenomeFa(GenomeFa *gf);
-
-/**
- * @brief Print the GenomeFa object using terminal.
- */
-void printGenomeFa(GenomeFa *gf);
-
-/**
- * @brief Print the GenomeFa object using terminal, but only print out the info
- * lines.
- */
-void printGenomeFa_brief(GenomeFa *gf);
+void writeGenomeFaIntoFile(GenomeFa *gf, char *filePath);
 
 // ********************************
 // Functions for Data Manipulating
@@ -114,22 +111,31 @@ void printGenomeFa_brief(GenomeFa *gf);
 static uint64_t codeBpBuf(char *bpBuf);
 
 /**
- * @brief  (helper function) Receiving a new info line, pass it to this method.
- * It will create a new ChromFa object according to it, and the link it to the
- * end of GenomeFa->chroms. Should not be called by the user.
- * @retval 1 if infoBuf is valid and has successfully changed GenomeFa; 0
- * otherwise
+ * @brief  Parse the info line from *.fa/*.fna file and fill in ChromFa. 
+ * @retval 0 for success; 1 for failure. 
  */
-static int newInfoForGenomeFa(GenomeFa *gf, char *infoBuf);
+static int parseFaInfo(ChromFa *cf, char *infoBuf);
+
+/**********************************
+ * Debugging Methods for GenomeFa
+ **********************************/
+
+void _testSet_genomeFa();
 
 /**
- * @brief Load genome data into a GenomeFa object from designated file. Note that the *.fa/*.fna file must match specifications. 
+ * @brief Print the GenomeFa object using terminal, but only print out the info
+ * lines.
  */
-void loadGenomeFaFromFile(GenomeFa *gf, char *filePath);
+void printGenomeFa_brief(GenomeFa *gf);
 
 /**
- * @brief Write genome data into a designated file. 
+ * @brief Print the GenomeFa object using terminal.
  */
-void writeGenomeFaIntoFile(GenomeFa *gf, char *filePath);
+void printGenomeFa(GenomeFa *gf);
+
+/**
+ * @brief Print the ChromFa object using terminal.
+ */
+void printChromFa(ChromFa *cf);
 
 #endif

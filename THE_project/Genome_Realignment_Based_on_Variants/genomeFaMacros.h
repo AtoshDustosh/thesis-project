@@ -4,6 +4,9 @@
 #pragma once
 
 #include <inttypes.h>
+#include <stdio.h>
+
+#include "debug.h"
 
 // BASE_NORECORD is used to pad the coded bases if there is no left bases
 #define BASE_NORECORD 0b000
@@ -23,7 +26,7 @@
 
 #define BASE_CODE_LENGTH 3
 
-#define MAX_RECORD_LENGTH 2048
+#define MAX_INFO_LENGTH 2048
 
 #define BP_PER_UINT64 (sizeof(uint64_t) * 8 / 3)
 
@@ -34,5 +37,13 @@ typedef uint8_t Base;
 char charOfBase(Base bp);
 
 Base baseOfChar(char bp);
+
+inline static void assert_bases_equal(Base x, Base y) {
+  // note that the "||" operation can terminate the condition statement
+  // instantly when "x == y" succeeds and thus printf will not print. (a great
+  // way for debugging using "assert(...)")
+  assert(x == y || (fprintf(stderr, "calc: 0x%" PRIx8 ", true: 0x%" PRIx8 "\n",
+                            x, y) >= 0));
+}
 
 #endif

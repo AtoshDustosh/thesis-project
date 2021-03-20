@@ -79,8 +79,11 @@ static void Usage() {
 static void _testSet_full() {
   // TODO debug session ...
   _testSet_genomeFa();
+  printf("... genomeFa test passed. \n");
   _testSet_genomeSam();
+  printf("... genomeSam test passed. \n");
   _testSet_genomeVcf();
+  printf("... genomeVcf test passed. \n");
   _testSet_varIntegration();
   _testSet_alignment();
   printf("... all test passed :)\n");
