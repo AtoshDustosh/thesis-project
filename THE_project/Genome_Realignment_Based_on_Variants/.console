@@ -1,1 +1,7 @@
+bwa index test.fa
+
+bwa mem test.fa test.fastq > test.sam
+
+samtools sort test.sam -o test.sam --output-fmt SAM
+
 ./main --faFile data/test.fa --fastqFile data/test.fastq --samFile data/test.sam --vcfFile data/test.vcf --outputFile data/grbvOut.txt --integrateVcfToSam

@@ -38,12 +38,4 @@ char charOfBase(Base bp);
 
 Base baseOfChar(char bp);
 
-inline static void assert_bases_equal(Base x, Base y) {
-  // note that the "||" operation can terminate the condition statement
-  // instantly when "x == y" succeeds and thus printf will not print. (a great
-  // way for debugging using "assert(...)")
-  assert(x == y || (fprintf(stderr, "calc: 0x%" PRIx8 ", true: 0x%" PRIx8 "\n",
-                            x, y) >= 0));
-}
-
 #endif

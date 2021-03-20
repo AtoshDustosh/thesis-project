@@ -1,19 +1,334 @@
 #include "genomeSam.h"
 
-static int _test_Loading(){
+char *rsDataSeq(RecSam *rs) {
+  uint32_t seqLength = rs->rec->core.l_qseq;
+  char *seq = (char *)calloc(seqLength + 1, sizeof(char));
+  for (int i = 0; i < seqLength; i++) {
+    char bp;
+    switch (bam_seqi(bam_get_seq(rsData(rs)), i)) {
+      case 1: {
+        bp = 'A';
+        break;
+      }
+      case 2: {
+        bp = 'C';
+        break;
+      }
+      case 4: {
+        bp = 'G';
+        break;
+      }
+      case 8: {
+        bp = 'T';
+        break;
+      }
+      case 15: {
+        bp = 'N';
+        break;
+      }
+    }
+    seq[i] = bp;
+  }
+  seq[seqLength] = '\0';
+  return seq;
+}
+
+static RecSam *init_RecSam() {
+  RecSam *rs = (RecSam *)malloc(sizeof(RecSam));
+  rs->rec = NULL;
+  rs->next = NULL;
+  return rs;
+}
+
+static void destroy_RecSam(RecSam *rs) {
+  if (rs == NULL) return;
+  bam_destroy1(rs->rec);
+  free(rs);
+}
+
+static ChromSam *init_ChromSam() {
+  ChromSam *cs = (ChromSam *)malloc(sizeof(ChromSam));
+  cs->name = "";
+  cs->recCnt = 0;
+  cs->rss = init_RecSam();
+  cs->rss->rec = bam_init1();
+  cs->rss->rec->core.pos = -2;  // smaller than any record's pos in a vcf file
+  cs->next = NULL;
+  return cs;
+}
+
+static void destroy_ChromSam(ChromSam *cs) {
+  if (cs == NULL) return;
+  RecSam *rs = cs->rss;
+  RecSam *tmpRs = NULL;
+  uint32_t hit = 0;
+  while (rs != NULL) {
+    hit++;
+    tmpRs = rs->next;
+    destroy_RecSam(rs);
+    cs->recCnt--;
+    rs = tmpRs;
+  }
+  free(cs->name);
+  free(cs);
+}
+
+GenomeSam *init_GenomeSam() {
+  GenomeSam *gs = (GenomeSam *)malloc(sizeof(GenomeSam));
+  if (gs == NULL) {
+    fprintf(stderr, "Error: memory not enough for new GenomeSam object. \n");
+    exit(EXIT_FAILURE);
+  }
+  gs->chromCnt = 0;
+  gs->hdr = NULL;
+  gs->css = NULL;
+  return gs;
+}
+
+void destroy_GenomeSam(GenomeSam *gs) {
+  if (gs == NULL) return;
+  sam_hdr_destroy(gs->hdr);
+
+  ChromSam *cs = gs->css;
+  while (cs != NULL) {
+    ChromSam *tmpCs = cs->next;
+    destroy_ChromSam(cs);
+    gs->chromCnt--;
+    cs = tmpCs;
+  }
+  free(gs);
+}
+
+GenomeSamIterator *init_GenomeSamIterator(GenomeSam *gs) {
+  GenomeSamIterator *gsIt =
+      (GenomeSamIterator *)malloc(sizeof(GenomeSamIterator));
+  gsIt->gs = gs;
+  gsIt->tmpCs = NULL;
+  gsIt->tmpRs = NULL;
+  return gsIt;
+}
+
+void destroy_GenomeSamIterator(GenomeSamIterator *gsIt) { free(gsIt); }
+
+ChromSam *gsItNextChrom(GenomeSamIterator *gsIt) {
+  if (gsIt->gs == NULL) {
+    fprintf(stderr, "Warning: gsIterator not initailized properly. \n");
+    return NULL;
+  }
+  if (gsIt->tmpCs != NULL) {
+    gsIt->tmpCs = gsIt->tmpCs->next;
+  } else {
+    gsIt->tmpCs = gsIt->gs->css;
+  }
+  return gsIt->tmpCs;
+}
+
+RecSam *gsItNextRec(GenomeSamIterator *gsIt) {
+  if (gsIt->gs == NULL) {
+    fprintf(stderr, "Warning: gsIterator not initailized properly. \n");
+    return NULL;
+  }
+  if (gsIt->tmpRs != NULL) {
+    gsIt->tmpRs = gsIt->tmpRs->next;
+  } else {
+    if (gsIt->tmpCs != NULL) {
+      gsIt->tmpRs = gsIt->tmpCs->rss;
+      // Remember that the rss in cs is a linked-list with an empty header
+      gsIt->tmpRs = gsIt->tmpRs->next;
+    } else {
+      gsIt->tmpRs = NULL;
+    }
+  }
+  return gsIt->tmpRs;
+}
+
+void addChromToGenomeSam(ChromSam *cs, GenomeSam *gs) {
+  ChromSam *tmpCs = gs->css;
+  if (tmpCs == NULL) {  // if there is no chrom in GenomeSam
+    gs->css = cs;
+    gs->chromCnt++;
+    return;
+  }
+
+  while (tmpCs->next != NULL) {
+    if (strcmp(cs->name, tmpCs->name) ==
+        0) {  // if there already exists the same cs
+      fprintf(stderr, "Warning: trying to add duplicated ChromSam. \n");
+      return;
+    }
+    tmpCs = tmpCs->next;
+  }
+  // if same cs not found, add it to the end of the linked-list of ChromSam
+  tmpCs->next = cs;
+  gs->chromCnt++;
+}
+
+void addRecToChromSam(RecSam *rs, ChromSam *cs) {
+  RecSam *tmpRec = cs->rss->next;
+  RecSam *lastRec = cs->rss;
+
+  if (tmpRec == NULL) {
+    lastRec->next = rs;
+    cs->recCnt++;
+    return;
+  }
+  while (tmpRec != NULL) {
+    if (getRecSam_pos(tmpRec) <= getRecSam_pos(rs)) {
+      lastRec = tmpRec;
+      tmpRec = tmpRec->next;
+    } else {  // when pos(rs) < pos(tmpRec), insert rs between
+              // "...,lastRec,tmpRec,..."
+      lastRec->next = rs;
+      rs->next = tmpRec;
+      cs->recCnt++;
+      return;
+    }
+  }
+  // if always pos(tmpRec) <= pos(rs), add rs to the end
+  lastRec->next = rs;
+  cs->recCnt++;
+}
+
+ChromSam *getChromFromGenomeSam(char *chromName, GenomeSam *gs) {
+  ChromSam *tmpCs = gs->css;
+  while (tmpCs != NULL) {
+    if (strcmp(tmpCs->name, chromName) == 0) {
+      return tmpCs;
+    } else {
+      tmpCs = tmpCs->next;
+    }
+  }
+  // if never found ChromSam with the same name as chromName
+  return NULL;
+}
+
+RecSam *getRecFromChromSam(uint32_t idx, ChromSam *cs) {
+  // TODO not tested
+  RecSam *tmpRs = cs->rss->next;  // pass the header rv
+  if (idx >= cs->recCnt) {
+    fprintf(stderr,
+            "Error: index out of bounder when getting record from a chrom. \n");
+    exit(EXIT_FAILURE);
+  }
+  uint32_t tmpIdx = 0;
+  while (tmpRs != NULL) {
+    if (tmpIdx == idx) {
+      return tmpRs;
+    } else {
+      tmpIdx++;
+    }
+  }
+}
+
+char *getRecSam_chNam(RecSam *rs, GenomeSam *gs) {
+  const char *chNam = sam_hdr_tid2name(gs->hdr, rs->rec->core.tid);
+  if (chNam == NULL) {
+    /*
+     * This part of code was originally only "return 'unknown'". And that
+     * resulted in a bug. Because you cannot free a string that is pre-allocated
+     * by the compiler instead allocated dynamically.
+     */
+    static const int len = strlen("unknown)");
+    char *unknownNam = (char *)malloc(sizeof(char) * (len + 1));
+    strcpy(unknownNam, "(unknown)");
+    return unknownNam;
+  } else {
+    return strdup(chNam);
+  }
+}
+
+void loadGenomeSamFromFile(GenomeSam *gs, char *filePath) {
+  htsFile *fp = hts_open(filePath, "r");
+  sam_hdr_t *hdr = sam_hdr_read(fp);
+  bam1_t *rec = bam_init1();
+
+  if (hdr == NULL) {
+    fprintf(stderr, "Error: failed creating bcf header struct.\n");
+    exit(EXIT_FAILURE);
+  } else {
+    gs->hdr = sam_hdr_dup(hdr);
+  }
+  if (rec == NULL) {
+    fprintf(stderr, "Error: memory not enough for new bcf1_t object.\n");
+    exit(EXIT_FAILURE);
+  }
+
+  ChromSam *lastUsedChrom = NULL;
+  uint32_t loadedCnt = 0;
+  while (sam_read1(fp, hdr, rec) >= 0) {
+    // printSamRecord_brief(hdr, rec);
+    loadedCnt++;
+    RecSam *newRs = init_RecSam();
+    newRs->rec = bam_dup1(rec);
+
+    //  add the record into GenomeSam object
+    char *rsChNam = getRecSam_chNam(newRs, gs);
+    if (lastUsedChrom != NULL &&
+        strcmp(rsChNam, lastUsedChrom->name) ==
+            0) {  // if the new record points to the same chrom as the last one
+      addRecToChromSam(newRs, lastUsedChrom);
+    } else {
+      // if the new record points to another chrom
+      lastUsedChrom = getChromFromGenomeSam(rsChNam, gs);
+      if (lastUsedChrom == NULL) {
+        // if there is no such chrom as the new record points to
+        ChromSam *newCs = init_ChromSam();
+        newCs->name = rsChNam;
+        addChromToGenomeSam(newCs, gs);
+        lastUsedChrom = newCs;
+        // printf("... new chrom assigned, name: %s\n", rsChNam);
+      }
+      addRecToChromSam(newRs, lastUsedChrom);
+    }
+  }
+
+  bam_destroy1(rec);
+  sam_hdr_destroy(hdr);
+  hts_close(fp);
+}
+
+void writeGenomeSamIntoFile(GenomeSam *gs, char *filePath) {
+  // TODO
+  fprintf(stderr, "Warning: method writeGenomeVcfIntoFile not implemented. \n");
+}
+
+/****************************************************************/
+/****************************************************************/
+/****************************************************************/
+/****************************************************************/
+/************************* Debug Methods ************************/
+/****************************************************************/
+/****************************************************************/
+/****************************************************************/
+/****************************************************************/
+
+static int _test_LoadingAndIterator() {
   GenomeSam *gs = init_GenomeSam();
 
   loadGenomeSamFromFile(gs, "data/example.sam");
 
   // printGenomeSam(gs);
 
+  GenomeSamIterator *gsIt = init_GenomeSamIterator(gs);
+  ChromSam *tmpCs = gsItNextChrom(gsIt);
+  RecSam *tmpRs = gsItNextRec(gsIt);
+
+  while (tmpRs != NULL) {
+    // printSamRecord_brief(gs, tmpRs->rec);
+
+    tmpRs = gsItNextRec(gsIt);
+    if (tmpRs == NULL) {
+      tmpCs = gsItNextChrom(gsIt);
+      tmpRs = gsItNextRec(gsIt);
+    }
+  }
+
+  destroy_GenomeSamIterator(gsIt);
   destroy_GenomeSam(gs);
   return 1;
 }
 
-void _testSet_genomeSam() {
-  assert(_test_Loading());
-}
+void _testSet_genomeSam() { assert(_test_LoadingAndIterator()); }
 
 void printSamHeader(bam_hdr_t *header) {
   printf("number of reference sequences: %d\n", header->n_targets);
@@ -77,7 +392,8 @@ void printSamRecord(bam1_t *record) {
   printf("\n");
 }
 
-void printSamRecord_brief(bam_hdr_t *hdr, bam1_t *record) {
+void printSamRecord_brief(GenomeSam *gs, bam1_t *record) {
+  bam_hdr_t *hdr = gs->hdr;
   // qname flag rname pos mapq
   printf("%s\t", bam_get_qname(record));
   // flag
@@ -101,7 +417,7 @@ void printSamRecord_brief(bam_hdr_t *hdr, bam1_t *record) {
   // pnext
   printf("%" PRId64 "\t", record->core.mpos);
   // tlen ... this field is not necessary for this project and there has been
-  // some differences on the definition of this field
+  // some differences on the definition of this field. Ignore it
   printf("*\t");
   // seq (long string)
   for (int i = 0; i < record->core.l_qseq; i++) {
@@ -139,7 +455,7 @@ void printSamRecord_brief(bam_hdr_t *hdr, bam1_t *record) {
 void printGenomeSam(GenomeSam *gs) {
   if (gs == NULL) return;
   printSamHeader(gs->hdr);
-  ChromSam *tmpCs = gs->cs;
+  ChromSam *tmpCs = gs->css;
   while (tmpCs != NULL) {
     printChromSam(gs, tmpCs);
     tmpCs = tmpCs->next;
@@ -149,225 +465,9 @@ void printGenomeSam(GenomeSam *gs) {
 void printChromSam(GenomeSam *gs, ChromSam *cs) {
   if (cs == NULL || gs == NULL) return;
   printf("chrom: %s, recCnt: %" PRIu32 "\n", cs->name, cs->recCnt);
-  RecSam *rs = cs->rs->next;
+  RecSam *rs = cs->rss->next;
   while (rs != NULL) {
-    printSamRecord_brief(gs->hdr, rs->rec);
+    printSamRecord_brief(gs, rsData(rs));
     rs = rs->next;
   }
-}
-
-static RecSam *init_RecSam() {
-  RecSam *rs = (RecSam *)malloc(sizeof(RecSam));
-  rs->rec = NULL;
-  rs->next = NULL;
-  return rs;
-}
-
-static void destroy_RecSam(RecSam *rs) {
-  if (rs == NULL) return;
-  bam_destroy1(rs->rec);
-  free(rs);
-}
-
-static ChromSam *init_ChromSam() {
-  ChromSam *cs = (ChromSam *)malloc(sizeof(ChromSam));
-  cs->name = "";
-  cs->recCnt = 0;
-  cs->rs = init_RecSam();
-  cs->rs->rec = bam_init1();
-  cs->rs->rec->core.pos = -2;  // smaller than any record's pos in a vcf file
-  cs->next = NULL;
-  return cs;
-}
-
-static void destroy_ChromSam(ChromSam *cs) {
-  if (cs == NULL) return;
-  RecSam *rs = cs->rs;
-  RecSam *tmpRs = NULL;
-  uint32_t hit = 0;
-  while (rs != NULL) {
-    hit++;
-    tmpRs = rs->next;
-    destroy_RecSam(rs);
-    cs->recCnt--;
-    rs = tmpRs;
-  }
-  free(cs->name);
-  free(cs);
-}
-
-GenomeSam *init_GenomeSam() {
-  GenomeSam *gs = (GenomeSam *)malloc(sizeof(GenomeSam));
-  if (gs == NULL) {
-    fprintf(stderr, "Error: memory not enough for new GenomeSam object. \n");
-    exit(EXIT_FAILURE);
-  }
-  gs->chromCnt = 0;
-  gs->hdr = NULL;
-  gs->cs = NULL;
-  return gs;
-}
-
-void destroy_GenomeSam(GenomeSam *gs) {
-  if (gs == NULL) return;
-  sam_hdr_destroy(gs->hdr);
-
-  ChromSam *cs = gs->cs;
-  while (cs != NULL) {
-    ChromSam *tmpCs = cs->next;
-    destroy_ChromSam(cs);
-    gs->chromCnt--;
-    cs = tmpCs;
-  }
-  free(gs);
-}
-
-void addChromToGenomeSam(ChromSam *cs, GenomeSam *gs) {
-  ChromSam *tmpCs = gs->cs;
-  if (tmpCs == NULL) {  // if there is no chrom in GenomeSam
-    gs->cs = cs;
-    gs->chromCnt++;
-    return;
-  }
-
-  while (tmpCs->next != NULL) {
-    if (strcmp(cs->name, tmpCs->name) ==
-        0) {  // if there already exists the same cs
-      fprintf(stderr, "Warning: trying to add duplicated ChromSam. \n");
-      return;
-    }
-    tmpCs = tmpCs->next;
-  }
-  // if same cs not found, add it to the end of the linked-list of ChromSam
-  tmpCs->next = cs;
-  gs->chromCnt++;
-}
-
-void addRecToChromSam(RecSam *rs, ChromSam *cs) {
-  RecSam *tmpRec = cs->rs->next;
-  RecSam *lastRec = cs->rs;
-
-  if (tmpRec == NULL) {
-    lastRec->next = rs;
-    cs->recCnt++;
-    return;
-  }
-  while (tmpRec != NULL) {
-    if (getRecSam_pos(tmpRec) <= getRecSam_pos(rs)) {
-      lastRec = tmpRec;
-      tmpRec = tmpRec->next;
-    } else {  // when pos(rs) < pos(tmpRec), insert rs between
-              // "...,lastRec,tmpRec,..."
-      lastRec->next = rs;
-      rs->next = tmpRec;
-      cs->recCnt++;
-      return;
-    }
-  }
-  // if always pos(tmpRec) <= pos(rs), add rs to the end
-  lastRec->next = rs;
-  cs->recCnt++;
-}
-
-ChromSam *getChromFromGenomeSam(char *chromName, GenomeSam *gs) {
-  ChromSam *tmpCs = gs->cs;
-  while (tmpCs != NULL) {
-    if (strcmp(tmpCs->name, chromName) == 0) {
-      return tmpCs;
-    } else {
-      tmpCs = tmpCs->next;
-    }
-  }
-  // if never found ChromSam with the same name as chromName
-  return NULL;
-}
-
-RecSam *getRecFromChromSam(uint32_t idx, ChromSam *cs) {
-  // TODO not tested
-  RecSam *tmpRs = cs->rs->next;  // pass the header rv
-  if (idx >= cs->recCnt) {
-    fprintf(stderr,
-            "Error: index out of bounder when getting record from a chrom. \n");
-    exit(EXIT_FAILURE);
-  }
-  uint32_t tmpIdx = 0;
-  while (tmpRs != NULL) {
-    if (tmpIdx == idx) {
-      return tmpRs;
-    } else {
-      tmpIdx++;
-    }
-  }
-}
-
-char *getRecSam_chNam(RecSam *rs, GenomeSam *gs) {
-  const char *chNam = sam_hdr_tid2name(gs->hdr, rs->rec->core.tid);
-  if (chNam == NULL) {
-    /*
-     * This part of code was originally only "return 'unknown'". And that
-     * resulted in a bug. Because you cannot free a string that is pre-allocated
-     * by the compiler instead allocated dynamically.
-     */
-    static const int len = strlen("unknown)");
-    char *unknownNam = (char *)malloc(sizeof(char) * (len + 1));
-    strcpy(unknownNam, "(unknown)");
-    return unknownNam;
-  } else {
-    return strdup(chNam);
-  }
-}
-
-void loadGenomeSamFromFile(GenomeSam *gs, char *filePath) {
-  htsFile *fp = hts_open(filePath, "r");
-  sam_hdr_t *hdr = sam_hdr_read(fp);
-  bam1_t *rec = bam_init1();
-
-  if (hdr == NULL) {
-    fprintf(stderr, "Error: failed creating bcf header struct.\n");
-    exit(EXIT_FAILURE);
-  } else {
-    gs->hdr = sam_hdr_dup(hdr);
-  }
-  if (rec == NULL) {
-    fprintf(stderr, "Error: memory not enough for new bcf1_t object.\n");
-    exit(EXIT_FAILURE);
-  }
-
-  ChromSam *lastUsedChrom = NULL;
-  uint32_t loadedCnt = 0;
-  while (sam_read1(fp, hdr, rec) >= 0) {
-    // printSamRecord_brief(hdr, rec);
-    loadedCnt++;
-    RecSam *newRs = init_RecSam();
-    newRs->rec = bam_dup1(rec);
-
-    // TODO add the record into GenomeSam object
-    char *rsChNam = getRecSam_chNam(newRs, gs);
-    if (lastUsedChrom != NULL &&
-        strcmp(rsChNam, lastUsedChrom->name) ==
-            0) {  // if the new record points to the same chrom as the last one
-      addRecToChromSam(newRs, lastUsedChrom);
-    } else {
-      // if the new record points to another chrom
-      lastUsedChrom = getChromFromGenomeSam(rsChNam, gs);
-      if (lastUsedChrom == NULL) {
-        // if there is no such chrom as the new record points to
-        ChromSam *newCs = init_ChromSam();
-        newCs->name = rsChNam;
-        addChromToGenomeSam(newCs, gs);
-        lastUsedChrom = newCs;
-        // printf("... new chrom assigned, name: %s\n", rsChNam);
-      }
-      addRecToChromSam(newRs, lastUsedChrom);
-    }
-  }
-
-  bam_destroy1(rec);
-  sam_hdr_destroy(hdr);
-  hts_close(fp);
-}
-
-void writeGenomeSamIntoFile(GenomeSam *gs, char *filePath) {
-  // TODO
-  fprintf(stderr, "Warning: method writeGenomeVcfIntoFile not implemented. \n");
 }

@@ -49,12 +49,17 @@ typedef struct _define_GenomeVcf {
 typedef struct _define_GenomeVcfIterator {
   GenomeVcf *gv;
   ChromVcf *tmpCv;
-  RecVcf *tmpRec;
+  RecVcf *tmpRv;
 } GenomeVcfIterator;
 
 static inline bcf1_t *rvData(RecVcf *rv) { return rv->rec; }
 
-static inline uint64_t rvDataPos(RecVcf *rv) { return rv->rec->pos; }
+/**
+ * @brief  Get the 1-based position of the variant.
+ */
+static inline uint64_t rvDataPos(RecVcf *rv) { return 1 + rv->rec->pos; }
+
+uint32_t rvDataMaxVarLength(RecVcf *rv);
 
 static inline char *cvName(ChromVcf *cv) { return cv->name; }
 
@@ -82,6 +87,8 @@ void destroy_GenomeVcf(GenomeVcf *gv);
 
 GenomeVcfIterator *init_GenomeVcfIterator(GenomeVcf *gv);
 
+void destroy_GenomeVcfIterator(GenomeVcfIterator *gvIt);
+
 /**
  * @brief  This iterator return the next chrom to be iterated.
  * @retval pointer to the next ChromVcf object to be iterated; NULL if there
@@ -92,14 +99,12 @@ ChromVcf *gvItNextChrom(GenomeVcfIterator *gvIt);
 
 /**
  * @brief  This iterator return the next vcf record to be iterated.
- * @retval pointer to the next RecVcf object to be i terated. NULL if there is
+ * @retval pointer to the next RecVcf object to be iterated. NULL if there is
  * no records left in the temporary chrom, chrom is not selected for iteration
  * (use @viItNextChrom before using this), or the iterator is not intialized
  * with a non-NULL GenomeVcf.
  */
 RecVcf *gvItNextRec(GenomeVcfIterator *gvIt);
-
-void destroy_GenomeVcfIterator(GenomeVcfIterator *gvIt);
 
 /************************************
  * Methods for manipulating GenomeVcf
@@ -116,7 +121,25 @@ void addChromToGenomeVcf(ChromVcf *cv, GenomeVcf *gv);
  */
 void addRecToChromVcf(RecVcf *rv, ChromVcf *cv);
 
-ChromVcf *getChromFromGenomeVcf(char *chromName, GenomeVcf *gv);
+ChromVcf *getChromFromGenomeVcf(const char *chromName, GenomeVcf *gv);
+
+/**
+ * @brief  Get the vcf record in a chrom with position right behind the
+ * designated pos. For example, there are 3 variants, and their positions are
+ * 100, 140, 180. Now give input pos 130, this method will return pointer to the
+ * RecVcf object with position 140. If pos given 140, the returned variant is
+ * the same. And if pos given 200, the returned value would be NULL.
+ * @param  pos: 1-based position
+ */
+RecVcf *getRecAfterPosFromChromVcf(uint64_t pos, ChromVcf *cv);
+
+/**
+ * @brief  Similar to @getRecAfterPosFromChromVcf, despite that this method
+ * returns the variant before the designated position, and it will return NULL
+ * if given pos is too close to the front end of chrom.
+ * @param  pos: 1-based position
+ */
+RecVcf *getRecBeforePosFromChromVcf(uint64_t pos, ChromVcf *cv);
 
 /**
  * @brief  Get the vcf record with designated index.

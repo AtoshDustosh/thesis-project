@@ -20,6 +20,7 @@ typedef struct _define_ChromFa {
   uint64_t *codedBases;  // binary coded bases using uint64_t array
   uint32_t length;       // length of chrom / number of bases (uncoded)
   char *info;            // info of chrom
+  char *name;
   struct _define_ChromFa *next;
 } ChromFa;
 
@@ -59,7 +60,15 @@ void destroy_GenomeFa(GenomeFa *gf);
  * @retval pointer to the ChromFa object matching the give info; NULL if not
  * found
  */
-ChromFa *getChromFromGenomeFabyInfo(char *info, GenomeFa *gf);
+ChromFa *getChromFromGenomeFabyInfo(const char *info, GenomeFa *gf);
+
+/**
+ * @brief  Similar to getChromFromGenomeFabyInfo, but this only use a substring
+ * to recognize the chrom in GenomeFa, and thus is faster. This method is also
+ * designed for synchronizing with sam-record-extraction. Recommend using this
+ * to get a chrom.
+ */
+ChromFa *getChromFromGenomeFabyName(const char *name, GenomeFa *gf);
 
 /**
  * @brief Get the chrom according to given index of that chromosome in the
@@ -82,20 +91,32 @@ ChromFa *getChromFromGenomeFabyIndex(uint32_t idx, GenomeFa *gf);
 Base getBase(ChromFa *cf, uint32_t pos);
 
 /**
+ * @brief  Get a specific base sequence from a ChromFa object.
+ * @param  start: start position of the sequence in the chrom. 1-based position
+ * and the base at the start position is included.
+ * @param  end: end position of the sequence in the chrom. 1-based position and
+ * the base at the end position is included.
+ * @retval a string format of the base sequence. Must be freed later when not
+ * needed anymore.
+ */
+char *getSeqFromChromFa(uint64_t start, uint64_t end, ChromFa *cf);
+
+/**
  * @brief Add a ChromFa object into the GenomeFa object (linked to the end of
  * the linked-list with an empty header).
  */
 void addChromToGenome(ChromFa *cf, GenomeFa *gf);
 
 /**
- * @brief Load genome data into a GenomeFa object from designated file. Note that the *.fa/*.fna file must match specifications. 
+ * @brief Load genome data into a GenomeFa object from designated file. Note
+ * that the *.fa/*.fna file must match specifications.
  */
-void loadGenomeFaFromFile(GenomeFa *gf, char *filePath);
+void loadGenomeFaFromFile(GenomeFa *gf, const char *filePath);
 
 /**
  * @brief Write genome data into a designated file.
  */
-void writeGenomeFaIntoFile(GenomeFa *gf, char *filePath);
+void writeGenomeFaIntoFile(GenomeFa *gf, const char *filePath);
 
 // ********************************
 // Functions for Data Manipulating
@@ -111,8 +132,8 @@ void writeGenomeFaIntoFile(GenomeFa *gf, char *filePath);
 static uint64_t codeBpBuf(char *bpBuf);
 
 /**
- * @brief  Parse the info line from *.fa/*.fna file and fill in ChromFa. 
- * @retval 0 for success; 1 for failure. 
+ * @brief  Parse the info line from *.fa/*.fna file and fill in ChromFa.
+ * @retval 0 for success; 1 for failure.
  */
 static int parseFaInfo(ChromFa *cf, char *infoBuf);
 

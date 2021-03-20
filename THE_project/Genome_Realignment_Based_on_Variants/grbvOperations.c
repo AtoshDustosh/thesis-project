@@ -68,9 +68,87 @@ void integrateVcfToSam(Options *opts) {
   loadGenomeSamFromFile(gs, opts->samFile);
   loadGenomeVcfFromFile(gv, opts->vcfFile);
 
-  printGenomeFa(gf);
-  printGenomeSam(gs);
-  printGenomeVcf(gv);
-  
-  
+  // printGenomeFa(gf);
+  // printGenomeSam(gs);
+  // printGenomeVcf(gv);
+
+  // TODO iterate sam and vcf at the same time.
+  GenomeSamIterator *gsIt = init_GenomeSamIterator(gs);
+  ChromSam *tmpCs = gsItNextChrom(gsIt);
+  RecSam *tmpRs = gsItNextRec(gsIt);
+  GenomeVcfIterator *gvIt = init_GenomeVcfIterator(gv);
+  ChromVcf *tmpCv = NULL;
+  RecVcf *tmpRv = NULL;
+  uint32_t ifSameCv = 0;
+
+  // Iterate all sam records
+  while (tmpRs != NULL) {
+    // -------------- extract data from sam record ------------
+    // printSamRecord_brief(gs, rsData(tmpRs));
+    const char *readRname = rsDataRname(gs, tmpRs);
+    if (readRname == NULL) {
+      tmpRs = gsItNextRec(gsIt);
+      if (tmpRs == NULL) {
+        tmpCs = gsItNextChrom(gsIt);
+        tmpRs = gsItNextRec(gsIt);
+      }
+      continue;
+    }
+    char *readQname = bam_get_qname(rsData(tmpRs));
+    uint64_t startPos = rsDataPos(tmpRs);
+    uint32_t readLength = rsDataSeqLength(tmpRs);
+    char *readSeq = rsDataSeq(tmpRs);
+
+    ChromFa *tmpCf = getChromFromGenomeFabyName(readRname, gf);
+    // --------------- get the ref sequence ------------------
+    char *refSeq =
+        getSeqFromChromFa(startPos, startPos + readLength - 1, tmpCf);
+
+    printf("readQName: %s, startPos: %" PRIu64 ", readLen: %" PRIu32
+           ", readRname: %s\n",
+           readQname, startPos, readLength, readRname);
+    printf("readSeq: %s\n", readSeq);
+    printf("refSeq:  %s\n", refSeq);
+    printf("\n");
+    
+
+    // -------------- locate the valid variants --------------
+    // TODO optimizable codes. (Now it's just a piece of **it)
+    ifSameCv = 0;
+    if (tmpCv != NULL) {
+      if (strcmp(readRname, tmpCv->name) != 0) {
+        tmpCv = getChromFromGenomeVcf(readRname, gv);
+      } else {
+        ifSameCv = 1;
+      }
+    } else {
+      tmpCv = getChromFromGenomeVcf(readRname, gv);
+    }
+    RecVcf *startRv = getRecBeforePosFromChromVcf(startPos, tmpCv);
+    RecVcf *endRv = getRecAfterPosFromChromVcf(startPos + readLength, tmpCv);
+    while(startRv != endRv){
+      // TODO multiple situations
+      // could be the following cases:
+      // Ref: -----------XXXXXXXXXXXXXXXXXXXXX--------------
+      // var: -----AAAAAAAAA--------------------------------
+      // var: ----------------BBBBBBBB----------------------
+      // var: ----------------------------CCCCCCCCCC--------
+    }
+
+
+    // -------------------------- split line -------------------
+    // the following codes are the core of sam-records-iteration
+    tmpRs = gsItNextRec(gsIt);
+    if (tmpRs == NULL) {
+      tmpCs = gsItNextChrom(gsIt);
+      tmpRs = gsItNextRec(gsIt);
+    }
+  }
+
+  destroy_GenomeSamIterator(gsIt);
+  destroy_GenomeVcfIterator(gvIt);
+
+  destroy_GenomeFa(gf);
+  destroy_GenomeSam(gs);
+  destroy_GenomeVcf(gv);
 }

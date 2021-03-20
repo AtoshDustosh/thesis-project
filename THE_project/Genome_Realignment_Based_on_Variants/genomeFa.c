@@ -18,8 +18,10 @@ GenomeFa *init_GenomeFa() {
   gf->chromCnt = 0;
   gf->chroms = init_ChromFa();
   gf->chroms->codedBases = (uint64_t *)calloc(1, sizeof(uint64_t));
-  gf->chroms->info = (char *)calloc(strlen("header chrom") + 1, sizeof(char));
-  strcpy(gf->chroms->info, "header chrom");
+  gf->chroms->info = (char *)calloc(strlen(">header chrom") + 1, sizeof(char));
+  gf->chroms->name = (char *)calloc(strlen("header") + 1, sizeof(char));
+  strcpy(gf->chroms->info, ">header chrom");
+  strcpy(gf->chroms->name, "header");
   return gf;
 }
 
@@ -31,6 +33,7 @@ void destroy_ChromFa(ChromFa *cf) {
   }
   free(cf->codedBases);
   free(cf->info);
+  free(cf->name);
   free(cf);
 }
 
@@ -49,10 +52,9 @@ void destroy_GenomeFa(GenomeFa *gf) {
   free(gf);
 }
 
-ChromFa *getChromFromGenomeFabyInfo(char *info, GenomeFa *gf) {
+ChromFa *getChromFromGenomeFabyInfo(const char *info, GenomeFa *gf) {
   if (gf == NULL) {
-    fprintf(stderr, "Error: null pointer occurred for GenomeFa\n");
-    exit(EXIT_FAILURE);
+    assert(fprintf(stderr, "Error: null pointer occurred. \n"));
   }
   ChromFa *tmpCf = gf->chroms;
   while (tmpCf != NULL) {
@@ -68,8 +70,24 @@ ChromFa *getChromFromGenomeFabyInfo(char *info, GenomeFa *gf) {
   return NULL;
 }
 
+ChromFa *getChromFromGenomeFabyName(const char *name, GenomeFa *gf) {
+  if (gf == NULL || name == NULL) {
+    assert(fprintf(stderr, "Error: null pointer occurred. \n"));
+  }
+  ChromFa *tmpCf = gf->chroms;
+  while (tmpCf != NULL) {
+    char *tmpName = tmpCf->name;
+    if (tmpName != NULL) {
+      if (strcmp(tmpName, name) == 0) {
+        return tmpCf;
+      }
+    }
+    tmpCf = tmpCf->next;
+  }
+  return NULL;
+}
+
 ChromFa *getChromFromGenomeFabyIndex(uint32_t idx, GenomeFa *gf) {
-  // TODO not tested
   if (gf == NULL) {
     fprintf(stderr, "Error: null pointer occurred for GenomeFa\n");
     exit(EXIT_FAILURE);
@@ -82,29 +100,65 @@ ChromFa *getChromFromGenomeFabyIndex(uint32_t idx, GenomeFa *gf) {
   return tmpCf;
 }
 
-Base getBase(ChromFa *cf, uint32_t pos) {
-  static uint64_t uint64Length = sizeof(uint64_t);
-  // TODO reserved question: "arrayLength = (cf->length / (BP_PER_UINT64 + 1)) +
-  // 1"
-  uint32_t arrayLength = cf->length / uint64Length;
-  uint32_t arrayIdx = pos / (BP_PER_UINT64 + 1);
+uint64_t codeBpBuf(char *bpBuf) {
+  uint64_t codedBp = 0x0;
+  int i = 0;
+  while (i != BP_PER_UINT64 && *bpBuf != '\0') {
+    /*
+     * The following calculation's purpose:
+     * "ACGT" -> (0b) 001 010 011 100 000 000 ...... 000 0
+     * The bpBuf string must contain no more than BP_PER_UINT64 chars (bases).
+     */
+    codedBp =
+        codedBp | (((uint64_t)baseOfChar(*bpBuf))
+                   << (sizeof(uint64_t) * 8) - BASE_CODE_LENGTH * (i + 1));
+    bpBuf++;
+    i++;
+  }
+  return codedBp;
+}
 
-  if (arrayIdx > arrayLength || pos <= 0) {
+Base getBase(ChromFa *cf, uint32_t pos) {
+  // Spent some time for this. Bug occurred. Bug located. Bug fixed ...
+  uint32_t arrayLength = (cf->length - 1) / BP_PER_UINT64 + 1;
+  uint32_t arrayIdx = (pos - 1) / BP_PER_UINT64;
+
+  if (arrayIdx >= arrayLength || pos <= 0) {
     return BASE_INVALID;
   } else {
     // The following commented lines were used for debugging.
-    // uint64_t arrayElement = cf->codedBases[arrayIdx];
-    // // 1 % 21 = 1, 21 % 21 = 0. This is not good. So (21 - 1) % 21 + 1 = 21.
-    // uint8_t baseIdx = (pos - 1) % BP_PER_UINT64 + 1;
-    // uint8_t offset = 1 + BASE_CODE_LENGTH * (BP_PER_UINT64 - baseIdx);
+    uint64_t arrayElement = cf->codedBases[arrayIdx];
+    // 1 % 21 = 1, 21 % 21 = 0. This is not good. So (21 - 1) % 21 + 1 = 21.
+    // (pos, baseIdx) examples: (1,1), (21,21), (22,1), (43,1)
+    uint8_t baseIdx = (pos - 1) % BP_PER_UINT64 + 1;
+    // (baseIdx, offset) examples, (21,1), (20,4), (1, 61)
+    uint8_t offset = 1 + BASE_CODE_LENGTH * (BP_PER_UINT64 - baseIdx);
 
-    // Base retVal = (Base)((arrayElement >> offset) & BASE_MASK_RIGHT);
-    return (Base)(
-        (cf->codedBases[arrayIdx] >>
-             (1 + BASE_CODE_LENGTH *
-                      (BP_PER_UINT64 - ((pos - 1) % BP_PER_UINT64 + 1))) &
-         BASE_MASK_RIGHT));
+    Base retVal = (Base)((arrayElement >> offset) & BASE_MASK_RIGHT);
+    return retVal;
+    // return (Base)(
+    //     (cf->codedBases[arrayIdx] >>
+    //          (1 + BASE_CODE_LENGTH *
+    //                   (BP_PER_UINT64 - ((pos - 1) % BP_PER_UINT64 + 1))) &
+    //      BASE_MASK_RIGHT));
   }
+}
+
+char *getSeqFromChromFa(uint64_t start, uint64_t end, ChromFa *cf) {
+  if (cf == NULL || end < start) {
+    assert(fprintf(stderr, "Warning: invalid parameters for getSeq.\n") > 0);
+    return NULL;
+  }
+  uint64_t seqLength = (end - start + 1);
+  //  "+1" is in consideration of '\0' at the end of a string.
+  char *seq = (char *)calloc(seqLength + 1, sizeof(char));
+
+  for (int i = 0; i < seqLength; i++) {
+    seq[i] = charOfBase(getBase(cf, start + i));
+  }
+  seq[seqLength] = '\0';
+
+  return seq;
 }
 
 void addChromToGenome(ChromFa *cf, GenomeFa *gf) {
@@ -123,7 +177,7 @@ void addChromToGenome(ChromFa *cf, GenomeFa *gf) {
   }
 }
 
-void loadGenomeFaFromFile(GenomeFa *gf, char *filePath) {
+void loadGenomeFaFromFile(GenomeFa *gf, const char *filePath) {
   FILE *fp = fopen(filePath, "r");
   if (fp == NULL) {
     fprintf(stderr, "Error: empty file pointer. \n");
@@ -262,7 +316,7 @@ void loadGenomeFaFromFile(GenomeFa *gf, char *filePath) {
   fclose(fp);
 }
 
-void writeGenomeFaIntoFile(GenomeFa *gf, char *filePath) {
+void writeGenomeFaIntoFile(GenomeFa *gf, const char *filePath) {
   FILE *fp = fopen(filePath, "w");
   ChromFa *tmpCf = gf->chroms->next;
 
@@ -285,25 +339,12 @@ void writeGenomeFaIntoFile(GenomeFa *gf, char *filePath) {
   fclose(fp);
 }
 
-uint64_t codeBpBuf(char *bpBuf) {
-  uint64_t codedBp = 0x0;
-  int i = 0;
-  while (i != BP_PER_UINT64 && *bpBuf != '\0') {
-    /*
-     * The following calculation's purpose:
-     * "ACGT" -> (0b) 001 010 011 100 000 000 ...... 000 0
-     * The bpBuf string must contain no more than BP_PER_UINT64 chars (bases).
-     */
-    codedBp =
-        codedBp | (((uint64_t)baseOfChar(*bpBuf))
-                   << (sizeof(uint64_t) * 8) - BASE_CODE_LENGTH * (i + 1));
-    bpBuf++;
-    i++;
-  }
-  return codedBp;
-}
-
 static int parseFaInfo(ChromFa *cf, char *infoBuf) {
+  /*
+   * This method uses a very useful C library method strstr(). It searches the
+   * start position of a sub-string within a string. See more details on the
+   * internet.
+   */
   if (cf == NULL) {
     assert(fprintf(stderr,
                    "Error: null pointer occurred for a ChromFa object. \n"));
@@ -314,30 +355,55 @@ static int parseFaInfo(ChromFa *cf, char *infoBuf) {
   cf->info = (char *)calloc(infoLen, sizeof(char));
   strcpy(cf->info, infoBuf);
 
-  const char *LNtag = "  LN:";
-  /*
-   * A very useful C library method strstr(). It searches the start position of
-   * a sub-string within a string. See more details on the internet.
-   */
-  char *tagStart = strstr(cf->info, LNtag);
-  for (int i = 0; i < strlen(LNtag); i++) {
-    tagStart++;
-  }
-  // printf("%s\n", tagStart);
-
-  char buf[20];  // There hardly exists "LN" larger than 10^20
-  for (int i = 0; i < 20; i++) {
-    if ('0' <= *tagStart && *tagStart <= '9') {
-      buf[i] = *tagStart;
-      tagStart++;
-    } else {
-      break;
+  // find tag ">" (chromName is right after it)
+  const char *nameTag = ">";
+  char *nameStart = strstr(cf->info, nameTag);
+  if (nameStart == NULL) {
+    return 1;
+  } else {
+    for (int i = 0; i < strlen(nameTag); i++) {
+      nameStart++;
     }
+    // printf("%s\n", nameStart);
+    char buf[100];  // Hope all name contains no more than 100 char.
+    for (int i = 0; i < 100; i++) {
+      if (*nameStart != ' ') {
+        buf[i] = *nameStart;
+        nameStart++;
+      } else {
+        buf[i] = '\0';
+        break;
+      }
+    }
+    cf->name = (char *)calloc(strlen(buf), sizeof(char));
+    strcpy(cf->name, buf);
   }
-  uint32_t length = atoi(buf);
-  cf->length = length;
-  cf->codedBases =
-      (uint64_t *)calloc((length - 1) / BP_PER_UINT64 + 1, sizeof(uint64_t));
+
+  // find tag "LN:"
+  const char *LNtag = "  LN:";
+  char *LNstart = strstr(cf->info, LNtag);
+  if (LNstart == NULL) {
+    return 1;
+  } else {
+    for (int i = 0; i < strlen(LNtag); i++) {
+      LNstart++;
+    }
+    // printf("%s\n", LNstart);
+    char buf[20];  // There hardly exists "LN" larger than 10^20
+    for (int i = 0; i < 20; i++) {
+      if ('0' <= *LNstart && *LNstart <= '9') {
+        buf[i] = *LNstart;
+        LNstart++;
+      } else {
+        buf[i] = '\0';
+        break;
+      }
+    }
+    uint32_t length = atoi(buf);
+    cf->length = length;
+    cf->codedBases =
+        (uint64_t *)calloc((length - 1) / BP_PER_UINT64 + 1, sizeof(uint64_t));
+  }
   return 0;
 }
 
@@ -404,8 +470,8 @@ static void _test_StructureLinks() {
 }
 
 static void _test_CodingBases() {
-  char *bases[] = {"AAAACCCCGGGGTTTTAAAAC", "ACGTACGTACGTACGTACGTA", "ACGT"};
-  uint64_t codedBases[] = {0x2494926DB9242494, 0x29C29C29C29C29C2,
+  char *bases[] = {"AAAACCCCGGGGTTTTAAAAC", "TACCCCAGCAAGACCAGACAT", "ACGT"};
+  uint64_t codedBases[] = {0x2494926DB9242494, 0x85248b44b2916518,
                            0x29C0000000000000};
   ChromFa *cf = init_ChromFa();
   cf->codedBases = (uint64_t *)malloc(sizeof(uint64_t) * 3);
@@ -416,20 +482,77 @@ static void _test_CodingBases() {
   // test the calculation of coded bases
   for (int i = 0; i < (sizeof(codedBases) / sizeof(uint64_t)); i++) {
     assert(codedBases[i] == codeBpBuf(bases[i]));
-    cf->codedBases[i] = codedBases[i];
+    cf->codedBases[i] = codeBpBuf(bases[i]);
   }
 
   // test the extraction of coded bases from ChromFa
-  assert_bases_equal(getBase(cf, 1), BASE_A);
-  assert_bases_equal(getBase(cf, 10), BASE_G);
-  assert_bases_equal(getBase(cf, 21), BASE_C);
-  assert_bases_equal(getBase(cf, 22), BASE_A);
-  assert_bases_equal(getBase(cf, 24), BASE_G);
-  assert_bases_equal(getBase(cf, 42), BASE_A);
-  assert_bases_equal(getBase(cf, 43), BASE_A);
-  assert_bases_equal(getBase(cf, 44), BASE_C);
-  assert_bases_equal(getBase(cf, 46), BASE_T);
-  assert_bases_equal(getBase(cf, 999), BASE_INVALID);
+  assert((getBase(cf, 1) == BASE_A) ||
+         (fprintf(stderr, "calc: 0x%" PRIx8 ", true: 0x%" PRIx8 "\n",
+                  getBase(cf, 1), BASE_A)) < 0);
+  assert((getBase(cf, 10) == BASE_G) ||
+         (fprintf(stderr, "calc: 0x%" PRIx8 ", true: 0x%" PRIx8 "\n",
+                  getBase(cf, 10), BASE_G)) < 0);
+  assert((getBase(cf, 21) == BASE_C) ||
+         (fprintf(stderr, "calc: 0x%" PRIx8 ", true: 0x%" PRIx8 "\n",
+                  getBase(cf, 21), BASE_C)) < 0);
+  assert((getBase(cf, 22) == BASE_T) ||
+         (fprintf(stderr, "calc: 0x%" PRIx8 ", true: 0x%" PRIx8 "\n",
+                  getBase(cf, 22), BASE_T)) < 0);
+  assert((getBase(cf, 24) == BASE_C) ||
+         (fprintf(stderr, "calc: 0x%" PRIx8 ", true: 0x%" PRIx8 "\n",
+                  getBase(cf, 24), BASE_C)) < 0);
+  assert((getBase(cf, 42) == BASE_T) ||
+         (fprintf(stderr, "calc: 0x%" PRIx8 ", true: 0x%" PRIx8 "\n",
+                  getBase(cf, 42), BASE_T)) < 0);
+  assert((getBase(cf, 43) == BASE_A) ||
+         (fprintf(stderr, "calc: 0x%" PRIx8 ", true: 0x%" PRIx8 "\n",
+                  getBase(cf, 43), BASE_A)) < 0);
+  assert((getBase(cf, 44) == BASE_C) ||
+         (fprintf(stderr, "calc: 0x%" PRIx8 ", true: 0x%" PRIx8 "\n",
+                  getBase(cf, 44), BASE_C)) < 0);
+  assert((getBase(cf, 46) == BASE_T) ||
+         (fprintf(stderr, "calc: 0x%" PRIx8 ", true: 0x%" PRIx8 "\n",
+                  getBase(cf, 46), BASE_T)) < 0);
+  assert((getBase(cf, 999) == BASE_INVALID) ||
+         (fprintf(stderr, "calc: 0x%" PRIx8 ", true: 0x%" PRIx8 "\n",
+                  getBase(cf, 999), BASE_INVALID)) < 0);
+
+  destroy_ChromFa(cf);
+}
+
+static void _test_CodingBases_Plus() {
+  const char *chromName[] = {"chr1", "chr2", "chr3", "chr4"};
+  const char *chromSeq[] = {
+      "AAAAAAAAAAAAACCCCCCTATACCCCAGCAAGACCAGACATCCCCCCCCCATAGACACCCCCACGTACGTA"
+      "CGTACGTACGTCCCCCCCCGATACAAGTAGACCCCCAGCATACCATACCCCCCCCCCCCCCAAAAAAAAAAA"
+      "AAAAAAAAAAAAAAA",
+      "CCCCCCCCCGGGGGGGGGGGGATAACATAAGGGGATACGGGGTAGAATAGGGGGGGGGGACGTACGTACGTA"
+      "CGTACGTGGGGGTAGAGAGACAGAGAGATACGGGGGGGGGGGGGGTAGAGAGGGGGGCGTACGTACGTACGT"
+      "ACGTAGGGGGATACACAGATACGATTAACGATAACATATAATGGGGGGGGGGGGGCCCCCCCCCCCCCCCCC"
+      "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCAAACCCCCCTATACC"
+      "CCAGCAAGACCAGACATCCCCGGCCCATAGACACCCCCACGT",
+      "GGGGGGGGGTTTTTTTTTTTATAAAATAGGCCACACCAGAAATAGACCTTTTTTTTTTTACGTACGTACGTA"
+      "CGTACGTTTTTTTTTCACAGTAAGCATATTTTTTTGAGAGAGAAAATTTAATTTTTTCGTACGTACGTACGT"
+      "ACGTATTTTTTTAGAATATACCCAAATATTTTGAGAATAAACCATTTTTTTTTTTGGGGGGGGGGGGGGGGG"
+      "GGGGGG",
+      "TTTTTTTTTAAAAAAAAACGCTAGCATCGATAGCTAGGAATATATAGCAAAAAAAAAAAACGTACGTACGTA"
+      "CGTACGTAAGGGTTTAACCAAGTAACAAAAAAAAAAACCCCCGGATTTTAAAAAAAACGTACGTACGTACGT"
+      "ACGTAAAAAAGGGAAATTTAACAAAAAAAAGAGAATTACCCCCAATAAAAAAAAATTTTTTTTTTTTT"};
+  const uint32_t testCnt = sizeof(chromName) / sizeof(char *);
+  GenomeFa *gf = init_GenomeFa();
+
+  loadGenomeFaFromFile(gf, "data/test.fa");
+
+  for (int i = 0; i < testCnt; i++) {
+    ChromFa *cf = getChromFromGenomeFabyName(chromName[i], gf);
+    for (int j = 0; j < strlen(chromSeq[i]); j++) {
+      char bpGet = charOfBase(getBase(cf, j + 1));
+      if (bpGet != chromSeq[i][j]) {
+        assert(bpGet == chromSeq[i][j]);
+      }
+    }
+  }
+  destroy_GenomeFa(gf);
 }
 
 static void _test_InfoParser() {
@@ -441,8 +564,34 @@ static void _test_InfoParser() {
   parseFaInfo(cf, testInfo);
 
   assert(cf->info == NULL || strcmp(cf->info, testInfo) == 0);
+  assert(strcmp(cf->name, "chr21") == 0);
   assert(cf->length = 46709983);
   assert(cf->next == NULL);
+
+  destroy_ChromFa(cf);
+}
+
+static void _test_SeqExtractor() {
+  const uint64_t testStart[] = {1, 53, 71};
+  const uint64_t testEnd[] = {34, 85, 71};
+  const char *testSeq[] = {"AAAAAAAAAAAAACCCCCCTATACCCCAGCAAGA",
+                           "TAGACACCCCCACGTACGTACGTACGTACGTCC", "T"};
+  const char *testName[] = {"chr1", "chr1", "chr1"};
+  const uint32_t testCnt = sizeof(testStart) / sizeof(uint64_t);
+  GenomeFa *gf = init_GenomeFa();
+
+  loadGenomeFaFromFile(gf, "data/test.fa");
+
+  for (int i = 0; i < testCnt; i++) {
+    ChromFa *tmpCf = getChromFromGenomeFabyName(testName[i], gf);
+    char *seq = getSeqFromChromFa(testStart[i], testEnd[i], tmpCf);
+    // printf("seq : %s\n", seq);
+    // printf("test: %s\n", testSeq[i]);
+    assert(strcmp(seq, testSeq[i]) == 0);
+    free(seq);
+  }
+
+  destroy_GenomeFa(gf);
 }
 
 static void _test_Loader() {
@@ -466,7 +615,6 @@ static void _test_Loader() {
     tmpCf = tmpCf->next;
   }
 
-  // TODO check the codedBases.
   uint64_t codedCh1[] = {0x2492492492492492, 0x2492492492492492,
                          0x2492492492492492, 0x2492492492492492,
                          0x2492492492492492, 0x2492492492492492,
@@ -497,7 +645,6 @@ static void _test_Loader() {
 }
 
 static void _test_Writer() {
-
   GenomeFa *gf = init_GenomeFa();
 
   loadGenomeFaFromFile(gf, "data/test.fa");
@@ -512,7 +659,9 @@ static void _test_Writer() {
 void _testSet_genomeFa() {
   _test_StructureLinks();
   _test_CodingBases();
+  _test_CodingBases_Plus();
   _test_InfoParser();
+  _test_SeqExtractor();
   _test_Loader();
   _test_Writer();
 }
