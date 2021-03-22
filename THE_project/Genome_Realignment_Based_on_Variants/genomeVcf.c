@@ -15,7 +15,7 @@ uint32_t rvDataMaxVarLength(RecVcf *rv) {
           if(tmpLength > retVal) retVal = tmpLength;
         }
       }else{  // deletion
-        retVal = strlen(rvData(rv)->d.allele[0]);
+        retVal = 1; // only keep the 1-base-long ALT field
       }
       break;
     }

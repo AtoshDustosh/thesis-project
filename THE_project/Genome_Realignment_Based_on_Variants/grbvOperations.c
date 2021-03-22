@@ -53,6 +53,7 @@ void selectBadReads(Options *opts) {
 }
 
 void integrateVcfToSam(Options *opts) {
+  const uint8_t ecLen = 10;  // error control length
   if (opts->samFile == NULL || opts->vcfFile == NULL) {
     fprintf(
         stderr,
@@ -95,22 +96,24 @@ void integrateVcfToSam(Options *opts) {
       continue;
     }
     char *readQname = bam_get_qname(rsData(tmpRs));
-    uint64_t startPos = rsDataPos(tmpRs);
+    uint64_t readStartPos = rsDataPos(tmpRs);
     uint32_t readLength = rsDataSeqLength(tmpRs);
     char *readSeq = rsDataSeq(tmpRs);
 
     ChromFa *tmpCf = getChromFromGenomeFabyName(readRname, gf);
     // --------------- get the ref sequence ------------------
-    char *refSeq =
-        getSeqFromChromFa(startPos, startPos + readLength - 1, tmpCf);
+    uint64_t refStartPos = readStartPos - ecLen;
+    uint64_t refEndPos = readStartPos + readLength - 1 + ecLen;
+    if (refStartPos < 1) refStartPos = 1;
+    if (refEndPos > tmpCf->length) refEndPos = tmpCf->length;
+    char *refSeq = getSeqFromChromFa(refStartPos, refEndPos, tmpCf);
 
-    printf("readQName: %s, startPos: %" PRIu64 ", readLen: %" PRIu32
+    printf("readQName: %s, readStartPos: %" PRIu64 ", readLen: %" PRIu32
            ", readRname: %s\n",
-           readQname, startPos, readLength, readRname);
+           readQname, readStartPos, readLength, readRname);
     printf("readSeq: %s\n", readSeq);
     printf("refSeq:  %s\n", refSeq);
     printf("\n");
-    
 
     // -------------- locate the valid variants --------------
     // TODO optimizable codes. (Now it's just a piece of **it)
@@ -124,17 +127,32 @@ void integrateVcfToSam(Options *opts) {
     } else {
       tmpCv = getChromFromGenomeVcf(readRname, gv);
     }
-    RecVcf *startRv = getRecBeforePosFromChromVcf(startPos, tmpCv);
-    RecVcf *endRv = getRecAfterPosFromChromVcf(startPos + readLength, tmpCv);
-    while(startRv != endRv){
-      // TODO multiple situations
-      // could be the following cases:
-      // Ref: -----------XXXXXXXXXXXXXXXXXXXXX--------------
+    RecVcf *startRv = getRecBeforePosFromChromVcf(readStartPos, tmpCv);
+    RecVcf *endRv =
+        getRecAfterPosFromChromVcf(readStartPos + readLength, tmpCv);
+    while (startRv != endRv) {
+      // TODO Multiple situations. Could be the following cases:
+      // Ref: --------XXXXXXXXXXXXXXXXXXXXXXXXXXXX----------
+      // Read:-----------YYYYYYYYYYYYYYYYYYYYY--------------
       // var: -----AAAAAAAAA--------------------------------
       // var: ----------------BBBBBBBB----------------------
       // var: ----------------------------CCCCCCCCCC--------
+      // var: ----DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD---
+      uint64_t rvStartPos = rvDataPos(startRv);
+      uint64_t rvEndPos = rvStartPos + rvDataMaxVarLength(startRv) - 1;
+      if (rvStartPos > refStartPos && rvEndPos < refEndPos) {
+        // TODO
+      } else if (rvStartPos < refStartPos && rvEndPos > refStartPos) {
+        // TODO
+      } else if (rvStartPos > refStartPos && rvEndPos > refEndPos) {
+        // TODO
+      } else if (rvStartPos < refStartPos && rvEndPos > refEndPos) {
+        // TODO
+      } else {
+        // actually there are many cases not listed here. But we just consider
+        // the ordinary cases for now ... temporarily
+      }
     }
-
 
     // -------------------------- split line -------------------
     // the following codes are the core of sam-records-iteration
