@@ -1,5 +1,20 @@
 #include "grbvOperations.h"
 
+
+// TODO Static methods for integration. Consider encapsulating ...
+/**
+ * @brief Judge whether should integrate a variant onto the reference genome. 
+ * 
+ * @param rv variant
+ * @param startPos 1-based position of integrated area's start point
+ * @param endPos 1-based position of integrated area's end point
+ * @return int If should, return 1; 0 otherwise. 
+ */
+static inline int shouldIntegrateVar(RecVcf *rv, int64_t startPos, int64_t endPos){
+  // TODO
+  return 0;
+}
+
 void selectBadReads(Options *opts) {
   if (getSamFile(opts) == NULL || getOutputFile(opts) == NULL) {
     fprintf(stderr,
@@ -53,7 +68,7 @@ void selectBadReads(Options *opts) {
 }
 
 void integrateVcfToSam(Options *opts) {
-  const uint8_t ecLen = 10;  // error control length
+  const uint8_t ecLen = 15;  // error control length
   if (opts->samFile == NULL || opts->vcfFile == NULL) {
     fprintf(
         stderr,
@@ -85,7 +100,6 @@ void integrateVcfToSam(Options *opts) {
   // Iterate all sam records
   while (tmpRs != NULL) {
     // -------------- extract data from sam record ------------
-    // printSamRecord_brief(gs, rsData(tmpRs));
     const char *readRname = rsDataRname(gs, tmpRs);
     if (readRname == NULL) {
       tmpRs = gsItNextRec(gsIt);
@@ -96,14 +110,14 @@ void integrateVcfToSam(Options *opts) {
       continue;
     }
     char *readQname = bam_get_qname(rsData(tmpRs));
-    uint64_t readStartPos = rsDataPos(tmpRs);
+    int64_t readStartPos = rsDataPos(tmpRs);
     uint32_t readLength = rsDataSeqLength(tmpRs);
     char *readSeq = rsDataSeq(tmpRs);
 
-    ChromFa *tmpCf = getChromFromGenomeFabyName(readRname, gf);
     // --------------- get the ref sequence ------------------
-    uint64_t refStartPos = readStartPos - ecLen;
-    uint64_t refEndPos = readStartPos + readLength - 1 + ecLen;
+    ChromFa *tmpCf = getChromFromGenomeFabyName(readRname, gf);
+    int64_t refStartPos = readStartPos - ecLen;
+    int64_t refEndPos = readStartPos + readLength - 1 + ecLen;
     if (refStartPos < 1) refStartPos = 1;
     if (refEndPos > tmpCf->length) refEndPos = tmpCf->length;
     char *refSeq = getSeqFromChromFa(refStartPos, refEndPos, tmpCf);
@@ -116,7 +130,7 @@ void integrateVcfToSam(Options *opts) {
     printf("\n");
 
     // -------------- locate the valid variants --------------
-    // TODO optimizable codes. (Now it's just a piece of **it)
+    // get the ChromVcf
     ifSameCv = 0;
     if (tmpCv != NULL) {
       if (strcmp(readRname, tmpCv->name) != 0) {
@@ -127,6 +141,10 @@ void integrateVcfToSam(Options *opts) {
     } else {
       tmpCv = getChromFromGenomeVcf(readRname, gv);
     }
+    
+    // TODO the implementation below is too redundant and buggy. Considering new method for implementation ...
+    // find variants that have common bases with the reads.
+    // TODO the following codes are abandoned. Trying new implementation. 
     RecVcf *startRv = getRecBeforePosFromChromVcf(readStartPos, tmpCv);
     RecVcf *endRv =
         getRecAfterPosFromChromVcf(readStartPos + readLength, tmpCv);

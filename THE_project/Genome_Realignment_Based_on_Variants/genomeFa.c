@@ -144,7 +144,7 @@ Base getBase(ChromFa *cf, uint32_t pos) {
   }
 }
 
-char *getSeqFromChromFa(uint64_t start, uint64_t end, ChromFa *cf) {
+char *getSeqFromChromFa(int64_t start, int64_t end, ChromFa *cf) {
   if (cf == NULL || end < start) {
     assert(fprintf(stderr, "Warning: invalid parameters for getSeq.\n") > 0);
     return NULL;

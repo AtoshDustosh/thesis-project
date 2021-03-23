@@ -193,17 +193,6 @@ ChromVcf *getChromFromGenomeVcf(const char *chromName, GenomeVcf *gv) {
 
 RecVcf *getRecAfterPosFromChromVcf(uint64_t pos, ChromVcf *cv){
   RecVcf *tmpRv = cv->rvs->next;
-  while(tmpRv != NULL){
-    if(rvDataPos(tmpRv) >= pos){
-      return tmpRv;
-    }
-    tmpRv = tmpRv->next;
-  }
-  return NULL;
-}
-
-RecVcf *getRecAfterPosFromChromVcf(uint64_t pos, ChromVcf *cv){
-  RecVcf *tmpRv = cv->rvs->next;
   RecVcf *lastRv = NULL;
   while(tmpRv != NULL){
     if(rvDataPos(tmpRv) >= pos){
@@ -213,6 +202,11 @@ RecVcf *getRecAfterPosFromChromVcf(uint64_t pos, ChromVcf *cv){
     tmpRv = tmpRv->next;
   }
   return lastRv;
+}
+
+RecVcf *getRecBeforePosFromChromVcf(uint64_t pos, ChromVcf *cv){
+  // TODO
+  return NULL;
 }
 
 RecVcf *getRecFromChromVcf(uint32_t idx, ChromVcf *cv) {

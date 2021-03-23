@@ -99,7 +99,7 @@ Base getBase(ChromFa *cf, uint32_t pos);
  * @retval a string format of the base sequence. Must be freed later when not
  * needed anymore.
  */
-char *getSeqFromChromFa(uint64_t start, uint64_t end, ChromFa *cf);
+char *getSeqFromChromFa(int64_t start, int64_t end, ChromFa *cf);
 
 /**
  * @brief Add a ChromFa object into the GenomeFa object (linked to the end of
