@@ -50,6 +50,10 @@ static inline bam1_t *rsData(RecSam *rs) { return rs->rec; }
  */
 static inline uint64_t rsDataPos(RecSam *rs) { return 1 + rs->rec->core.pos; }
 
+static inline const char *rsDataQname(RecSam *rs) {
+  return bam_get_qname(rsData(rs));
+}
+
 static inline const char *rsDataRname(GenomeSam *gs, RecSam *rs) {
   return sam_hdr_tid2name(gs->hdr, rs->rec->core.tid);
 }
@@ -66,11 +70,38 @@ static inline uint32_t rsDataSeqLength(RecSam *rs) {
  */
 char *rsDataSeq(RecSam *rs);
 
-static inline char *csName(ChromSam *cs) { return cs->name; }
+static inline int rsSetCigarAndMapq(RecSam *rs, char *cigarStr, uint8_t score) {
+  uint32_t *cigarBuf = NULL;
+  char *end;
+  size_t m = 0;
 
-static inline uint32_t csRecCnt(ChromSam *cs) { return cs->recCnt; }
+  bam1_t *rec = rsData(rs);
+  size_t l_qname = rec->l_data;
+  const char *qname = bam_get_qname(rec);
+  uint16_t flag = rec->core.flag;
+  int32_t tid = rec->core.tid;
+  hts_pos_t pos = rec->core.pos;
+  uint8_t mapq = score;
+  size_t n_cigar = sam_parse_cigar(cigarStr, &end, &cigarBuf, &m);
+  const uint32_t *cigar = cigarBuf;
+  int32_t mtid = rec->core.mtid;
+  hts_pos_t mpos = rec->core.mpos;
+  hts_pos_t isize = rec->core.isize;
+  size_t l_seq = rec->core.l_qseq;
+  const char *seq = bam_get_seq(rec);
+  const char *qual = bam_get_qual(rec);
+  size_t l_aux = bam_get_l_aux(rec);
+  return bam_set1(rec, l_qname, qname, flag, tid, pos, mapq, n_cigar, cigar,
+                  mtid, mpos, isize, l_seq, seq, qual, l_aux);
+}
 
-static inline uint32_t gsChromCnt(GenomeSam *gs) { return gs->chromCnt; }
+static inline char *csDataName(ChromSam *cs) { return cs->name; }
+
+static inline uint32_t csDataRecCnt(ChromSam *cs) { return cs->recCnt; }
+
+static inline uint32_t gsDataChromCnt(GenomeSam *gs) { return gs->chromCnt; }
+
+static inline bam_hdr_t *gsDataHdr(GenomeSam *gs) { return gs->hdr; }
 
 /************************************
  * Methods for manipulating GenomeVcf

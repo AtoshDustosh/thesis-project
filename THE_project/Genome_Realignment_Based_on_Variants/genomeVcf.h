@@ -21,9 +21,6 @@
  * first. No unit list length! That would make it complicated again.
  */
 
-/**
- * @note  This is actually a linked-list with header.
- */
 typedef struct _define_RecVcf {
   bcf1_t *rec;
   struct _define_RecVcf *next;
@@ -35,6 +32,9 @@ typedef struct _define_ChromVcf {
    */
   char *name;
   uint32_t recCnt;
+  /**
+   * @brief A linked list with an empty header. 
+   */
   RecVcf *rvs;
   struct _define_ChromVcf *next;
 } ChromVcf;
@@ -43,9 +43,27 @@ typedef struct _define_GenomeVcf {
   // TODO optimize the structure
   uint32_t chromCnt;
   bcf_hdr_t *hdr;
+  /**
+   * @brief A linked list (no header).  
+   */
   ChromVcf *cvs;
 } GenomeVcf;
 
+/**
+ * @brief An iterator for ChromVcf. Note that this only iterates vcf records of
+ * this specific ChromVcf object.
+ */
+typedef struct _define_ChromVcfIterator {
+  ChromVcf *cv;
+  RecVcf *tmpRv;
+} ChromVcfIterator;
+
+/**
+ * @brief An iterator for GenomeVcf. Note that this iterates all vcf records of
+ * all ChromVcf objects, but cannot iterate the vcf records of a specific
+ * ChromVcf object. And this iterator has nothing to do with the
+ * ChromVcfIterator.
+ */
 typedef struct _define_GenomeVcfIterator {
   GenomeVcf *gv;
   ChromVcf *tmpCv;
@@ -57,9 +75,22 @@ static inline bcf1_t *rvData(RecVcf *rv) { return rv->rec; }
 /**
  * @brief  Get the 1-based position of the variant.
  */
-static inline uint64_t rvDataPos(RecVcf *rv) { return 1 + rv->rec->pos; }
+static inline int64_t rvDataPos(RecVcf *rv) { return 1 + rv->rec->pos; }
 
+/**
+ * @brief Max length of all alleles in a vcf record. For example, for (REF  ALT)
+ * = (A  ACGT,C), the result is 3. For (REF  ALT) = (ACGT  A), the result = 0.
+ * For (REF  ALT) = (A  C), the result is 1.
+ */
 uint32_t rvDataMaxVarLength(RecVcf *rv);
+
+/**
+ * @brief  Return a copy of chrom name got from RecVcf object.
+ * @retval chrom name. The returned string must be freed manually later.
+ */
+static inline char *rvDataChromName(RecVcf *rv, GenomeVcf *gv) {
+  return strdup(bcf_seqname_safe(gv->hdr, rv->rec));
+}
 
 static inline char *cvName(ChromVcf *cv) { return cv->name; }
 
@@ -85,12 +116,22 @@ GenomeVcf *init_GenomeVcf();
 
 void destroy_GenomeVcf(GenomeVcf *gv);
 
+ChromVcfIterator *init_ChromVcfIterator(ChromVcf *cv);
+
+void destroy_ChromVcfIterator(ChromVcfIterator *cvIt);
+
 GenomeVcfIterator *init_GenomeVcfIterator(GenomeVcf *gv);
 
 void destroy_GenomeVcfIterator(GenomeVcfIterator *gvIt);
 
 /**
- * @brief  This iterator return the next chrom to be iterated.
+ * @brief This iterator returns the next vcf record to be iterated. 
+ * @return RecVcf* pointer to the next RecVcf object to be iterated. NULL if there is no records left in the chromosome or the iterator is not initialized with a non-NULL ChromVcf. 
+ */
+RecVcf *cvItNextRec(ChromVcfIterator *cvIt);
+
+/**
+ * @brief  This iterator returns the next chrom to be iterated.
  * @retval pointer to the next ChromVcf object to be iterated; NULL if there
  * is no chroms left or the iterator is not initialized with a non-NULL
  * GenomeVcf.
@@ -121,37 +162,13 @@ void addChromToGenomeVcf(ChromVcf *cv, GenomeVcf *gv);
  */
 void addRecToChromVcf(RecVcf *rv, ChromVcf *cv);
 
-ChromVcf *getChromFromGenomeVcf(const char *chromName, GenomeVcf *gv);
-
-/**
- * @brief  Get the vcf record in a chrom with position right behind the
- * designated pos. For example, there are 3 variants, and their positions are
- * 100, 140, 180. Now give input pos 130, this method will return pointer to the
- * RecVcf object with position 140. If pos given 140, the returned variant is
- * the same. And if pos given 200, the returned value would be NULL.
- * @param  pos: 1-based position
- */
-RecVcf *getRecAfterPosFromChromVcf(uint64_t pos, ChromVcf *cv);
-
-/**
- * @brief  Similar to @getRecAfterPosFromChromVcf, despite that this method
- * returns the variant before the designated position, and it will return NULL
- * if given pos is too close to the front end of chrom.
- * @param  pos: 1-based position
- */
-RecVcf *getRecBeforePosFromChromVcf(uint64_t pos, ChromVcf *cv);
+ChromVcf *getChromFromGenomeVcfbyName(const char *chromName, GenomeVcf *gv);
 
 /**
  * @brief  Get the vcf record with designated index.
  * @param  idx: 0-based index/id for the vcf record.
  */
-RecVcf *getRecFromChromVcf(uint32_t idx, ChromVcf *cv);
-
-/**
- * @brief  Return a copy of chrom name got from RecVcf object.
- * @retval chrom name. The returned string must be freed manually later.
- */
-char *getRecVcf_chNam(RecVcf *rv, GenomeVcf *gv);
+RecVcf *getRecFromChromVcfbyIdx(uint32_t idx, ChromVcf *cv);
 
 void loadGenomeVcfFromFile(GenomeVcf *gv, char *filePath);
 

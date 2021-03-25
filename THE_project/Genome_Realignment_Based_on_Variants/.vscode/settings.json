@@ -5,6 +5,7 @@
     "varintegration.h": "c",
     "type_traits": "cpp",
     "debug.h": "c",
-    "grbvoperations.h": "c"
+    "grbvoperations.h": "c",
+    "limits": "c"
   }
 }

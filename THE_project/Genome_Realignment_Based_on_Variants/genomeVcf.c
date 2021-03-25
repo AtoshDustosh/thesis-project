@@ -9,17 +9,18 @@ uint32_t rvDataMaxVarLength(RecVcf *rv) {
       break;
     }
     case VCF_INDEL: {
-      if(strlen(rvData(rv)->d.allele[0]) == 1){ // insertion
-        for(int i = 1; i < rvData(rv)->n_allele; i++){
-          int tmpLength = strlen(rvData(rv)->d.allele[i]);
-          if(tmpLength > retVal) retVal = tmpLength;
+      if (strlen(rvData(rv)->d.allele[0]) == 1) {  // insertion
+        for (int i = 1; i < rvData(rv)->n_allele; i++) {
+          int tmpLength = strlen(rvData(rv)->d.allele[i]) - 1;
+          if (tmpLength > retVal) retVal = tmpLength;
         }
-      }else{  // deletion
-        retVal = 1; // only keep the 1-base-long ALT field
+      } else {       // deletion
+        retVal = 1;  // only keep the 1-base-long ALT field
       }
       break;
     }
     default: {  // ignore
+      retVal = 0;
     }
   }
   return retVal;
@@ -88,6 +89,16 @@ void destroy_GenomeVcf(GenomeVcf *gv) {
   free(gv);
 }
 
+ChromVcfIterator *init_ChromVcfIterator(ChromVcf *cv){
+  ChromVcfIterator *cvIt = (ChromVcfIterator*)malloc(sizeof(ChromVcfIterator));
+  cvIt->cv = cv;
+  cvIt->tmpRv = NULL;
+}
+
+void destroy_ChromVcfIterator(ChromVcfIterator *cvIt){
+  free(cvIt);
+}
+
 GenomeVcfIterator *init_GenomeVcfIterator(GenomeVcf *gv) {
   GenomeVcfIterator *gvIt =
       (GenomeVcfIterator *)malloc(sizeof(GenomeVcfIterator));
@@ -96,6 +107,20 @@ GenomeVcfIterator *init_GenomeVcfIterator(GenomeVcf *gv) {
   gvIt->tmpRv = NULL;
   return gvIt;
 }
+
+RecVcf *cvItNextRec(ChromVcfIterator *cvIt){
+  if(cvIt->cv == NULL){
+    return NULL;
+  }
+  if(cvIt->tmpRv != NULL){
+    cvIt->tmpRv = cvIt->tmpRv->next;
+  } else{
+    cvIt->tmpRv = cvIt->cv->rvs;
+    cvIt->tmpRv = cvIt->tmpRv->next;
+  }
+  return cvIt->tmpRv;
+}
+
 
 void destroy_GenomeVcfIterator(GenomeVcfIterator *gvIt) { free(gvIt); }
 
@@ -178,7 +203,7 @@ void addRecToChromVcf(RecVcf *rv, ChromVcf *cv) {
   cv->recCnt++;
 }
 
-ChromVcf *getChromFromGenomeVcf(const char *chromName, GenomeVcf *gv) {
+ChromVcf *getChromFromGenomeVcfbyName(const char *chromName, GenomeVcf *gv) {
   ChromVcf *tmpCv = gv->cvs;
   while (tmpCv != NULL) {
     if (strcmp(tmpCv->name, chromName) == 0) {
@@ -191,25 +216,7 @@ ChromVcf *getChromFromGenomeVcf(const char *chromName, GenomeVcf *gv) {
   return NULL;
 }
 
-RecVcf *getRecAfterPosFromChromVcf(uint64_t pos, ChromVcf *cv){
-  RecVcf *tmpRv = cv->rvs->next;
-  RecVcf *lastRv = NULL;
-  while(tmpRv != NULL){
-    if(rvDataPos(tmpRv) >= pos){
-      return lastRv;
-    }
-    lastRv = tmpRv;
-    tmpRv = tmpRv->next;
-  }
-  return lastRv;
-}
-
-RecVcf *getRecBeforePosFromChromVcf(uint64_t pos, ChromVcf *cv){
-  // TODO
-  return NULL;
-}
-
-RecVcf *getRecFromChromVcf(uint32_t idx, ChromVcf *cv) {
+RecVcf *getRecFromChromVcfbyIdx(uint32_t idx, ChromVcf *cv) {
   // TODO not tested
   RecVcf *tmpRv = cv->rvs->next;  // pass the header rv
   if (idx >= cv->recCnt) {
@@ -225,10 +232,6 @@ RecVcf *getRecFromChromVcf(uint32_t idx, ChromVcf *cv) {
       tmpIdx++;
     }
   }
-}
-
-char *getRecVcf_chNam(RecVcf *rv, GenomeVcf *gv) {
-  return strdup(bcf_seqname_safe(gv->hdr, rv->rec));
 }
 
 void loadGenomeVcfFromFile(GenomeVcf *gv, char *filePath) {
@@ -259,14 +262,15 @@ void loadGenomeVcfFromFile(GenomeVcf *gv, char *filePath) {
 
     RecVcf *newRv = init_RecVcf();
     newRv->rec = tmpRec;
-    char *rvChNam = getRecVcf_chNam(newRv, gv);
+    // This rvChNam should not be freed. It will be assigned to a cv later.
+    char *rvChNam = rvDataChromName(newRv, gv);
     if (lastUsedChrom != NULL &&
         strcmp(rvChNam, lastUsedChrom->name) ==
             0) {  // if the new record points to the same chrom as the last one
       addRecToChromVcf(newRv, lastUsedChrom);
     } else {
       // if the new record points to another chrom
-      lastUsedChrom = getChromFromGenomeVcf(rvChNam, gv);
+      lastUsedChrom = getChromFromGenomeVcfbyName(rvChNam, gv);
       if (lastUsedChrom == NULL) {
         // if there is no such chrom as the new record points to
         ChromVcf *newCv = init_ChromVcf();

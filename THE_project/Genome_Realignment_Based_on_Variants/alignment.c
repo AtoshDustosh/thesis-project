@@ -53,16 +53,16 @@ static void _align_ksw2(const char *tseq, const char *qseq, int sc_mch,
 AlignResult *align(const char *tseq, const char *qseq) {
   AlignResult *ar = init_AlignResult();
   _align_ksw2(tseq, qseq, 1, -2, 2, 1, ar);
+  // printf("ref seq: %s\n", tseq);
+  // printf("readseq: %s\n", qseq);
+  // printf("cigar: %s, score: %" PRIu8 "\n", ar->cigar, ar->score);
   return ar;
 }
 
 static int _test_ksw2Alignment() {
   AlignResult *ar = align(
-      "CGAAACTGGGCTACTCCATGACCAGGGGCAAAATAGGCTTTTAGCCGCTGCGTTCTGGGAGCTCCTCCCCCT"
-      "TCTGGGAGCTCCTCCCCCTCCCCAGAAGGCCAAGGGATGTGGGGGCTGGGGGACTGGGAGGCCTGGCAGTCT"
-      "T",
-      "CGAAACTGGGCTACTCCATGACCAGGGGCAAAATAGGCTTTTAGCCGCTGCGTTCTGGGAGCTCCTCCCCCT"
-      "CCCCAGAAGGCCAAGGGATGTTGGGG");
+      "AAAAAAAACCCCCCTATACCCCAGCAAGACCAGACATCCCCCCCCCATAGACACCCCCACGTACGTA",
+      "AAAACCCCCCTATACCCCAGCAAGACCAGACATCCCCCCCCCATAGACACCCCCACGTA");
   destroy_AlignResult(ar);
   return 1;
 }

@@ -23,7 +23,7 @@ void selectBadReads(Options *opts);
 /**
  * @brief  Integrate variants in *.vcf files into alignment records of reads in
  * *.sam files. Do realignment during the integration and modify the cigars and
- * mapqs of them.
+ * mapqs of them. And output the integrated results into the designated outpt file. 
  */
 void integrateVcfToSam(Options *opts);
 

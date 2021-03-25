@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include <cstdlib>  // this doesn't affect the compiler
+#include <stdlib.h>
 
 #include "edlib.h"
 
@@ -10,7 +10,7 @@ void test1() {
   EdlibAlignResult result =
       edlibAlign(query, 7, target, 9, edlibDefaultAlignConfig());
   if (result.status == EDLIB_STATUS_OK) {
-    printf("%d", result.editDistance);
+    printf("%d\n", result.editDistance);
   }
   edlibFreeAlignResult(result);
 }

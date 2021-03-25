@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "auxiliaryMethods.h"
 #include "genomeFa.h"
 #include "genomeSam.h"
 #include "genomeVcf.h"
@@ -78,6 +79,8 @@ static void Usage() {
 
 static void _testSet_full() {
   // TODO debug session ...
+  _testSet_auxiliaryMethods();
+  printf("... auxiliary methods test passed. \n");
   _testSet_genomeFa();
   printf("... genomeFa test passed. \n");
   _testSet_genomeSam();

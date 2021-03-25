@@ -6,13 +6,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "debug.h"
 #include "ksw2.h"
 
 typedef struct _define_AlignResult {
   char *cigar;
-  int score;
+  uint8_t score;
 } AlignResult;
 
 /**

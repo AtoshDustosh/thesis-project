@@ -10,13 +10,13 @@
 ##FILTER=<ID=LowQual,Description="Low quality">
 ##INFO=<ID=TRAILING,Number=.,Type=Integer,Description="This line contains trailing spaces for testing purposes">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
-chr1	7	PTV001	AAAC	A	29	PASS	.
-chr1	50	PTV002	C	CTTT	77	PASS	.
-chr1	76	PTV003	ACGT	A	81	PASS	.
-chr1	76	.	ACGT	.	77	PASS	.
-chr1	146	PTV097	A	C	99	PASS	.
+chr1	5	PTV001	A	ACCC	60	PASS	.
+chr1	25	PTV003	C	G	81	PASS	.
+chr1	46	PTV002	CCC	C	77	PASS	.
+chr1	86	PTV097	C	CCC	99	PASS	.
+chr1	136	.	ACGT	.	77	PASS	.
 chr2	50	PTV007	G	T	35	PASS	.
-chr2	100	PTV021	G	.	77	PASS	.
+chr2	106	PTV021	GGGG	G	77	PASS	.
 chr3	7	PTV005	G	T	31	PASS	.
-chr3	50	PTV006	T	C,A	32	PASS	.
-chr4	100	PTV056	A	ACC	68	PASS	.
+chr3	103	PTV006	T	TCC,A	32	PASS	.
+chr4	105	PTV056	A	C	68	PASS	.

@@ -288,8 +288,39 @@ void loadGenomeSamFromFile(GenomeSam *gs, char *filePath) {
 }
 
 void writeGenomeSamIntoFile(GenomeSam *gs, char *filePath) {
-  // TODO
-  fprintf(stderr, "Warning: method writeGenomeVcfIntoFile not implemented. \n");
+  htsFile *fp = hts_open(filePath, "w");
+  if (fp == NULL) {
+    fprintf(stderr, "Error: failed to open file %s\n", filePath);
+    exit(EXIT_FAILURE);
+  }
+  GenomeSamIterator *gsIt = init_GenomeSamIterator(gs);
+  ChromSam *tmpCs = gsItNextChrom(gsIt);
+  RecSam *tmpRs = gsItNextRec(gsIt);
+
+  // write file headers and macros
+  if(sam_hdr_write(fp, gsDataHdr(gs)) < 0){
+    fprintf(stderr, "Error: failed to write sam file header. \n");
+    exit(EXIT_FAILURE);
+  }
+
+  // write sam records
+  while (tmpRs != NULL) {
+    // printSamRecord_brief(gs, tmpRs->rec);
+    bam1_t *rec = rsData(tmpRs);
+    if (sam_write1(fp, gsDataHdr(gs), rec) < 0) {
+      fprintf(stderr, "Error: failed to write sam record.\n");
+      exit(EXIT_FAILURE);
+    }
+
+    tmpRs = gsItNextRec(gsIt);
+    if (tmpRs == NULL) {
+      tmpCs = gsItNextChrom(gsIt);
+      tmpRs = gsItNextRec(gsIt);
+    }
+  }
+
+  destroy_GenomeSamIterator(gsIt);
+  hts_close(fp);
 }
 
 /****************************************************************/
@@ -328,7 +359,22 @@ static int _test_LoadingAndIterator() {
   return 1;
 }
 
-void _testSet_genomeSam() { assert(_test_LoadingAndIterator()); }
+static int _test_WritingAndIterator() {
+  char *outputFilePath = "data/exampleOut.sam";
+  GenomeSam *gs = init_GenomeSam();
+
+  loadGenomeSamFromFile(gs, "data/example.sam");
+
+  writeGenomeSamIntoFile(gs, outputFilePath);
+
+  destroy_GenomeSam(gs);
+  return 1;
+}
+
+void _testSet_genomeSam() {
+  assert(_test_LoadingAndIterator());
+  assert(_test_WritingAndIterator());
+}
 
 void printSamHeader(bam_hdr_t *header) {
   printf("number of reference sequences: %d\n", header->n_targets);
