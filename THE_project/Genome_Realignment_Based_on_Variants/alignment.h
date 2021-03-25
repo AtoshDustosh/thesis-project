@@ -26,7 +26,7 @@ static inline AlignResult *init_AlignResult() {
 
 static inline void destroy_AlignResult(AlignResult *ar) { free(ar); }
 
-AlignResult *align(const char *tseq, const char *qseq);
+void align(const char *tseq, const char *qseq, AlignResult *ar);
 
 void _testSet_alignment();
 

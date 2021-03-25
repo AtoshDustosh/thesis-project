@@ -8,6 +8,7 @@
 #include <htslib/vcf.h>
 #include <inttypes.h>
 
+#include "auxiliaryMethods.h"
 #include "alignment.h"
 #include "genomeFa.h"
 #include "genomeSam.h"

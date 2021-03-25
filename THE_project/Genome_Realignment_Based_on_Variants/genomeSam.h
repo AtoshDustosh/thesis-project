@@ -62,6 +62,10 @@ static inline uint32_t rsDataSeqLength(RecSam *rs) {
   return rs->rec->core.l_qseq;
 }
 
+static inline uint8_t rsDataMapQ(RecSam *rs){
+  return rs->rec->core.qual;
+}
+
 /**
  * @brief  Get the base sequence of the sam record. Note that the successfully
  * returned value must be freed later manually.

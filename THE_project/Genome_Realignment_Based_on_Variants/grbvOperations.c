@@ -1,24 +1,77 @@
 #include "grbvOperations.h"
 
 // TODO Static methods for integration. Consider encapsulating ...
-
 /**
- * @brief Judge whether a variant should be integrated or not.
+ * @brief Judge whether a variant could be integrated or not.
  *
  * @param rv variant
  * @param startPos 1-based position of the start point of refSeq
  * @param endPos 1-based position of the end point of refSeq
- * @return int 1 if the variant should be integrated; 0 otherwise.
+ * @return int 1 if the variant could be integrated; 0 otherwise.
  */
-static inline int ifShouldIntegrateVar(RecVcf *rv, int64_t startPos,
-                                       int64_t endPos) {
-  // TODO
+static inline int ifCanIntegrateVar(RecVcf *rv, int64_t startPos,
+                                    int64_t endPos) {
+  // this is based on the assumption that varEndPos > varStartPos
   int64_t varStartPos = rvDataPos(rv);
-  int64_t varEndPos = varStartPos + rvDataMaxVarLength(rv);
-  if (varStartPos < endPos && varEndPos > startPos)
+  int64_t varEndPos = varStartPos + rvDataMaxVarLength(rv) - 1;
+  if (varStartPos <= endPos && varEndPos >= startPos)
     return 1;
   else
     return 0;
+}
+
+/**
+ * @brief Check whether or not to integrate an SNP.
+ *
+ * @param varPos 1-based variant position
+ * @param refStartPos 1-based position of the start point of refSeq
+ * @param refEndPos 1-based position of the end point of refSeq
+ */
+static inline int ifShouldIntegrateSNP(int64_t varPos, int64_t refStartPos,
+                                       int64_t refEndPos) {
+  if (varPos >= refStartPos && varPos <= refEndPos) {
+    /*
+     * ref: ------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx---------
+     * del: -----------------------------------S----------------------------
+     */
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+static inline int ifShouldIntegrateINS(int64_t varPos, int64_t refStartPos,
+                                       int64_t refEndPos) {
+  if (varPos >= refStartPos && varPos <= refEndPos) {
+    /*
+     * ref: ------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx---------
+     * del: -----------------------------------IIIIIIIII--------------------
+     */
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+static inline int ifShouldIntegrateDEL(int64_t varStartPos, int64_t varEndPos,
+                                       int64_t refStartPos, int64_t refEndPos) {
+  // this is based on the assumption that varEndPos > varStartPos
+  if (varEndPos >= refStartPos && varStartPos <= refEndPos) {
+    /*
+     * ref: ------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx---------
+     * del: -----------------------------------DDDDDDDDD--------------------
+     * del: ---------------------------------------------------DDDDDDDD-----
+     * del: ---------DDDDDDD------------------------------------------------
+     */
+    return 1;
+  } else {
+    /*
+     * ref: ------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx---------
+     * del: ---DDDDDDD------------------------------------------------------
+     * del: ---------------------------------------------------------DDDD---
+     */
+    return 0;
+  }
 }
 
 /**
@@ -36,7 +89,7 @@ static inline RecVcf *findFirstVarToIntegrate(ChromVcf *cv, int64_t startPos,
   ChromVcfIterator *cvIt = init_ChromVcfIterator(cv);
   RecVcf *rv = cvItNextRec(cvIt);
   while (rv != NULL) {
-    if (ifShouldIntegrateVar(rv, startPos, endPos)) {
+    if (ifCanIntegrateVar(rv, startPos, endPos)) {
       destroy_ChromVcfIterator(cvIt);
       return rv;
     }
@@ -65,27 +118,132 @@ static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
    * varPos - refStartPos = 2
    * idx in the refSeq = 2
    * modify refSeq[2] from "X" to "Y"
+   * ref: --------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-------
+   * read: -------------|---xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx------|-------
+   * refStartPos: ------#-----------------------------------------------|-------
+   * refEndPos: --------------------------------------------------------#-------
+   * example INS 1: --YYYY------------------------------------------------------
+   * varPos < refStartPos. Select the subtring of INS from (0-based)
+   * (refStartPos - varPos) to (varPos - 1) and insert the substring in front of
+   * the refSeq. ref:
+   * --------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-------
+   * read: -------------|---xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx------|-------
+   * refStartPos: ------#-----------------------------------------------|-------
+   * refEndPos: --------------------------------------------------------#-------
+   * example INS 2: -------------------------------------------------YYYYYYY----
+   * varPos + strlen(var) > refEndPos. Select the substring of INS from
+   * (0-based) (0) to (refEndPos - varPos + 1) and insert the substring after
+   * the base at varPos, whose idx in the refSeq is (varPos - refStartPos). ref:
+   * --------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-------
+   * read: -------------|---xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx------|-------
+   * refStartPos: ------#-----------------------------------------------|-------
+   * refEndPos: --------------------------------------------------------#-------
+   * example INS 3: ------------------YYYYYYYYY---------------------------------
+   * idx
    */
   assert(rv != NULL && refSeq != NULL);
   int generatedCnt = 0;
   int alleleCnt = rvData(rv)->n_allele;
-  if (alleleCnt == 1) { // this vcf record contains no ALT but only REF
+  if (alleleCnt == 1) {  // this vcf record contains no ALT but only REF
     return generatedCnt;
   } else {  // this vcf record contains ALT (variants)
-    // printf("integrated: ");
-    // printVcfRecord_brief(gv, rvData(rv));
-    static char newSeq[MAX_INFO_LENGTH];
+    printVcfRecord_brief(gv, rvData(rv));
     int64_t varPos = rvDataPos(rv);
     for (int i = 1; i < alleleCnt; i++) {
+      AlignResult *ar = init_AlignResult();
       switch (bcf_get_variant_type(rvData(rv), i)) {
         case VCF_SNP: {
-          // TODO
-          int varIdx = varPos - refStartPos;
-          char snp = rvData(rv)->d.allele[i][0];
-          break;
+          if (ifShouldIntegrateSNP(varPos, refStartPos, refEndPos) ==
+              0) {  // check SNP
+            break;
+          } else {
+            int varIdx = varPos - refStartPos;
+            char snp = rvData(rv)->d.allele[i][0];
+            char *newSeq = strdup(refSeq);
+            newSeq[varIdx] = snp;
+            // ---------------------printing------------------------
+            printf("old ref: %s\n", refSeq);
+            align(newSeq, readSeq, ar);
+            printf("new ref: %s\n", newSeq);
+            printf("od score: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
+            for (int i = 0; i < rsData(rs)->core.n_cigar; i++) {
+              uint32_t cigarOpt = bam_get_cigar(rsData(rs))[i];
+              uint32_t oplen = bam_cigar_oplen(cigarOpt);
+              char opchar = bam_cigar_opchr(cigarOpt);
+              printf("%" PRId32 "%c", oplen, opchar);
+            }
+            printf(", score: %" PRIu8 ", cigar: %s\n", ar->score, ar->cigar);
+            // ---------------------free-----------------------------
+            free(newSeq);
+            generatedCnt++;
+            break;
+          }
         }
         case VCF_INDEL: {
-          // TODO
+          if (strlen(rvData(rv)->d.allele[0]) == 1) {  // this is an insertion
+            if (ifShouldIntegrateINS(varPos, refStartPos, refEndPos) == 0) {
+              break;  // check INS
+            } else {
+              int varIdx = varPos - refStartPos;
+              char *inserted = rvData(rv)->d.allele[i];
+              inserted++;  // pass the first base (the REF field)
+              char *newSeq = insertStr(refSeq, inserted, varIdx);
+              // ---------------------printing------------------------
+              printf("old ref: %s\n", refSeq);
+              printf("new ref: %s\n", newSeq);
+              printf("od score: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
+              for (int i = 0; i < rsData(rs)->core.n_cigar; i++) {
+                uint32_t cigarOpt = bam_get_cigar(rsData(rs))[i];
+                uint32_t oplen = bam_cigar_oplen(cigarOpt);
+                char opchar = bam_cigar_opchr(cigarOpt);
+                printf("%" PRId32 "%c", oplen, opchar);
+              }
+              align(newSeq, readSeq, ar);
+              printf(", score: %" PRIu8 ", cigar: %s\n", ar->score, ar->cigar);
+              // ---------------------free-----------------------------
+              free(newSeq);
+              generatedCnt++;
+            }
+          } else {  // this is a deletion
+            int64_t varEndPos = varPos + rvDataMaxVarLength(rv) - 1;
+            if (ifShouldIntegrateDEL(varPos, varEndPos, refStartPos,
+                                     refEndPos) == 0) {
+              break;  // check DEL
+            } else {
+              char *deleted = rvData(rv)->d.allele[0];
+              deleted++;
+              uint32_t lengthDeleted = strlen(deleted);
+              char *newSeq =
+                  (char *)calloc(strlen(refSeq) - lengthDeleted, sizeof(char));
+              // *Idx is the 0-based index in the refSeq for bases
+              int varStartIdx =
+                  varPos - refStartPos + 1;  // "+1": ignore the REF
+              if (varStartIdx < 0) varStartIdx = 0;
+              int varEndIdx = varPos + lengthDeleted - refStartPos;
+              if (varEndPos > refEndPos) varEndIdx = strlen(refSeq) - 1;
+              for(int i = 0; i < varStartIdx ;i++){
+                newSeq[i] = refSeq[i];
+              }
+              for(int i = varEndIdx; i < strlen(refSeq); i++){
+                newSeq[i - lengthDeleted] = refSeq[i];
+              }
+              // ---------------------printing------------------------
+              printf("old ref: %s\n", refSeq);
+              printf("new ref: %s\n", newSeq);
+              printf("od score: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
+              for (int i = 0; i < rsData(rs)->core.n_cigar; i++) {
+                uint32_t cigarOpt = bam_get_cigar(rsData(rs))[i];
+                uint32_t oplen = bam_cigar_oplen(cigarOpt);
+                char opchar = bam_cigar_opchr(cigarOpt);
+                printf("%" PRId32 "%c", oplen, opchar);
+              }
+              align(newSeq, readSeq, ar);
+              printf(", score: %" PRIu8 ", cigar: %s\n", ar->score, ar->cigar);
+              // ---------------------free-----------------------------
+              free(newSeq);
+              generatedCnt++;
+            }
+          }
           break;
         }
         default: {
@@ -93,6 +251,7 @@ static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
                   "Warning: integration for variant type not supported. \n");
         }
       }
+      destroy_AlignResult(ar);
     }
   }
   return generatedCnt;
@@ -209,9 +368,8 @@ void integrateVcfToSam(Options *opts) {
     printf("readQName: %s, readStartPos: %" PRIu64 ", readLen: %" PRIu32
            ", readRname: %s\n",
            readQname, readStartPos, readLength, readRname);
-    printf("readSeq: %s\n", readSeq);
-    printf("refSeq:  %s\n", refSeq);
-    printf("\n");
+    printf("refStartPos: %" PRId64 ", refEndPos: %" PRId64 "\n", refStartPos,
+           refEndPos);
 
     // -------------- locate the valid variants --------------
     // get the ChromVcf
@@ -236,7 +394,7 @@ void integrateVcfToSam(Options *opts) {
     // integrated
     tmpRv = findFirstVarToIntegrate(tmpCv, refStartPos, refEndPos);
     while (tmpRv != NULL &&
-           ifShouldIntegrateVar(tmpRv, refStartPos, refEndPos)) {
+           ifCanIntegrateVar(tmpRv, refStartPos, refEndPos) == 1) {
       if (integrateVarAndRealign(tmpRv, tmpRs, refSeq, readSeq, refStartPos,
                                  refEndPos, gv) < 0) {
         fprintf(stderr, "Warning: integration failed for this record.\n");
@@ -246,6 +404,7 @@ void integrateVcfToSam(Options *opts) {
       }
       tmpRv = tmpRv->next;
     }
+    printf("\n");
 
     // -------------------------- split line -------------------
     free(readSeq);

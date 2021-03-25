@@ -1,13 +1,15 @@
 #include "auxiliaryMethods.h"
 
-char *insertStr(char *original, char *inserted, int insertPos) {
+char *insertStr(const char *original, const char *inserted,
+                const int insertPos) {
   int lengthOriginal = strlen(original);
   int lengthInserted = strlen(inserted);
-  
-  if(insertPos < 0 || insertPos > lengthOriginal){ // invalid argument "insertPos"
+
+  if (insertPos < 0 ||
+      insertPos > lengthOriginal) {  // invalid argument "insertPos"
     return NULL;
   }
-  
+
   // note that the "+1" is for the "\0" at the end of the string
   int lengthNewStr = lengthOriginal + lengthInserted;
   char *newStr = (char *)calloc(lengthNewStr + 1, sizeof(char));
@@ -16,17 +18,16 @@ char *insertStr(char *original, char *inserted, int insertPos) {
     exit(EXIT_FAILURE);
   }
 
-  int flagInserted = 0; // mark whether the insertion has been finished
-  int idxOriginal = 0;
-  int idxInserted = 0;
-  for(int i = 0; i < lengthNewStr; i++){
-    if(flagInserted == 0){
-      // TODO
-    }else{
-      newStr[i] = original[idxOriginal++];
-    }
+  for (int i = 0; i < insertPos; i++) {
+    newStr[i] = original[i];
   }
-  
+  for (int i = 0; i < lengthInserted; i++) {
+    newStr[i + insertPos] = inserted[i];
+  }
+  for (int i = 0; i < lengthOriginal - insertPos; i++) {
+    newStr[insertPos + lengthInserted + i] = original[insertPos + i];
+  }
+  newStr[lengthInserted + lengthOriginal] = '\0';
 
   return newStr;
 }
@@ -53,8 +54,10 @@ static int _test_insertStr() {
     if (tmpStr == NULL) {
       assert(newStr[i] == NULL);
     } else {
-      assert(strcmp(tmpStr, newStr) == 0);
+      assert(strcmp(tmpStr, newStr[i]) == 0);
     }
+    // printf("original: %s, inserted: %s\n", originals[i], inserted[i]);
+    // printf("newStr: %s\n", tmpStr);
     free(tmpStr);
   }
   return 1;
