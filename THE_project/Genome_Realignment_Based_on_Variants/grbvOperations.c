@@ -109,38 +109,6 @@ static inline RecVcf *findFirstVarToIntegrate(ChromVcf *cv, int64_t startPos,
 static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
                                          char *readSeq, int64_t refStartPos,
                                          int64_t refEndPos, GenomeVcf *gv) {
-  /*
-   * ref: --------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-------
-   * read: -------------|-|-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx------|-------
-   * refStartPos: ------#-|---------------------------------------------|-------
-   * refEndPos: ----------|---------------------------------------------#-------
-   * example SNP: --------Y-----------------------------------------------------
-   * varPos - refStartPos = 2
-   * idx in the refSeq = 2
-   * modify refSeq[2] from "X" to "Y"
-   * ref: --------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-------
-   * read: -------------|---xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx------|-------
-   * refStartPos: ------#-----------------------------------------------|-------
-   * refEndPos: --------------------------------------------------------#-------
-   * example INS 1: --YYYY------------------------------------------------------
-   * varPos < refStartPos. Select the subtring of INS from (0-based)
-   * (refStartPos - varPos) to (varPos - 1) and insert the substring in front of
-   * the refSeq. ref:
-   * --------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-------
-   * read: -------------|---xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx------|-------
-   * refStartPos: ------#-----------------------------------------------|-------
-   * refEndPos: --------------------------------------------------------#-------
-   * example INS 2: -------------------------------------------------YYYYYYY----
-   * varPos + strlen(var) > refEndPos. Select the substring of INS from
-   * (0-based) (0) to (refEndPos - varPos + 1) and insert the substring after
-   * the base at varPos, whose idx in the refSeq is (varPos - refStartPos). ref:
-   * --------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-------
-   * read: -------------|---xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx------|-------
-   * refStartPos: ------#-----------------------------------------------|-------
-   * refEndPos: --------------------------------------------------------#-------
-   * example INS 3: ------------------YYYYYYYYY---------------------------------
-   * idx
-   */
   assert(rv != NULL && refSeq != NULL);
   int generatedCnt = 0;
   int alleleCnt = rvData(rv)->n_allele;

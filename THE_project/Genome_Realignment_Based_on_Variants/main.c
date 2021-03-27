@@ -96,7 +96,7 @@ static void _testSet_full() {
 }
 
 int main(int argc, char *argv[]) {
-  _testSet_full();
+  assert(_testSet_full());
 
   Options options;
 
