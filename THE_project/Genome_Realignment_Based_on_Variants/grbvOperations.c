@@ -299,7 +299,7 @@ void integrateVcfToSam(Options *opts) {
   // printGenomeSam(gs);
   // printGenomeVcf(gv);
 
-  // TODO iterate sam and vcf at the same time.
+  // iterate sam and vcf at the same time.
   GenomeSamIterator *gsIt = init_GenomeSamIterator(gs);
   ChromSam *tmpCs = gsItNextChrom(gsIt);
   RecSam *tmpRs = gsItNextRec(gsIt);
@@ -377,6 +377,7 @@ void integrateVcfToSam(Options *opts) {
     // -------------------------- split line -------------------
     free(readSeq);
     free(refSeq);
+
     // the following codes are the core of sam-records-iteration
     tmpRs = gsItNextRec(gsIt);
     if (tmpRs == NULL) {
@@ -387,6 +388,77 @@ void integrateVcfToSam(Options *opts) {
 
   destroy_GenomeSamIterator(gsIt);
   destroy_GenomeVcfIterator(gvIt);
+
+  destroy_GenomeFa(gf);
+  destroy_GenomeSam(gs);
+  destroy_GenomeVcf(gv);
+}
+
+typedef struct _define_RecVcfIntegrated{
+  RecVcf *rv;
+  int *integratedId;
+}RecVcfIntegrated;
+
+void integrateVcfToSam_refactored(Options *opts){
+  if (opts->samFile == NULL || opts->vcfFile == NULL) {
+    fprintf(
+        stderr,
+        "Error: arguments not complete for variants integration. \n");
+    exit(EXIT_FAILURE);
+  }
+  if(opts->outputFile == NULL){
+    opts->outputFile = "data/defaultOutput.txt";
+  }
+
+  GenomeFa *gf = init_GenomeFa();
+  GenomeSam *gs = init_GenomeSam();
+  GenomeVcf *gv = init_GenomeVcf();
+
+  loadGenomeFaFromFile(gf, opts->faFile);
+  loadGenomeSamFromFile(gs, opts->samFile);
+  loadGenomeVcfFromFile(gv, opts->vcfFile);
+
+  // Iterate all sam records and locate their corresponding variants.
+  GenomeSamIterator *gsIt = init_GenomeSamIterator(gs);
+  ChromSam *tmpCs = gsItNextChrom(gsIt);
+  RecSam *tmpRs = gsItNextRec(gsIt);
+
+  GenomeVcfIterator *gvIt = init_GenomeVcfIterator(gv);
+  ChromVcf *tmpCv = NULL;
+  RecVcf *tmpRv = NULL;
+  
+  const uint8_t ecLen = 5;  // error control length
+  while(tmpRs != NULL){
+    // ------------- get information of temporary sam record ------------
+    const char *readRname = rsDataRname(gs, tmpRs);
+    const char *readQname = bam_get_qname(rsData(tmpRs));
+    int64_t readStartPos = rsDataPos(tmpRs);
+    uint32_t readLengh = rsDataSeqLength(tmpRs);
+    char *readSeq = rsDataSeq(tmpRs);
+
+    // --------------------- get the ref sequence -----------------------
+    ChromFa *tmpCf = getChromFromGenomeFabyName(readRname, gf);
+    int64_t refStartPos = readStartPos - ecLen;
+    int64_t refEndPos = readStartPos + readLength - 1 + ecLen;
+    if(refStartPos < 1) refStartPos = 1;
+    if (refEndPos > tmpCf->length) refEndPos = tmpCf->length;
+    char *refSeq = getSeqFromChromFa(refStartPos, refEndPos, tmpCf);
+
+    // ------------- get all variants within the sam record -------------
+    tmpCv = getChromFromGenomeVcfbyName(readRname, gv);
+    
+
+    // -------------- generate all permutaions of variants --------------
+
+    // --------------------- perform integration ------------------------
+    
+    // ----------------------- keep on iterating ------------------------
+    tmpRs = gsItNextRec(gsIt);
+    if(tmpRs == NULL){
+      tmpCs = gsItNextChrom(gsIt);
+      tmpRs = gsItNextRec(gsIt);
+    }
+  }
 
   destroy_GenomeFa(gf);
   destroy_GenomeSam(gs);

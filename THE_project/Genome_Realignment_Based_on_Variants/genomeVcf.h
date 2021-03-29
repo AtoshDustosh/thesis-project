@@ -33,7 +33,7 @@ typedef struct _define_ChromVcf {
   char *name;
   uint32_t recCnt;
   /**
-   * @brief A linked list with an empty header. 
+   * @brief A linked list with an empty header.
    */
   RecVcf *rvs;
   struct _define_ChromVcf *next;
@@ -44,7 +44,7 @@ typedef struct _define_GenomeVcf {
   uint32_t chromCnt;
   bcf_hdr_t *hdr;
   /**
-   * @brief A linked list (no header).  
+   * @brief A linked list (no header).
    */
   ChromVcf *cvs;
 } GenomeVcf;
@@ -92,6 +92,12 @@ static inline char *rvDataChromName(RecVcf *rv, GenomeVcf *gv) {
   return strdup(bcf_seqname_safe(gv->hdr, rv->rec));
 }
 
+/**
+ * @brief  Return the count of alleles the vcf record contains.
+ * @retval   Ref is also included as an allele, thus returned value >= 1
+ */
+static inline int rvDataAlleleCnt(RecVcf *rv) { return rv->rec->n_allele; }
+
 static inline char *cvName(ChromVcf *cv) { return cv->name; }
 
 static inline uint32_t cvRecCnt(ChromVcf *cv) { return cv->recCnt; }
@@ -125,8 +131,10 @@ GenomeVcfIterator *init_GenomeVcfIterator(GenomeVcf *gv);
 void destroy_GenomeVcfIterator(GenomeVcfIterator *gvIt);
 
 /**
- * @brief This iterator returns the next vcf record to be iterated. 
- * @return RecVcf* pointer to the next RecVcf object to be iterated. NULL if there is no records left in the chromosome or the iterator is not initialized with a non-NULL ChromVcf. 
+ * @brief This iterator returns the next vcf record to be iterated.
+ * @return RecVcf* pointer to the next RecVcf object to be iterated. NULL if
+ * there is no records left in the chromosome or the iterator is not initialized
+ * with a non-NULL ChromVcf.
  */
 RecVcf *cvItNextRec(ChromVcfIterator *cvIt);
 

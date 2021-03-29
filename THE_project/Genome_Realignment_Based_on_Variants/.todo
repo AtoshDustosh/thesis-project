@@ -13,4 +13,7 @@
 
 - TODOs:
   1. Refactor process of integration. 
-  2. 
+  2. Permutation of variants.
+
+problem:
+  1. permutation of variants. Difficult to implement the dynamic array for permutations.

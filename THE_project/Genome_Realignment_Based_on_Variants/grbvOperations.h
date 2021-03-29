@@ -8,8 +8,8 @@
 #include <htslib/vcf.h>
 #include <inttypes.h>
 
-#include "auxiliaryMethods.h"
 #include "alignment.h"
+#include "auxiliaryMethods.h"
 #include "genomeFa.h"
 #include "genomeSam.h"
 #include "genomeVcf.h"
@@ -24,8 +24,16 @@ void selectBadReads(Options *opts);
 /**
  * @brief  Integrate variants in *.vcf files into alignment records of reads in
  * *.sam files. Do realignment during the integration and modify the cigars and
- * mapqs of them. And output the integrated results into the designated outpt file. 
+ * mapqs of them. And output the integrated results into the designated outpt
+ * file.
  */
 void integrateVcfToSam(Options *opts);
+
+/**
+ * @brief  A refactored version of the method "integrateVcfToSam". The original
+ * implementation is TOO redundant and stupid, and the result is not exactly
+ * what we want.
+ */
+void integrateVcfToSam_refactored(Options *opts);
 
 #endif
