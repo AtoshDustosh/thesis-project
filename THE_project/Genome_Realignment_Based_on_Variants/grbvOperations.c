@@ -1,6 +1,153 @@
 #include "grbvOperations.h"
 
-// TODO Static methods for integration. Consider encapsulating ...
+// *************************************************************
+// *************************************************************
+// ********************** integration **************************
+// *************************************************************
+// *************************************************************
+
+typedef struct _define_RecVcfIntegrated {
+  RecVcf *rv;
+  int *integratedId;
+} RecVcfIntegrated;
+
+typedef struct _define_CombinationResults {
+  int **combis;  // compositions
+  int combiSize;
+  int combiCnt;
+} CombinationResults;
+
+static CombinationResults *combinationResults_init(int **combis, int combiSize,
+                                                   int combiCnt) {
+  CombinationResults *cr =
+      (CombinationResults *)malloc(sizeof(CombinationResults));
+  cr->combis = combis;
+  cr->combiSize = combiSize;
+  cr->combiCnt = combiCnt;
+  return cr;
+}
+
+static void combinationResults_destroy(CombinationResults *cr) {
+  if (cr == NULL) return;
+  if (cr->combiCnt == 0) {
+    free(cr);
+    return;
+  }
+  for (int i = 0; i < cr->combiCnt; i++) {
+    free(cr->combis[i]);
+  }
+  free(cr->combis);
+  free(cr);
+}
+
+/**
+ * @brief  A subfunction for the method "combinations".
+ */
+static int recurseCombinations(int array[], int arraySize, int combi[],
+                               int combiSize, int arrayIdx, int combiEleIdx,
+                               int ***combis, int *combiIdx) {
+  // combination with size 'combiSize' is selected
+  if (combiEleIdx == combiSize) {
+    if (*combis != NULL) {
+      (*combis)[*combiIdx] = (int *)malloc(sizeof(int) * combiSize);
+      for (int i = 0; i < combiSize; i++) {
+        // printf("%d ", combi[i]);
+        (*combis)[*combiIdx][i] = combi[i];
+      }
+      // printf("\n");
+      *combiIdx = *combiIdx + 1;
+    }
+    return 1;
+  }
+  int combisCnt = 0;
+  for (int i = arrayIdx; i < arraySize - (combiSize - combiEleIdx) + 1; i++) {
+    combi[combiEleIdx] = array[i];
+    combisCnt += recurseCombinations(array, arraySize, combi, combiSize, i + 1,
+                                     combiEleIdx + 1, combis, combiIdx);
+  }
+  return combisCnt;
+}
+
+/**
+ * @brief  Get all compositions of combiSize from array. This method does not
+ * handle duplicated elements in the input array.
+ */
+static CombinationResults *combinations(int array[], int arraySize,
+                                        int combiSize) {
+  int **combis = NULL;
+  int combiCnt = 0;
+
+  int combiIdx = 0;
+  int arrayIdx = 0;
+  int combiEleIdx = 0;
+  int *combi = (int *)calloc(combiSize, sizeof(int));
+  combiCnt = recurseCombinations(array, arraySize, combi, combiSize, arrayIdx,
+                                 combiEleIdx, &combis, &combiIdx);
+  // printf("count of combinations: %d\n", combiCnt);
+  combis = (int **)calloc(combiCnt, sizeof(int *));
+  combiCnt = recurseCombinations(array, arraySize, combi, combiSize, arrayIdx,
+                                 combiEleIdx, &combis, &combiIdx);
+
+  free(combi);
+  return combinationResults_init(combis, combiSize, combiCnt);
+}
+
+/**
+ * @brief  A subfunction for the method "rvCombinations".
+ */
+static int recurseRvCombinations(int *combi, int combiSize, RecVcf *rvs[],
+                                 int combiEleIdx, int *newCombi, int ***combis,
+                                 int *combiIdx) {
+  if (combiEleIdx == combiSize) {
+    if (*combis != NULL) {
+      (*combis)[*combiIdx] = (int *)malloc(sizeof(int) * combiSize);
+      for (int i = 0; i < combiSize; i++) {
+        // printf("%d ", newCombi[i]);
+        (*combis)[*combiIdx][i] = newCombi[i];
+      }
+      // printf("\n");
+      *combiIdx = *combiIdx + 1;
+    }
+    return 1;
+  }
+
+  int combiCnt = 0;
+  for (int i = 0; i < rvDataAlleleCnt(rvs[combi[combiEleIdx]]); i++) {
+    // TODO modify these codes. You may need to build another data structure to
+    // mark which variant in which RecVcf should be integrated in a combination.
+  }
+  for (int i = 0; i < rvs[combi[combiEleIdx]]->recCnt; i++) {
+    newCombi[combiEleIdx] = rvs[combi[combiEleIdx]]->recs[i];
+    combiCnt += recurseRvCombinations(combi, combiSize, rvs, combiEleIdx + 1,
+                                      newCombi, combis, combiIdx);
+  }
+
+  return combiCnt;
+}
+
+/**
+ * @brief  Permutate all elements and output all compositions into the data
+ * structure Composition Results. For elements with multiple records, only 1
+ * record within the same element can be selected.
+ */
+static CombinationResults *rvCombinations(int *combi, int combiSize,
+                                          RecVcf *rvs[]) {
+  int **combis = NULL;
+  int combiCnt = 0;
+
+  int combiEleIdx = 0;
+  int combiIdx = 0;
+  int *newCombi = (int *)calloc(combiSize, sizeof(int));
+  combiCnt = recurseRvCombinations(combi, combiSize, rvs, combiEleIdx, newCombi,
+                                   &combis, &combiIdx);
+  combis = (int **)calloc(combiCnt, sizeof(int *));
+  combiCnt = recurseRvCombinations(combi, combiSize, rvs, combiEleIdx, newCombi,
+                                   &combis, &combiIdx);
+
+  free(newCombi);
+  return combinationResults_init(combis, combiSize, combiCnt);
+}
+
 /**
  * @brief Judge whether a variant could be integrated or not.
  *
@@ -189,10 +336,10 @@ static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
               if (varStartIdx < 0) varStartIdx = 0;
               int varEndIdx = varPos + lengthDeleted - refStartPos;
               if (varEndPos > refEndPos) varEndIdx = strlen(refSeq) - 1;
-              for(int i = 0; i < varStartIdx ;i++){
+              for (int i = 0; i < varStartIdx; i++) {
                 newSeq[i] = refSeq[i];
               }
-              for(int i = varEndIdx; i < strlen(refSeq); i++){
+              for (int i = varEndIdx; i < strlen(refSeq); i++) {
                 newSeq[i - lengthDeleted] = refSeq[i];
               }
               // ---------------------printing------------------------
@@ -223,58 +370,6 @@ static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
     }
   }
   return generatedCnt;
-}
-
-void selectBadReads(Options *opts) {
-  if (getSamFile(opts) == NULL || getOutputFile(opts) == NULL) {
-    fprintf(stderr,
-            "Error: arguments not complete for \'selectBadReads\' option.\n");
-    exit(EXIT_FAILURE);
-  }
-  htsFile *samFile = hts_open(getSamFile(opts), "r");
-  htsFile *outputFile = hts_open(getOutputFile(opts), "w");
-
-  sam_hdr_t *samHeader = sam_hdr_read(samFile);
-  sam_hdr_t *outputHeader = sam_hdr_init();
-
-  bam1_t *record = bam_init1();
-
-  int initError = 0;
-  if (samHeader == NULL || outputHeader == NULL) {
-    fprintf(stderr, "Error: failed creating BAM header struct.\n");
-    initError = 1;
-  }
-  if (record == NULL) {
-    fprintf(stderr, "Error: out of memory allocating BAM struct.\n");
-    initError = 1;
-  }
-  if (initError) {
-    bam_destroy1(record);
-    sam_hdr_destroy(samHeader);
-    sam_hdr_destroy(outputHeader);
-    hts_close(outputFile);
-    hts_close(samFile);
-    exit(EXIT_FAILURE);
-  }
-
-  if (sam_hdr_write(outputFile, samHeader) < 0) exit(EXIT_FAILURE);
-  const int threshold = MAPQ_threshold(opts);
-  for (int ret = sam_read1(samFile, samHeader, record); ret >= 0;
-       ret = sam_read1(samFile, samHeader, record)) {
-    // I did not find any method or macros to access "qual", so I directly
-    // access using pointers and structures ...
-    uint8_t quality = record->core.qual;
-    if (quality < threshold)
-      if (sam_write1(outputFile, samHeader, record) < 0) exit(EXIT_FAILURE);
-  }
-
-  bam_destroy1(record);
-
-  sam_hdr_destroy(samHeader);
-  sam_hdr_destroy(outputHeader);
-
-  hts_close(outputFile);
-  hts_close(samFile);
 }
 
 void integrateVcfToSam(Options *opts) {
@@ -394,19 +489,13 @@ void integrateVcfToSam(Options *opts) {
   destroy_GenomeVcf(gv);
 }
 
-typedef struct _define_RecVcfIntegrated{
-  RecVcf *rv;
-  int *integratedId;
-}RecVcfIntegrated;
-
-void integrateVcfToSam_refactored(Options *opts){
+void integrateVcfToSam_refactored(Options *opts) {
   if (opts->samFile == NULL || opts->vcfFile == NULL) {
-    fprintf(
-        stderr,
-        "Error: arguments not complete for variants integration. \n");
+    fprintf(stderr,
+            "Error: arguments not complete for variants integration. \n");
     exit(EXIT_FAILURE);
   }
-  if(opts->outputFile == NULL){
+  if (opts->outputFile == NULL) {
     opts->outputFile = "data/defaultOutput.txt";
   }
 
@@ -426,35 +515,41 @@ void integrateVcfToSam_refactored(Options *opts){
   GenomeVcfIterator *gvIt = init_GenomeVcfIterator(gv);
   ChromVcf *tmpCv = NULL;
   RecVcf *tmpRv = NULL;
-  
+
   const uint8_t ecLen = 5;  // error control length
-  while(tmpRs != NULL){
+  while (tmpRs != NULL) {
     // ------------- get information of temporary sam record ------------
     const char *readRname = rsDataRname(gs, tmpRs);
     const char *readQname = bam_get_qname(rsData(tmpRs));
     int64_t readStartPos = rsDataPos(tmpRs);
-    uint32_t readLengh = rsDataSeqLength(tmpRs);
+    uint32_t readLength = rsDataSeqLength(tmpRs);
     char *readSeq = rsDataSeq(tmpRs);
 
     // --------------------- get the ref sequence -----------------------
     ChromFa *tmpCf = getChromFromGenomeFabyName(readRname, gf);
     int64_t refStartPos = readStartPos - ecLen;
     int64_t refEndPos = readStartPos + readLength - 1 + ecLen;
-    if(refStartPos < 1) refStartPos = 1;
+    if (refStartPos < 1) refStartPos = 1;
     if (refEndPos > tmpCf->length) refEndPos = tmpCf->length;
     char *refSeq = getSeqFromChromFa(refStartPos, refEndPos, tmpCf);
 
     // ------------- get all variants within the sam record -------------
     tmpCv = getChromFromGenomeVcfbyName(readRname, gv);
-    
+    RecVcf *firstRv = findFirstVarToIntegrate(tmpCv, refStartPos, refEndPos);
+    tmpRv = firstRv;
+    int integratedRvCnt = 0;
+    while (tmpRv != NULL &&
+           ifCanIntegrateVar(tmpRv, refStartPos, refEndPos) == 1) {
+      // TODO
+    }
 
     // -------------- generate all permutaions of variants --------------
 
     // --------------------- perform integration ------------------------
-    
+
     // ----------------------- keep on iterating ------------------------
     tmpRs = gsItNextRec(gsIt);
-    if(tmpRs == NULL){
+    if (tmpRs == NULL) {
       tmpCs = gsItNextChrom(gsIt);
       tmpRs = gsItNextRec(gsIt);
     }
@@ -463,4 +558,62 @@ void integrateVcfToSam_refactored(Options *opts){
   destroy_GenomeFa(gf);
   destroy_GenomeSam(gs);
   destroy_GenomeVcf(gv);
+}
+
+// *************************************************************
+// *************************************************************
+// ******************** other operatins ************************
+// *************************************************************
+// *************************************************************
+
+void selectBadReads(Options *opts) {
+  if (getSamFile(opts) == NULL || getOutputFile(opts) == NULL) {
+    fprintf(stderr,
+            "Error: arguments not complete for \'selectBadReads\' option.\n");
+    exit(EXIT_FAILURE);
+  }
+  htsFile *samFile = hts_open(getSamFile(opts), "r");
+  htsFile *outputFile = hts_open(getOutputFile(opts), "w");
+
+  sam_hdr_t *samHeader = sam_hdr_read(samFile);
+  sam_hdr_t *outputHeader = sam_hdr_init();
+
+  bam1_t *record = bam_init1();
+
+  int initError = 0;
+  if (samHeader == NULL || outputHeader == NULL) {
+    fprintf(stderr, "Error: failed creating BAM header struct.\n");
+    initError = 1;
+  }
+  if (record == NULL) {
+    fprintf(stderr, "Error: out of memory allocating BAM struct.\n");
+    initError = 1;
+  }
+  if (initError) {
+    bam_destroy1(record);
+    sam_hdr_destroy(samHeader);
+    sam_hdr_destroy(outputHeader);
+    hts_close(outputFile);
+    hts_close(samFile);
+    exit(EXIT_FAILURE);
+  }
+
+  if (sam_hdr_write(outputFile, samHeader) < 0) exit(EXIT_FAILURE);
+  const int threshold = MAPQ_threshold(opts);
+  for (int ret = sam_read1(samFile, samHeader, record); ret >= 0;
+       ret = sam_read1(samFile, samHeader, record)) {
+    // I did not find any method or macros to access "qual", so I directly
+    // access using pointers and structures ...
+    uint8_t quality = record->core.qual;
+    if (quality < threshold)
+      if (sam_write1(outputFile, samHeader, record) < 0) exit(EXIT_FAILURE);
+  }
+
+  bam_destroy1(record);
+
+  sam_hdr_destroy(samHeader);
+  sam_hdr_destroy(outputHeader);
+
+  hts_close(outputFile);
+  hts_close(samFile);
 }

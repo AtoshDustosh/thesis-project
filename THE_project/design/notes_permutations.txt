@@ -1,0 +1,96 @@
+// ---------------------------- permutations selection ---------------------------
+variants (sorted by POS of their vcf records)
+	1.1  2  3  4  5.1  6
+	1.2	          5.2
+	              5.3
+	
+	1.x(1<=x<=2), 2, 3, 4, 5.y(1<=y<=3), 6
+
+permutations:
+	permutate all of them but variants at the same position cannot be integrated at the same time (conflicts may occur)
+
+(C_x^y means the number of compositions for selecting y from x units)
+select 1 varaint:
+	result: C_6^1
+
+select 2 variants:
+	result: C_6^2
+
+select 3 variants:
+	result: C_6^3
+
+...
+
+if result contains 1.x or 5.y, 
+	for example, select 3 variants and one of the composition is 1.x, 4, 5.y
+	do further iteration:
+		for(int x = 1; x <= 2; x++)
+			for(int y = 1; y <= 3; y++)
+				...
+	the total number of compositions for this result is: x.max * y.max
+else,
+	for example, 2, 3, 4
+	the total number of compositions for this result is: 1 (only 2, 3, 4)
+
+But there is another problem, some variants may be extremely long and able to cover its proceeding variants, for example, select 3 variants and one of the composition is 1.x, 4, 5.y
+	while doing the further iteration, we may have such a composition: 1.1, 4. 5.2
+	But if 1.1 is a long deletion and covers 4 and 5.2, this result may become 1.1
+
+And thus bug occurs. So let's reconsider this question.
+
+variants (sorted by POS of their vcf records)
+	1.1- 2- 3- 4- 5.1- 6-
+	              5.2-
+	              5.3-----
+	1.2---------------
+
+Among the variants, 1.2 is a long deletion and affects other variants. So is 5.3.
+
+This time, we start selection from the longest variant and do the permutations.
+
+Permutations to do:
+	1.2, 6 (remove 1.2 after permutation)
+	1.1, 2, 3, 4, 5.3 (remove 5.3 after permutation)
+	1.1, 2, 3, 4, 5.x(1<=x<=2), 6
+
+As for the permutations and further iterations, do as we discussed earlier.
+
+// ---------------------------- permutations integration ---------------------------
+Use the example above,
+variants (sorted by POS of their vcf records)
+	1.1- 2- 3- 4- 5.1- 6-
+	              5.2-
+	              5.3-----
+	1.2---------------
+
+When performing integration, almost every non-SNP variant will affect the length of the original refSeq, and thus may affect other variants' integration.
+
+There 2 strategy for handling this:
+	1. directly modify the refSeq, but keep an offset for integrating the next variant.
+	When doing integration, integrate the variants into the refSeq with POS modified by offset.
+	2. save all variants' positions and go along the refSeq. Keep 2 index for refSeq. 1 for the original refSeq. 1 for the integrated refSeq. 
+
+We apply strategy 2 for this project. Maybe will implement strategy 1 in the future for performance tests.
+
+Unfortunately, C doesn't provide any API for dynamically increasing lists like java or other languages. So all operations here must be executed twice.
+
+The first time is for confirming the memory size. The second time is for procession.
+
+// ------------------------- implementation of permutations ------------------------
+We have implemented the simple and original permutation of an integer array. 
+
+And to apply it to the RecVcf and their integrations, some adjustments need to be done.
+
+1. variants that can be integrated will be filtered at first and put in an array "RecVcf rvs[]"
+
+2. some variants may be extremely long and covers other varaints. In such cases, we will add an extra step for extracting the compositions. But that is a little complicated and considering time, we just ignore them for now.
+
+3. after the procession above, we have a filtered array rvs[] to do permutation. It may look like the followings:
+	1.1  2  3  4  5.1  6
+	1.2	          5.2
+	              5.3
+At position 1 and 5, the RecVcfs contain multiple variants.
+  
+In such cases, we can directly do permutation to the whole array and get a sequence array like {..., [1.1, 2, 5.3], ...}.
+
+4. now we can perform the integration process without worrying about conflicts or leave out any combinations of variants.
