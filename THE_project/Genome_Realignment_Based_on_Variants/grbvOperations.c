@@ -6,28 +6,61 @@
 // *************************************************************
 // *************************************************************
 
-typedef struct _define_RecVcfIntegrated {
-  RecVcf *rv;
-  int *integratedId;
-} RecVcfIntegrated;
+/**
+ * @brief  An auxiliary data structure designed for pointint to alleles among an
+ * array of RecVcf from which the combinations of alleles are selected. Used
+ * with RecVcf[].
+ */
+typedef struct _define_PendingAlleles {
+  int rvIdx;
+  /**
+   * @brief  Although most vcf records only have one allele, just in case of the
+   * special ones, we use an array for the alleles' indexes in a vcf record.
+   */
+  int *alleleIdx;
+  int alleleCnt;
+} PendingAlleles;
 
-typedef struct _define_CombinationResults {
+/**
+ * @brief  An auxiliary data structure designed for pointing to the specific
+ * allele selected in a combination of alleles.
+ */
+typedef struct _define_SelectedAllele {
+  int rvIdx;
+  int alleleIdx;
+} SelectedAllele;
+
+/**
+ * @brief  An auxiliary data structure designed for storing combinations. This
+ * is mainly used for storing the indexes of another kind of data structure.
+ */
+typedef struct _define_Combinations {
   int **combis;  // compositions
   int combiSize;
   int combiCnt;
-} CombinationResults;
+} Combinations;
 
-static CombinationResults *combinationResults_init(int **combis, int combiSize,
-                                                   int combiCnt) {
-  CombinationResults *cr =
-      (CombinationResults *)malloc(sizeof(CombinationResults));
+/**
+ * @brief  An auxiliary data structure designed for storing combinations of
+ * SelectedAllele.
+ */
+typedef struct _define_CombinationAlleles {
+  // two-dimension array of SelectedAlleles*
+  SelectedAllele ***combis;
+  int combiSize;
+  int combiCnt;
+} CombinationAlleles;
+
+static Combinations *combinations_init(int **combis, int combiSize,
+                                       int combiCnt) {
+  Combinations *cr = (Combinations *)malloc(sizeof(Combinations));
   cr->combis = combis;
   cr->combiSize = combiSize;
   cr->combiCnt = combiCnt;
   return cr;
 }
 
-static void combinationResults_destroy(CombinationResults *cr) {
+static void combinations_destroy(Combinations *cr) {
   if (cr == NULL) return;
   if (cr->combiCnt == 0) {
     free(cr);
@@ -72,8 +105,7 @@ static int recurseCombinations(int array[], int arraySize, int combi[],
  * @brief  Get all compositions of combiSize from array. This method does not
  * handle duplicated elements in the input array.
  */
-static CombinationResults *combinations(int array[], int arraySize,
-                                        int combiSize) {
+static Combinations *combinations(int array[], int arraySize, int combiSize) {
   int **combis = NULL;
   int combiCnt = 0;
 
@@ -89,67 +121,18 @@ static CombinationResults *combinations(int array[], int arraySize,
                                  combiEleIdx, &combis, &combiIdx);
 
   free(combi);
-  return combinationResults_init(combis, combiSize, combiCnt);
+  return combinations_init(combis, combiSize, combiCnt);
 }
 
-/**
- * @brief  A subfunction for the method "rvCombinations".
- */
-static int recurseRvCombinations(int *combi, int combiSize, RecVcf *rvs[],
-                                 int combiEleIdx, int *newCombi, int ***combis,
-                                 int *combiIdx) {
-  if (combiEleIdx == combiSize) {
-    if (*combis != NULL) {
-      (*combis)[*combiIdx] = (int *)malloc(sizeof(int) * combiSize);
-      for (int i = 0; i < combiSize; i++) {
-        // printf("%d ", newCombi[i]);
-        (*combis)[*combiIdx][i] = newCombi[i];
-      }
-      // printf("\n");
-      *combiIdx = *combiIdx + 1;
-    }
-    return 1;
-  }
-
-  int combiCnt = 0;
-  for (int i = 0; i < rvDataAlleleCnt(rvs[combi[combiEleIdx]]); i++) {
-    // TODO modify these codes. You may need to build another data structure to
-    // mark which variant in which RecVcf should be integrated in a combination.
-  }
-  for (int i = 0; i < rvs[combi[combiEleIdx]]->recCnt; i++) {
-    newCombi[combiEleIdx] = rvs[combi[combiEleIdx]]->recs[i];
-    combiCnt += recurseRvCombinations(combi, combiSize, rvs, combiEleIdx + 1,
-                                      newCombi, combis, combiIdx);
-  }
-
-  return combiCnt;
-}
+// TODO --------------------------- split line ---------------------------
+// TODO --------------------------- split line ---------------------------
+// TODO --------------------------- split line ---------------------------
+// TODO --------------------------- split line ---------------------------
+// TODO --------------------------- split line ---------------------------
 
 /**
- * @brief  Permutate all elements and output all compositions into the data
- * structure Composition Results. For elements with multiple records, only 1
- * record within the same element can be selected.
- */
-static CombinationResults *rvCombinations(int *combi, int combiSize,
-                                          RecVcf *rvs[]) {
-  int **combis = NULL;
-  int combiCnt = 0;
-
-  int combiEleIdx = 0;
-  int combiIdx = 0;
-  int *newCombi = (int *)calloc(combiSize, sizeof(int));
-  combiCnt = recurseRvCombinations(combi, combiSize, rvs, combiEleIdx, newCombi,
-                                   &combis, &combiIdx);
-  combis = (int **)calloc(combiCnt, sizeof(int *));
-  combiCnt = recurseRvCombinations(combi, combiSize, rvs, combiEleIdx, newCombi,
-                                   &combis, &combiIdx);
-
-  free(newCombi);
-  return combinationResults_init(combis, combiSize, combiCnt);
-}
-
-/**
- * @brief Judge whether a variant could be integrated or not.
+ * @brief NOT RECOMMENDED. Use method "countIntegratedAllele > 0" instead. Judge
+ * whether a variant could be integrated or not.
  *
  * @param rv variant
  * @param startPos 1-based position of the start point of refSeq
@@ -160,11 +143,157 @@ static inline int ifCanIntegrateVar(RecVcf *rv, int64_t startPos,
                                     int64_t endPos) {
   // this is based on the assumption that varEndPos > varStartPos
   int64_t varStartPos = rvDataPos(rv);
-  int64_t varEndPos = varStartPos + rvDataMaxVarLength(rv) - 1;
-  if (varStartPos <= endPos && varEndPos >= startPos)
-    return 1;
-  else
-    return 0;
+  // calculate the affected length
+  int64_t varAffectedLength = 0;
+  for (int i = 0; i < rvDataAlleleCnt(rv); i++) {
+    switch (bcf_get_variant_type(rvData(rv), i)) {
+      case VCF_REF: {
+        break;
+      }
+      case VCF_SNP: {
+        break;
+      }
+      case VCF_INDEL: {
+        const char *varRef = rvData(rv)->d.allele[0];
+        const char *varAlt = rvData(rv)->d.allele[i];
+        int refLength = strlen(varRef);
+        int altLength = strlen(varAlt);
+        if (refLength == 1) {  // INS
+          // insertion doesn't affect the following varaints
+        } else if (altLength == 1) {  // DEL
+          // deletioin may affect the following variants
+          if (varAffectedLength < refLength) varAffectedLength = refLength - 1;
+        } else {
+          // for those records like this, (REF, ALT) = (ACG, A,ACGTT)
+          // or like this, (REF, ALT) = (AG, CT)
+          if (varAffectedLength < refLength) varAffectedLength = refLength - 1;
+        }
+        break;
+      }
+      default: {
+        // TODO ignore other kinds of varaints
+      }
+    }
+  }
+  int64_t varEndPos = varStartPos + varAffectedLength;
+  return varStartPos <= endPos && varEndPos >= startPos;
+}
+
+/**
+ * @brief  This method is used to count the alleles that should be integrated
+ * within a region.
+ */
+static inline int countIntegratedAllele(RecVcf *rv, int64_t startPos,
+                                        int64_t endPos) {
+  // this is based on the assumption that varEndPos > varStartPos
+  int64_t varStartPos = rvDataPos(rv);
+  int integratedAlleleCnt = 0;
+  // calculate the affected length
+  for (int i = 0; i < rvDataAlleleCnt(rv); i++) {
+    switch (bcf_get_variant_type(rvData(rv), i)) {
+      case VCF_REF: {
+        break;
+      }
+      case VCF_SNP: {
+        if (varStartPos >= startPos && varStartPos <= endPos)
+          integratedAlleleCnt++;
+        break;
+      }
+      case VCF_INDEL: {
+        const char *varRef = rvData(rv)->d.allele[0];
+        const char *varAlt = rvData(rv)->d.allele[i];
+        int refLength = strlen(varRef);
+        int altLength = strlen(varAlt);
+        if (refLength == 1) {  // INS
+          // insertion doesn't affect the following varaints
+          if (varStartPos >= startPos && varStartPos <= endPos)
+            integratedAlleleCnt++;
+        } else if (altLength == 1) {  // DEL
+          // deletioin may affect the following variants
+          int64_t varEndPos = varStartPos + refLength - 1;
+          if (varEndPos >= startPos && varStartPos <= endPos)
+            integratedAlleleCnt++;
+        } else {
+          // for those records like this, (REF, ALT) = (ACG, A,ACGTT)
+          // or like this, (REF, ALT) = (AG, CT)
+          int64_t varEndPos = varStartPos + refLength - 1;
+          if (varEndPos >= startPos && varStartPos <= endPos)
+            integratedAlleleCnt++;
+        }
+        break;
+      }
+      default: {
+        // TODO ignore other kinds of varaints
+      }
+    }
+  }
+  return integratedAlleleCnt;
+}
+
+static inline int ifCanIntegrateAllele(RecVcf *rv, int alleleIdx, int startPos,
+                                       int endPos) {
+  // this is based on the assumption that varEndPos > varStartPos
+  int64_t varStartPos = rvDataPos(rv);
+  // calculate the affected length
+  int64_t varAffectedLength = 0;
+  switch (bcf_get_variant_type(rvData(rv), alleleIdx)) {
+    case VCF_REF: {
+      return 0;
+      break;
+    }
+    case VCF_SNP: {
+      break;
+    }
+    case VCF_INDEL: {
+      const char *varRef = rvData(rv)->d.allele[0];
+      const char *varAlt = rvData(rv)->d.allele[alleleIdx];
+      int refLength = strlen(varRef);
+      int altLength = strlen(varAlt);
+      if (refLength == 1) {  // INS
+        // insertion doesn't affect the following varaints
+      } else if (altLength == 1) {  // DEL
+        // deletioin may affect the following variants
+        if (varAffectedLength < refLength) varAffectedLength = refLength - 1;
+      } else {
+        // for those records like this, (REF, ALT) = (ACG, A,ACGTT)
+        // or like this, (REF, ALT) = (AG, CT)
+        if (varAffectedLength < refLength) varAffectedLength = refLength - 1;
+      }
+      break;
+    }
+    default: {
+      // TODO ignore other kinds of varaints
+    }
+  }
+  int64_t varEndPos = varStartPos + varAffectedLength;
+  return varStartPos <= endPos && varEndPos >= startPos;
+}
+
+/**
+ * @brief Find the first vcf record to be integrated.
+ * // TODO O(n) time complexity. Bad. Very bad.
+ *
+ * @param cv ChromVcf object
+ * @param startPos 1-based position of the start point of refSeq
+ * @param endPos 1-based position of the end point of refSeq
+ * @return RecVcf* the first vcf record to be integrated
+ */
+static inline RecVcf *findFirstVarThatCanBeIntegrated(ChromVcf *cv,
+                                                      int64_t startPos,
+                                                      int64_t endPos) {
+  assert(cv != NULL);
+  ChromVcfIterator *cvIt = init_ChromVcfIterator(cv);
+  RecVcf *rv = cvItNextRec(cvIt);
+  while (rv != NULL) {
+    if (ifCanIntegrateVar(rv, startPos, endPos)) {
+      destroy_ChromVcfIterator(cvIt);
+      return rv;
+    }
+    rv = cvItNextRec(cvIt);
+  }
+
+  destroy_ChromVcfIterator(cvIt);
+  return NULL;
 }
 
 /**
@@ -221,31 +350,6 @@ static inline int ifShouldIntegrateDEL(int64_t varStartPos, int64_t varEndPos,
   }
 }
 
-/**
- * @brief Find the first vcf record to be integrated.
- * // TODO O(n) time complexity. Bad. Very bad.
- *
- * @param cv ChromVcf object
- * @param startPos 1-based position of the start point of refSeq
- * @param endPos 1-based position of the end point of refSeq
- * @return RecVcf* the first vcf record to be integrated
- */
-static inline RecVcf *findFirstVarToIntegrate(ChromVcf *cv, int64_t startPos,
-                                              int64_t endPos) {
-  assert(cv != NULL);
-  ChromVcfIterator *cvIt = init_ChromVcfIterator(cv);
-  RecVcf *rv = cvItNextRec(cvIt);
-  while (rv != NULL) {
-    if (ifCanIntegrateVar(rv, startPos, endPos)) {
-      destroy_ChromVcfIterator(cvIt);
-      return rv;
-    }
-    rv = cvItNextRec(cvIt);
-  }
-
-  destroy_ChromVcfIterator(cvIt);
-  return NULL;
-}
 /**
  * @brief Integrate an allele into the reference genome if there exists common
  * region between the variant and reference genome, and then do the realignment.
@@ -455,7 +559,7 @@ void integrateVcfToSam(Options *opts) {
     // 1. find the first variant that should be integrated
     // 2. integrate the variant and check whether the next vaiant should be
     // integrated
-    tmpRv = findFirstVarToIntegrate(tmpCv, refStartPos, refEndPos);
+    tmpRv = findFirstVarThatCanBeIntegrated(tmpCv, refStartPos, refEndPos);
     while (tmpRv != NULL &&
            ifCanIntegrateVar(tmpRv, refStartPos, refEndPos) == 1) {
       if (integrateVarAndRealign(tmpRv, tmpRs, refSeq, readSeq, refStartPos,
@@ -489,6 +593,7 @@ void integrateVcfToSam(Options *opts) {
   destroy_GenomeVcf(gv);
 }
 
+// TODO refactoring ...
 void integrateVcfToSam_refactored(Options *opts) {
   if (opts->samFile == NULL || opts->vcfFile == NULL) {
     fprintf(stderr,
@@ -524,6 +629,15 @@ void integrateVcfToSam_refactored(Options *opts) {
     int64_t readStartPos = rsDataPos(tmpRs);
     uint32_t readLength = rsDataSeqLength(tmpRs);
     char *readSeq = rsDataSeq(tmpRs);
+    // For now, we ignore those unmapped reads.
+    if (readRname == NULL) {
+      tmpRs = gsItNextRec(gsIt);
+      if (tmpRs == NULL) {
+        tmpCs = gsItNextChrom(gsIt);
+        tmpRs = gsItNextRec(gsIt);
+      }
+      continue;
+    }
 
     // --------------------- get the ref sequence -----------------------
     ChromFa *tmpCf = getChromFromGenomeFabyName(readRname, gf);
@@ -535,19 +649,102 @@ void integrateVcfToSam_refactored(Options *opts) {
 
     // ------------- get all variants within the sam record -------------
     tmpCv = getChromFromGenomeVcfbyName(readRname, gv);
-    RecVcf *firstRv = findFirstVarToIntegrate(tmpCv, refStartPos, refEndPos);
+    RecVcf *firstRv =
+        findFirstVarThatCanBeIntegrated(tmpCv, refStartPos, refEndPos);
     tmpRv = firstRv;
+
     int integratedRvCnt = 0;
-    while (tmpRv != NULL &&
-           ifCanIntegrateVar(tmpRv, refStartPos, refEndPos) == 1) {
-      // TODO
+    int *integratedAlleleCnts = NULL;
+    // 1st loop - calculate number of vcf record that needs integration
+    printf("-----------------1st loop(-----------------\n");
+    while (tmpRv != NULL) {
+      if (countIntegratedAllele(tmpRv, refStartPos, refEndPos) > 0) {
+        integratedRvCnt++;
+        printVcfRecord_brief(gv, rvData(tmpRv));
+      } else {
+        break;
+      }
+      tmpRv = tmpRv->next;
+    }
+
+    // 2nd loop - calculate number of alleles of each vcf record that needs
+    // integration and create an array of RecVcf objects
+    printf("-----------------2nd loop(-----------------\n");
+    RecVcf **rvArray = (RecVcf **)calloc(integratedRvCnt, sizeof(RecVcf *));
+    integratedAlleleCnts = (int *)calloc(integratedRvCnt, sizeof(int));
+    tmpRv = firstRv;
+    int integratedRv_idx = 0;
+    while (tmpRv != NULL) {
+      int integratedAlleleCnt =
+          countIntegratedAllele(tmpRv, refStartPos, refEndPos);
+      if (integratedAlleleCnt > 0) {
+        printVcfRecord_brief(gv, rvData(tmpRv));
+        rvArray[integratedRv_idx] = tmpRv;
+        integratedAlleleCnts[integratedRv_idx] = integratedAlleleCnt;
+        integratedRv_idx++;
+      } else {
+        break;
+      }
+      tmpRv = tmpRv->next;
+    }
+
+    // 3rd loop - create PendingAlleles for next step of calculating
+    // combinations
+    printf("-----------------3rd loop(-----------------\n");
+    PendingAlleles **alleles_pending =
+        (PendingAlleles **)calloc(integratedRvCnt, sizeof(PendingAlleles));
+    for (int i = 0; i < integratedRvCnt; i++) {
+      alleles_pending[i] = (PendingAlleles *)malloc(sizeof(PendingAlleles));
+      alleles_pending[i]->alleleIdx =
+          (int *)calloc(integratedAlleleCnts[i], sizeof(int));
+      alleles_pending[i]->rvIdx = i;
+      alleles_pending[i]->alleleCnt = 0;
+    }
+    integratedRv_idx = 0;
+    tmpRv = firstRv;
+    while (tmpRv != NULL) {
+      int tmp_alleleIdx = 0;
+      for (int i = 0; i < rvDataAlleleCnt(tmpRv); i++) {
+        if (ifCanIntegrateAllele(tmpRv, i, refStartPos, refEndPos) == 1) {
+          printVcfRecord_brief(gv, rvData(tmpRv));
+          // I'm so proud of myself for figuring out this line ....
+          alleles_pending[integratedRv_idx]->alleleIdx[tmp_alleleIdx] = i;
+          alleles_pending[integratedRv_idx]->alleleCnt++;
+          tmp_alleleIdx++;
+        }
+      }
+      if (tmp_alleleIdx > 0) {
+        integratedRv_idx++;
+      } else {
+        break;
+      }
+      tmpRv = tmpRv->next;
+    }
+
+    printf("integratedRvCnt: %d\n", integratedRvCnt);
+    printf("recSam - startPos: %" PRId64 ", endPos: %" PRId64 ", rname: %s\n",
+           refStartPos, refEndPos, readRname);
+    printf("rvArray: \n");
+    for (int i = 0; i < integratedRvCnt; i++) {
+      printVcfRecord_brief(gv, rvData(rvArray[i]));
+    }
+    for (int i = 0; i < integratedRvCnt; i++) {
+      PendingAlleles *tmpAllele = alleles_pending[i];
+      printf("pending allele (%d) idxes: ", i);
+      for (int j = 0; j < tmpAllele->alleleCnt; j++) {
+        printf("%d ", tmpAllele->alleleIdx[i]);
+        // TODO this part of code is not correct
+        // printing of "PendingAlleles" unfinished
+      }
+      printf("\n");
     }
 
     // -------------- generate all permutaions of variants --------------
 
     // --------------------- perform integration ------------------------
 
-    // ----------------------- keep on iterating ------------------------
+    // ----------------------- keep on iterating --------------------
+    printf("\n");
     tmpRs = gsItNextRec(gsIt);
     if (tmpRs == NULL) {
       tmpCs = gsItNextChrom(gsIt);

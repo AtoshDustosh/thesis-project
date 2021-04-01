@@ -94,3 +94,25 @@ At position 1 and 5, the RecVcfs contain multiple variants.
 In such cases, we can directly do permutation to the whole array and get a sequence array like {..., [1.1, 2, 5.3], ...}.
 
 4. now we can perform the integration process without worrying about conflicts or leave out any combinations of variants.
+
+
+下图为alleles (不包含REF, 已根据vcf记录的POS排序, 下面的1, 2, 3, 4, 5, 6只是编号, 不代表POS)
+"1.1"和"1.2"来自同一个vcf记录, POS相同, "5.1""5.2""5.3"同理
+	1.1- 2- 3- 4- 5.1- 6-
+	              5.2-
+	              5.3-----
+	1.2---------------
+"1.1-"和"1.2----"中的断横线表示变异影响的区间长度, 其中"1.1-"不覆盖"2-", 但是"1.2---"覆盖了多个变异
+
+比较典型的情况是1.2是一个很长的DEL, 导致后面的2, 3, 4, 5.x都被删除, 1.1则是SNP。
+
+对于上面这些变异, 假设它们都在read比对到的区域附近, 而且都可能需要被整合, 在进行排列组合的时候如下执行:
+
+按照某个allele覆盖其他allele的数量从大到小排序, 然后依次处理这些覆盖其他allele的allele, 对上例的处理:
+
+依次做这些组合的枚举: [1.2, 6], [1.1, 2, 3, 4, 5.3], [1.1, 2, 3, 4, 5.1, 5.2, 6]
+
+另外, 在枚举的过程中, 5.1和5.2这种来自同一个vcf记录的POS相同的allele不可同时被选取.
+
+最后得到的一个大小(allele数量)为3的组合可能是 [1.1, 4, 5.2], 然后对相应的变异做整合. 
+(这样一来整合的时候就不必担心任何冲突的问题).

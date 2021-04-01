@@ -78,7 +78,8 @@ static inline bcf1_t *rvData(RecVcf *rv) { return rv->rec; }
 static inline int64_t rvDataPos(RecVcf *rv) { return 1 + rv->rec->pos; }
 
 /**
- * @brief Max length of all alleles in a vcf record. For example, for (REF  ALT)
+ * @brief DISGARDED method.
+ * Max length of all alleles in a vcf record. For example, for (REF  ALT)
  * = (A  ACGT,C), the result is 3. For (REF  ALT) = (ACGT  A), the result = 0.
  * For (REF  ALT) = (A  C), the result is 1.
  */
@@ -93,10 +94,22 @@ static inline char *rvDataChromName(RecVcf *rv, GenomeVcf *gv) {
 }
 
 /**
- * @brief  Return the count of alleles the vcf record contains.
+ * @brief  Return the count of alleles the RecVcf object contains.
  * @retval   Ref is also included as an allele, thus returned value >= 1
  */
 static inline int rvDataAlleleCnt(RecVcf *rv) { return rv->rec->n_allele; }
+
+/**
+ * @brief  Get the string of idx-th allele of the RecVcf object.
+ * @retval string of allele; NULL if the idx is invalid.
+ */
+static inline const char *rvDataAllele(RecVcf *rv, int alleleIdx) {
+  if (alleleIdx < rv->rec->n_allele) {
+    return rv->rec->d.allele[alleleIdx];
+  } else {
+    return NULL;
+  }
+}
 
 static inline char *cvName(ChromVcf *cv) { return cv->name; }
 
