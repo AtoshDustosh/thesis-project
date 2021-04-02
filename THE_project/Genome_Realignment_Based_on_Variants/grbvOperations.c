@@ -656,11 +656,11 @@ void integrateVcfToSam_refactored(Options *opts) {
     int integratedRvCnt = 0;
     int *integratedAlleleCnts = NULL;
     // 1st loop - calculate number of vcf record that needs integration
-    printf("-----------------1st loop(-----------------\n");
+    // printf("-----------------1st loop-----------------\n");
     while (tmpRv != NULL) {
       if (countIntegratedAllele(tmpRv, refStartPos, refEndPos) > 0) {
         integratedRvCnt++;
-        printVcfRecord_brief(gv, rvData(tmpRv));
+        // printVcfRecord_brief(gv, rvData(tmpRv));
       } else {
         break;
       }
@@ -669,7 +669,7 @@ void integrateVcfToSam_refactored(Options *opts) {
 
     // 2nd loop - calculate number of alleles of each vcf record that needs
     // integration and create an array of RecVcf objects
-    printf("-----------------2nd loop(-----------------\n");
+    // printf("-----------------2nd loop-----------------\n");
     RecVcf **rvArray = (RecVcf **)calloc(integratedRvCnt, sizeof(RecVcf *));
     integratedAlleleCnts = (int *)calloc(integratedRvCnt, sizeof(int));
     tmpRv = firstRv;
@@ -678,7 +678,7 @@ void integrateVcfToSam_refactored(Options *opts) {
       int integratedAlleleCnt =
           countIntegratedAllele(tmpRv, refStartPos, refEndPos);
       if (integratedAlleleCnt > 0) {
-        printVcfRecord_brief(gv, rvData(tmpRv));
+        // printVcfRecord_brief(gv, rvData(tmpRv));
         rvArray[integratedRv_idx] = tmpRv;
         integratedAlleleCnts[integratedRv_idx] = integratedAlleleCnt;
         integratedRv_idx++;
@@ -690,7 +690,7 @@ void integrateVcfToSam_refactored(Options *opts) {
 
     // 3rd loop - create PendingAlleles for next step of calculating
     // combinations
-    printf("-----------------3rd loop(-----------------\n");
+    // printf("-----------------3rd loop-----------------\n");
     PendingAlleles **alleles_pending =
         (PendingAlleles **)calloc(integratedRvCnt, sizeof(PendingAlleles));
     for (int i = 0; i < integratedRvCnt; i++) {
@@ -706,7 +706,7 @@ void integrateVcfToSam_refactored(Options *opts) {
       int tmp_alleleIdx = 0;
       for (int i = 0; i < rvDataAlleleCnt(tmpRv); i++) {
         if (ifCanIntegrateAllele(tmpRv, i, refStartPos, refEndPos) == 1) {
-          printVcfRecord_brief(gv, rvData(tmpRv));
+          // printVcfRecord_brief(gv, rvData(tmpRv));
           // I'm so proud of myself for figuring out this line ....
           alleles_pending[integratedRv_idx]->alleleIdx[tmp_alleleIdx] = i;
           alleles_pending[integratedRv_idx]->alleleCnt++;
@@ -721,6 +721,10 @@ void integrateVcfToSam_refactored(Options *opts) {
       tmpRv = tmpRv->next;
     }
 
+    // 4th loop -
+    // TODO
+    // printf("-----------------4th loop-----------------\n");
+
     printf("integratedRvCnt: %d\n", integratedRvCnt);
     printf("recSam - startPos: %" PRId64 ", endPos: %" PRId64 ", rname: %s\n",
            refStartPos, refEndPos, readRname);
@@ -730,9 +734,9 @@ void integrateVcfToSam_refactored(Options *opts) {
     }
     for (int i = 0; i < integratedRvCnt; i++) {
       PendingAlleles *tmpAllele = alleles_pending[i];
-      printf("pending allele (%d) idxes: ", i);
+      printf("pending allele (%d) idxes: (%d) ", i, tmpAllele->rvIdx);
       for (int j = 0; j < tmpAllele->alleleCnt; j++) {
-        printf("%d ", tmpAllele->alleleIdx[i]);
+        printf("%d ", tmpAllele->alleleIdx[j]);
         // TODO this part of code is not correct
         // printing of "PendingAlleles" unfinished
       }
