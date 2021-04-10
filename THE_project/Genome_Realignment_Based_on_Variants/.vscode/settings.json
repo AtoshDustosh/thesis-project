@@ -6,6 +6,7 @@
     "type_traits": "cpp",
     "debug.h": "c",
     "grbvoperations.h": "c",
-    "limits": "c"
+    "limits": "c",
+    "alignment.h": "c"
   }
 }

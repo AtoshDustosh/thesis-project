@@ -32,6 +32,28 @@ typedef struct {
   uint32_t *cigar;
 } ksw_extz_t;
 
+static inline int ksw_extz_cigarCnt(ksw_extz_t *ez){
+  return ez->n_cigar;
+}
+
+static inline int ksw_extz_cigarLen(ksw_extz_t *ez, int cigarIdx){
+  if(cigarIdx >= ez->n_cigar){
+    fprintf(stderr, "Warning: array out of bound for ksw_extz_cigarLen.\n");
+    return 0;
+  }else{
+    return ez->cigar[cigarIdx] >> 4;
+  }
+}
+
+static inline char ksw_extz_cigarOp(ksw_extz_t *ez, int cigarIdx){
+  if(cigarIdx >= ez->n_cigar){
+    fprintf(stderr, "Warning: array out of bound for ksw_extz_cigarOp.\n");
+    return 0;
+  }else{
+    return "MID"[ez->cigar[cigarIdx] & 0xf];
+  }
+}
+
 /**
  * NW-like extension
  *

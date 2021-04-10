@@ -382,7 +382,7 @@ static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
             newSeq[varIdx] = snp;
             // ---------------------printing------------------------
             printf("old ref: %s\n", refSeq);
-            align(newSeq, readSeq, ar);
+            align_ksw2(newSeq, strlen(newSeq), readSeq, strlen(readSeq), ar);
             printf("new ref: %s\n", newSeq);
             printf("od score: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
             for (int i = 0; i < rsData(rs)->core.n_cigar; i++) {
@@ -417,7 +417,7 @@ static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
                 char opchar = bam_cigar_opchr(cigarOpt);
                 printf("%" PRId32 "%c", oplen, opchar);
               }
-              align(newSeq, readSeq, ar);
+              align_ksw2(newSeq, strlen(newSeq), readSeq, strlen(readSeq), ar);
               printf(", score: %" PRIu8 ", cigar: %s\n", ar->score, ar->cigar);
               // ---------------------free-----------------------------
               free(newSeq);
@@ -456,7 +456,7 @@ static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
                 char opchar = bam_cigar_opchr(cigarOpt);
                 printf("%" PRId32 "%c", oplen, opchar);
               }
-              align(newSeq, readSeq, ar);
+              align_ksw2(newSeq, strlen(newSeq), readSeq, strlen(readSeq), ar);
               printf(", score: %" PRIu8 ", cigar: %s\n", ar->score, ar->cigar);
               // ---------------------free-----------------------------
               free(newSeq);
@@ -629,7 +629,7 @@ void integrateVcfToSam_refactored(Options *opts) {
     int64_t readStartPos = rsDataPos(tmpRs);
     uint32_t readLength = rsDataSeqLength(tmpRs);
     char *readSeq = rsDataSeq(tmpRs);
-    // For now, we ignore those unmapped reads.
+    // TODO For now, we ignore those unmapped reads.
     if (readRname == NULL) {
       tmpRs = gsItNextRec(gsIt);
       if (tmpRs == NULL) {
@@ -647,7 +647,8 @@ void integrateVcfToSam_refactored(Options *opts) {
     if (refEndPos > tmpCf->length) refEndPos = tmpCf->length;
     char *refSeq = getSeqFromChromFa(refStartPos, refEndPos, tmpCf);
 
-    // ------------- get all variants within the sam record -------------
+    // TODO
+    // --------- get all variants' combinations within the interval -----
     tmpCv = getChromFromGenomeVcfbyName(readRname, gv);
     RecVcf *firstRv =
         findFirstVarThatCanBeIntegrated(tmpCv, refStartPos, refEndPos);

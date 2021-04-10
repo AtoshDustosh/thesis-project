@@ -1,73 +1,197 @@
 #include "alignment.h"
 
-static void _align_ksw2(const char *tseq, const char *qseq, int sc_mch,
-                        int sc_mis, int gapo, int gape, AlignResult *ar) {
-  int i, a = sc_mch, b = sc_mis < 0 ? sc_mis : -sc_mis;  // a>0 and b<0
-  int8_t mat[25] = {a, b, b, b, 0, b, a, b, b, 0, b, b, a,
-                    b, 0, b, b, b, a, 0, 0, 0, 0, 0, 0};
-  int tl = strlen(tseq), ql = strlen(qseq);
-  uint8_t *ts, *qs, c[256];
-  ksw_extz_t ez;
+/*
+ * This table is used to transform nucleotide letters into numbers.
+ * Only used for "align_ssw()"
+ */
+static int8_t nt_table[256];
 
-  memset(&ez, 0, sizeof(ksw_extz_t));
-  memset(c, 4, 256);
-  c['A'] = c['a'] = 0;
-  c['C'] = c['c'] = 1;
-  c['G'] = c['g'] = 2;
-  c['T'] = c['t'] = 3;  // build the encoding table
-  ts = (uint8_t *)malloc(tl);
-  qs = (uint8_t *)malloc(ql);
-  for (i = 0; i < tl; ++i) ts[i] = c[(uint8_t)tseq[i]];  // encode to 0/1/2/3
-  for (i = 0; i < ql; ++i) qs[i] = c[(uint8_t)qseq[i]];
-  ksw_extz(0, ql, qs, tl, ts, 5, mat, gapo, gape, -1, -1, 0, &ez);
-  /*
-   * Just copy the codes above when using this.
-   */
+// Scoring matrix
+static int8_t scoreMat[25];
 
-  char *buf = (char *)calloc(2048, sizeof(char));
-  memset(buf, 0, sizeof(buf));
-  for (i = 0; i < ez.n_cigar; ++i) {  // print CIGAR
-    char tmpStr[10];
-    // There is no itoa() under Linux. Use sprintf instead.
-    sprintf(tmpStr, "%d", ez.cigar[i] >> 4);
-    strcat(buf, tmpStr);
-    sprintf(tmpStr, "%c", "MID"[ez.cigar[i] & 0xf]);
-    strcat(buf, tmpStr);
+static int score_match = SCORE_DEFAULT_MATCH;
+static int score_mismatch = SCORE_DEFAULT_MISMATCH;
+static int score_gapOpen = SCORE_DEFAULT_GAPOPEN;
+static int score_gapExtension = SCORE_DEFAULT_GAPEXTENSION;
+
+void alignInitialize(int match, int mismatch, int gapOpen, int gapExtension) {
+  // match, gapOpen, gapExtension > 0, mismatch < 0
+  score_match = match > 0 ? match : -match;
+  score_mismatch = mismatch < 0 ? mismatch : -mismatch;
+  score_gapOpen = gapOpen > 0 ? gapOpen : -gapOpen;
+  score_gapExtension = gapExtension > 0 ? gapExtension : -gapExtension;
+  // initialize scoring matrix for genome sequences. For example,
+  // when match = 2, and mismatch = -2, the matrix is:
+  //  A  C  G  T	N (or other ambiguous code)
+  //  2 -2 -2 -2 	0	A
+  // -2  2 -2 -2 	0	C
+  // -2 -2  2 -2 	0	G
+  // -2 -2 -2  2 	0	T
+  //	0  0  0  0  0	N (or other ambiguous code)
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      if (i == j) {
+        scoreMat[i * 5 + j] = match;
+      } else {
+        scoreMat[i * 5 + j] = mismatch;
+      }
+    }
   }
-  // putchar('\n');
-  // printf("score: %d\n", ez.score);
-
-  // printf("cigar length: %ld\n", strlen(buf));
-  char *cigar = (char *)calloc(strlen(buf), sizeof(char));
-  strcpy(cigar, buf);
-
-  ar->cigar = cigar;
-  ar->score = ez.score;
-
-  free(buf);
-  free(ez.cigar);
-  free(ts);
-  free(qs);
+  for (int i = 0; i < 5; i++) {
+    scoreMat[i * 5 - 1] = 0;  // the last column
+    scoreMat[20 + i] = 0;     // the last row
+  }
+  // Initialize the encoding matrix for bases
+  memset(nt_table, 4, 256);
+  nt_table['A'] = nt_table['a'] = 0;
+  nt_table['C'] = nt_table['c'] = 1;
+  nt_table['G'] = nt_table['g'] = 2;
+  nt_table['T'] = nt_table['t'] = 3;
 }
 
-void align(const char *tseq, const char *qseq, AlignResult *ar) {
-  if(ar == NULL){
+void align_ksw2(const char *tseq, const int tlen, const char *qseq,
+                const int qlen, AlignResult *ar) {
+  if (ar == NULL) {
     fprintf(stderr, "Warning: null pointer for AlignResult. Autofixed. \n");
     ar = init_AlignResult();
   }
-  _align_ksw2(tseq, qseq, 1, -2, 2, 1, ar);
-  // printf("ref seq: %s\n", tseq);
-  // printf("readseq: %s\n", qseq);
-  // printf("cigar: %s, score: %" PRIu8 "\n", ar->cigar, ar->score);
+  // Initialize alignment structures
+  ksw_extz_t ez;
+  memset(&ez, 0, sizeof(ksw_extz_t));
+
+  // Code original sequences (char*) into matrix (uint8_t*)
+  uint8_t *numTseq = (uint8_t *)calloc(tlen, sizeof(uint8_t));
+  uint8_t *numQseq = (uint8_t *)calloc(qlen, sizeof(uint8_t));
+
+  for (int i = 0; i < tlen; i++) numTseq[i] = nt_table[(int)tseq[i]];
+  for (int i = 0; i < qlen; i++) numQseq[i] = nt_table[(int)qseq[i]];
+
+  // Align
+  ksw_extz(0, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
+           score_gapExtension, -1, -1, 0, &ez);
+
+  // Create CIGAR string
+  char buf[256];
+  memset(buf, 0, sizeof(buf));
+  for (int i = 0; i < ksw_extz_cigarCnt(&ez); ++i) {
+    char tmpStr[10];
+    // There is no itoa() under Linux. Use sprintf instead.
+    sprintf(tmpStr, "%d", ksw_extz_cigarLen(&ez, i));
+    strcat(buf, tmpStr);
+    sprintf(tmpStr, "%c", ksw_extz_cigarOp(&ez, i));
+    strcat(buf, tmpStr);
+  }
+  char *cigar = (char *)calloc(strlen(buf) + 1, sizeof(char));
+  strcpy(cigar, buf);
+
+  // Assign results
+  ar->pos = 0;
+  ar->cigar = cigar;
+  ar->score = ez.score;
+
+  free(ez.cigar);
+  free(numTseq);
+  free(numQseq);
+}
+
+void align_ssw(const char *tseq, const int tlen, const char *qseq,
+               const int qlen, AlignResult *ar) {
+  if (ar == NULL) {
+    fprintf(stderr, "Warning: null pointer for AlignResult. Autofixed. \n");
+    ar = init_AlignResult();
+  }
+  // Code original sequences (char*) into matrix (uint8_t*)
+  int8_t *numRead = (int8_t *)malloc(qlen + 1);
+  int8_t *numRef = (int8_t *)malloc(tlen + 1);
+
+  for (int i = 0; i < qlen; i++) numRead[i] = nt_table[(int)qseq[i]];
+  for (int i = 0; i < tlen; i++) numRef[i] = nt_table[(int)tseq[i]];
+
+  // Initialize alignment structures
+  s_profile *profile;
+  profile = ssw_init(numRead, qlen, scoreMat, 5, 2);
+
+  // Align
+  s_align *result = ssw_align(profile, numRef, tlen, score_gapOpen,
+                              score_gapExtension, 1, 0, 0, qlen / 2);
+
+  // Create CIGAR string
+  char buf[256];
+  memset(buf, 0, sizeof(buf));
+  for (int i = 0; i < result->cigarLen; i++) {
+    char tmpStr[10];
+    uint32_t cigarLen = cigar_int_to_len(result->cigar[i]);
+    char cigarOp = cigar_int_to_op(result->cigar[i]);
+    sprintf(tmpStr, "%" PRIu32 "%c", cigarLen, cigarOp);
+    strcat(buf, tmpStr);
+  }
+
+  char *cigar = (char *)calloc(strlen(buf) + 1, sizeof(char));
+  strcpy(cigar, buf);
+
+  // Assign results
+  ar->pos = result->ref_begin1;
+  ar->score = result->score1;
+  ar->cigar = cigar;
+
+  // printf("ref:\t%s\n", tseq);
+  // printf("read:\t%s\n", qseq);
+  // fprintf(stdout,
+  //         "optimal_alignment_score: %d\tsub-optimal_alignment_score: %d\t",
+  //         result->score1, result->score2);
+  // if (result->ref_begin1 + 1)
+  //   fprintf(stdout, "target_begin: %d\t", result->ref_begin1 + 1);
+  // fprintf(stdout, "target_end: %d\t", result->ref_end1 + 1);
+  // if (result->read_begin1 + 1)
+  //   fprintf(stdout, "query_begin: %d\t", result->read_begin1 + 1);
+  // fprintf(stdout, "query_end: %d\n", result->read_end1 + 1);
+  // for (int i = 0; i < result->cigarLen; i++) {
+  //   uint32_t cigarLen = cigar_int_to_len(result->cigar[i]);
+  //   char cigarOp = cigar_int_to_op(result->cigar[i]);
+  //   printf("%u%c", cigarLen, cigarOp);
+  // }
+  // printf("\n");
+
+  init_destroy(profile);
+  free(numRef);
+  free(numRead);
+
+  return;
 }
 
 static int _test_ksw2Alignment() {
-  AlignResult *ar = init_AlignResult(); 
-  align(
-      "AAAAAAAACCCCCCTATACCCCAGCAAGACCAGACATCCCCCCCCCATAGACACCCCCACGTACGTA",
-      "AAAACCCCCCTATACCCCAGCAAGACCAGACATCCCCCCCCCATAGACACCCCCACGTA", ar);
+  // default parameters for genome sequence alignment
+  static int32_t match = 2, mismatch = -2;
+  static int32_t gapOpen = 3, gapExtension = 1;
+  alignInitialize(match, mismatch, gapOpen, gapExtension);
+  // align
+  static const char *tseq = "CAGCCTTTCTGACCCGGAAATCAAAATAGGCACAACAAA";
+  static const char *qseq = "CTGAGCCGGTAAATC";
+  AlignResult *ar = init_AlignResult();
+  align_ksw2(tseq, strlen(tseq), qseq, strlen(qseq), ar);
+  // printf("ksw2 align\t");
+  // print_AlignResult(ar);
   destroy_AlignResult(ar);
   return 1;
 }
 
-void _testSet_alignment() { assert(_test_ksw2Alignment()); }
+static int _test_sswAlignment() {
+  // default parameters for genome sequence alignment
+  static int32_t match = 2, mismatch = -2;
+  static int32_t gapOpen = 3, gapExtension = 1;
+  alignInitialize(match, mismatch, gapOpen, gapExtension);
+  // align
+  static const char *tseq = "CAGCCTTTCTGACCCGGAAATCAAAATAGGCACAACAAA";
+  static const char *qseq = "CTGAGCCGGTAAATC";
+  AlignResult *ar = init_AlignResult();
+  align_ssw(tseq, strlen(tseq), qseq, strlen(qseq), ar);
+  // printf("ssw align\t");
+  // print_AlignResult(ar);
+  destroy_AlignResult(ar);
+  return 1;
+}
+
+void _testSet_alignment() {
+  assert(_test_ksw2Alignment());
+  assert(_test_sswAlignment());
+}
