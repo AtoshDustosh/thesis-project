@@ -99,16 +99,26 @@ static inline char *rvDataChromName(RecVcf *rv, GenomeVcf *gv) {
  */
 static inline int rvDataAlleleCnt(RecVcf *rv) { return rv->rec->n_allele; }
 
+static inline int rvDataAlleleLength(RecVcf *rv, int alleleIdx) {
+  assert(
+      (alleleIdx < rv->rec->n_allele) ||
+      (fprintf(stderr,
+               "Error: array out of boundary for rvDataAlleleLength(...)\n") <
+       0));
+  return strlen(rv->rec->d.allele[alleleIdx]);
+}
+
 /**
  * @brief  Get the string of idx-th allele of the RecVcf object.
  * @retval string of allele; NULL if the idx is invalid.
  */
 static inline const char *rvDataAllele(RecVcf *rv, int alleleIdx) {
-  if (alleleIdx < rv->rec->n_allele) {
-    return rv->rec->d.allele[alleleIdx];
-  } else {
-    return NULL;
-  }
+  assert(
+      (alleleIdx < rv->rec->n_allele) ||
+      (fprintf(stderr,
+               "Error: array out of boundary for rvDataAlleleLength(...)\n") <
+       0));
+  return rv->rec->d.allele[alleleIdx];
 }
 
 static inline char *cvName(ChromVcf *cv) { return cv->name; }

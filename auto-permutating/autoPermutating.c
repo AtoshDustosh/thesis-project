@@ -62,11 +62,11 @@ void combinations_destroy(Combinations *cr) {
   free(cr);
 }
 
-EleCombinations *eleCombinations_init(int *eleCombi, int **alleleCombis,
+EleCombinations *eleCombinations_init(int *eleCombi, int **recCombis,
                                       int combiSize, int combiCnt) {
   EleCombinations *ecr = (EleCombinations *)malloc(sizeof(EleCombinations));
   ecr->eleCombi = eleCombi;
-  ecr->alleleCombis = alleleCombis;
+  ecr->recCombis = recCombis;
   ecr->combiSize = combiSize;
   ecr->combiCnt = combiCnt;
   return ecr;
@@ -79,7 +79,7 @@ void eleCombinations_print(EleCombinations *ecr) {
         "Warning: null pointer occurred when printing an EleCOmbinations\n");
     return;
   }
-  if (ecr->alleleCombis == NULL) {
+  if (ecr->recCombis == NULL) {
     fprintf(
         stderr,
         "Warning: null pointer occurred when printing an EleCOmbinations\n");
@@ -88,7 +88,7 @@ void eleCombinations_print(EleCombinations *ecr) {
   for (int i = 0; i < ecr->combiCnt; i++) {
     printf("combis: ");
     for (int j = 0; j < ecr->combiSize; j++) {
-      printf("(%d,%d) ", ecr->eleCombi[j], ecr->alleleCombis[i][j]);
+      printf("(%d,%d) ", ecr->eleCombi[j], ecr->recCombis[i][j]);
     }
     printf("\n");
   }
@@ -96,14 +96,14 @@ void eleCombinations_print(EleCombinations *ecr) {
 
 void eleCombinations_destroy(EleCombinations *ecr) {
   if (ecr == NULL) return;
-  if (ecr->alleleCombis == NULL) {
+  if (ecr->recCombis == NULL) {
     free(ecr);
     return;
   }
   for (int i = 0; i < ecr->combiCnt; i++) {
-    free(ecr->alleleCombis[i]);
+    free(ecr->recCombis[i]);
   }
-  free(ecr->alleleCombis);
+  free(ecr->recCombis);
   free(ecr);
 }
 
@@ -153,13 +153,13 @@ Combinations *combinations(int array[], int arraySize, int combiSize) {
 
 static void recurseEleCombinations(int *eleCombi, int combiSize,
                                    Element *eles[], int newAlleleIdx,
-                                   int newAlleleCombi[], int **alleleCombis,
+                                   int newAlleleCombi[], int **recCombis,
                                    int *eleRecCombiCnt) {
   if (newAlleleIdx == combiSize) {
-    if (alleleCombis != NULL) {
-      alleleCombis[*eleRecCombiCnt] = (int*)calloc(combiSize, sizeof(int));
+    if (recCombis != NULL) {
+      recCombis[*eleRecCombiCnt] = (int*)calloc(combiSize, sizeof(int));
       for(int i = 0; i < combiSize; i++){
-        alleleCombis[*eleRecCombiCnt][i] = newAlleleCombi[i];
+        recCombis[*eleRecCombiCnt][i] = newAlleleCombi[i];
       }
     }
     // for (int i = 0; i < combiSize; i++) {
@@ -176,7 +176,7 @@ static void recurseEleCombinations(int *eleCombi, int combiSize,
     if (newAlleleIdx == 0) {
       newAlleleCombi[newAlleleIdx] = i;
       recurseEleCombinations(eleCombi, combiSize, eles, newAlleleIdx + 1,
-                             newAlleleCombi, alleleCombis, eleRecCombiCnt);
+                             newAlleleCombi, recCombis, eleRecCombiCnt);
     } else {
       // If there exists selected element's allele, check if the last selected
       // allele covers the temporarily under checking allele. Holy shit ...
@@ -190,7 +190,7 @@ static void recurseEleCombinations(int *eleCombi, int combiSize,
         // if the last selected allele doesn't cover this allele
         newAlleleCombi[newAlleleIdx] = i;
         recurseEleCombinations(eleCombi, combiSize, eles, newAlleleIdx + 1,
-                               newAlleleCombi, alleleCombis, eleRecCombiCnt);
+                               newAlleleCombi, recCombis, eleRecCombiCnt);
       }
     }
   }
@@ -199,22 +199,22 @@ static void recurseEleCombinations(int *eleCombi, int combiSize,
 
 EleCombinations *eleCombinations(int *eleCombi, int combiSize,
                                  Element *eles[]) {
-  int **alleleCombis = NULL;
+  int **recCombis = NULL;
 
   int eleRecCombiCnt = 0;
   int newAlleleIdx = 0;
   int *newAlleleCombi = (int *)calloc(combiSize, sizeof(int));
   recurseEleCombinations(eleCombi, combiSize, eles, newAlleleIdx,
-                         newAlleleCombi, alleleCombis, &eleRecCombiCnt);
-  // TODO memset alleleCombis
+                         newAlleleCombi, recCombis, &eleRecCombiCnt);
   printf("ele allele combi cnt: %d\n", eleRecCombiCnt);
-  alleleCombis = (int **)calloc(eleRecCombiCnt, sizeof(int *));
+  // memset recCombis
+  recCombis = (int **)calloc(eleRecCombiCnt, sizeof(int *));
   eleRecCombiCnt = 0;
   recurseEleCombinations(eleCombi, combiSize, eles, newAlleleIdx,
-                         newAlleleCombi, alleleCombis, &eleRecCombiCnt);
+                         newAlleleCombi, recCombis, &eleRecCombiCnt);
 
   free(newAlleleCombi);
-  return eleCombinations_init(eleCombi, alleleCombis, combiSize,
+  return eleCombinations_init(eleCombi, recCombis, combiSize,
                               eleRecCombiCnt);
 }
 

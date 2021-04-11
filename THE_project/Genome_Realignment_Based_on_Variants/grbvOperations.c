@@ -1,11 +1,5 @@
 #include "grbvOperations.h"
 
-// *************************************************************
-// *************************************************************
-// ********************** integration **************************
-// *************************************************************
-// *************************************************************
-
 /**
  * @brief  An auxiliary data structure designed for pointint to alleles among an
  * array of RecVcf from which the combinations of alleles are selected. Used
@@ -20,109 +14,6 @@ typedef struct _define_PendingAlleles {
   int *alleleIdx;
   int alleleCnt;
 } PendingAlleles;
-
-/**
- * @brief  An auxiliary data structure designed for pointing to the specific
- * allele selected in a combination of alleles.
- */
-typedef struct _define_SelectedAllele {
-  int rvIdx;
-  int alleleIdx;
-} SelectedAllele;
-
-/**
- * @brief  An auxiliary data structure designed for storing combinations. This
- * is mainly used for storing the indexes of another kind of data structure.
- */
-typedef struct _define_Combinations {
-  int **combis;  // compositions
-  int combiSize;
-  int combiCnt;
-} Combinations;
-
-/**
- * @brief  An auxiliary data structure designed for storing combinations of
- * SelectedAllele.
- */
-typedef struct _define_CombinationAlleles {
-  // two-dimension array of SelectedAlleles*
-  SelectedAllele ***combis;
-  int combiSize;
-  int combiCnt;
-} CombinationAlleles;
-
-static Combinations *combinations_init(int **combis, int combiSize,
-                                       int combiCnt) {
-  Combinations *cr = (Combinations *)malloc(sizeof(Combinations));
-  cr->combis = combis;
-  cr->combiSize = combiSize;
-  cr->combiCnt = combiCnt;
-  return cr;
-}
-
-static void combinations_destroy(Combinations *cr) {
-  if (cr == NULL) return;
-  if (cr->combiCnt == 0) {
-    free(cr);
-    return;
-  }
-  for (int i = 0; i < cr->combiCnt; i++) {
-    free(cr->combis[i]);
-  }
-  free(cr->combis);
-  free(cr);
-}
-
-/**
- * @brief  A subfunction for the method "combinations".
- */
-static int recurseCombinations(int array[], int arraySize, int combi[],
-                               int combiSize, int arrayIdx, int combiEleIdx,
-                               int ***combis, int *combiIdx) {
-  // combination with size 'combiSize' is selected
-  if (combiEleIdx == combiSize) {
-    if (*combis != NULL) {
-      (*combis)[*combiIdx] = (int *)malloc(sizeof(int) * combiSize);
-      for (int i = 0; i < combiSize; i++) {
-        // printf("%d ", combi[i]);
-        (*combis)[*combiIdx][i] = combi[i];
-      }
-      // printf("\n");
-      *combiIdx = *combiIdx + 1;
-    }
-    return 1;
-  }
-  int combisCnt = 0;
-  for (int i = arrayIdx; i < arraySize - (combiSize - combiEleIdx) + 1; i++) {
-    combi[combiEleIdx] = array[i];
-    combisCnt += recurseCombinations(array, arraySize, combi, combiSize, i + 1,
-                                     combiEleIdx + 1, combis, combiIdx);
-  }
-  return combisCnt;
-}
-
-/**
- * @brief  Get all compositions of combiSize from array. This method does not
- * handle duplicated elements in the input array.
- */
-static Combinations *combinations(int array[], int arraySize, int combiSize) {
-  int **combis = NULL;
-  int combiCnt = 0;
-
-  int combiIdx = 0;
-  int arrayIdx = 0;
-  int combiEleIdx = 0;
-  int *combi = (int *)calloc(combiSize, sizeof(int));
-  combiCnt = recurseCombinations(array, arraySize, combi, combiSize, arrayIdx,
-                                 combiEleIdx, &combis, &combiIdx);
-  // printf("count of combinations: %d\n", combiCnt);
-  combis = (int **)calloc(combiCnt, sizeof(int *));
-  combiCnt = recurseCombinations(array, arraySize, combi, combiSize, arrayIdx,
-                                 combiEleIdx, &combis, &combiIdx);
-
-  free(combi);
-  return combinations_init(combis, combiSize, combiCnt);
-}
 
 // TODO --------------------------- split line ---------------------------
 // TODO --------------------------- split line ---------------------------
@@ -621,7 +512,7 @@ void integrateVcfToSam_refactored(Options *opts) {
   ChromVcf *tmpCv = NULL;
   RecVcf *tmpRv = NULL;
 
-  const uint8_t ecLen = 5;  // error control length
+  const uint8_t ecLen = 5;  // extension length for a read on the ref
   while (tmpRs != NULL) {
     // ------------- get information of temporary sam record ------------
     const char *readRname = rsDataRname(gs, tmpRs);
@@ -649,6 +540,8 @@ void integrateVcfToSam_refactored(Options *opts) {
 
     // TODO
     // --------- get all variants' combinations within the interval -----
+    // find the first variant that can be integrated and start iteration on
+    // ChromVcf to find the rest variants
     tmpCv = getChromFromGenomeVcfbyName(readRname, gv);
     RecVcf *firstRv =
         findFirstVarThatCanBeIntegrated(tmpCv, refStartPos, refEndPos);
@@ -656,7 +549,7 @@ void integrateVcfToSam_refactored(Options *opts) {
 
     int integratedRvCnt = 0;
     int *integratedAlleleCnts = NULL;
-    // 1st loop - calculate number of vcf record that needs integration
+    // 1st loop - calculate number of vcf records that needs integration
     // printf("-----------------1st loop-----------------\n");
     while (tmpRv != NULL) {
       if (countIntegratedAllele(tmpRv, refStartPos, refEndPos) > 0) {
@@ -668,11 +561,12 @@ void integrateVcfToSam_refactored(Options *opts) {
       tmpRv = tmpRv->next;
     }
 
-    // 2nd loop - calculate number of alleles of each vcf record that needs
-    // integration and create an array of RecVcf objects
+    // 2nd loop - save pointers to vcf records that needs integration, calculate
+    // number of alleles of each vcf record that needs integration and get ready
+    // for the next step (calculation of combinations)
     // printf("-----------------2nd loop-----------------\n");
-    RecVcf **rvArray = (RecVcf **)calloc(integratedRvCnt, sizeof(RecVcf *));
-    integratedAlleleCnts = (int *)calloc(integratedRvCnt, sizeof(int));
+    ElementRecVcf **ervArray =
+        (ElementRecVcf **)calloc(integratedRvCnt, sizeof(ElementRecVcf *));
     tmpRv = firstRv;
     int integratedRv_idx = 0;
     while (tmpRv != NULL) {
@@ -680,69 +574,62 @@ void integrateVcfToSam_refactored(Options *opts) {
           countIntegratedAllele(tmpRv, refStartPos, refEndPos);
       if (integratedAlleleCnt > 0) {
         // printVcfRecord_brief(gv, rvData(tmpRv));
-        rvArray[integratedRv_idx] = tmpRv;
-        integratedAlleleCnts[integratedRv_idx] = integratedAlleleCnt;
+        // If the vcf record can be integrated, find all alleles that needs
+        // integration on this record.
+        ervArray[integratedRv_idx] =
+            (ElementRecVcf *)malloc(sizeof(ElementRecVcf));
+        ervArray[integratedRv_idx]->rv = tmpRv;
+        ervArray[integratedRv_idx]->alleleIdx =
+            (int *)calloc(integratedAlleleCnt, sizeof(int));
+        ervArray[integratedRv_idx]->alleleCnt = 0;
+
+        int tmp_alleleIdx = 0;
+        for (int i = 0; i < rvDataAlleleCnt(tmpRv); i++) {
+          if (ifCanIntegrateAllele(tmpRv, i, refStartPos, refEndPos) == 1) {
+            ervArray[integratedRv_idx]->alleleIdx[tmp_alleleIdx] = i;
+            ervArray[integratedRv_idx]->alleleCnt++;
+            tmp_alleleIdx++;
+          }
+        }
         integratedRv_idx++;
       } else {
         break;
       }
       tmpRv = tmpRv->next;
     }
+    // TODO temporary  task:
+    // TODO print the results for checking correctness
+    // TODO temporary  task:
+    // TODO print the results for checking correctness
+    // TODO temporary  task:
+    // TODO print the results for checking correctness
+    // TODO temporary  task:
+    // TODO print the results for checking correctness
+    // TODO temporary  task:
+    // TODO print the results for checking correctness
+
 
     // 3rd loop - create PendingAlleles for next step of calculating
     // combinations
     // printf("-----------------3rd loop-----------------\n");
-    PendingAlleles **alleles_pending =
-        (PendingAlleles **)calloc(integratedRvCnt, sizeof(PendingAlleles));
-    for (int i = 0; i < integratedRvCnt; i++) {
-      alleles_pending[i] = (PendingAlleles *)malloc(sizeof(PendingAlleles));
-      alleles_pending[i]->alleleIdx =
-          (int *)calloc(integratedAlleleCnts[i], sizeof(int));
-      alleles_pending[i]->rvIdx = i;
-      alleles_pending[i]->alleleCnt = 0;
-    }
-    integratedRv_idx = 0;
-    tmpRv = firstRv;
-    while (tmpRv != NULL) {
-      int tmp_alleleIdx = 0;
-      for (int i = 0; i < rvDataAlleleCnt(tmpRv); i++) {
-        if (ifCanIntegrateAllele(tmpRv, i, refStartPos, refEndPos) == 1) {
-          // printVcfRecord_brief(gv, rvData(tmpRv));
-          // I'm so proud of myself for figuring out this line ....
-          alleles_pending[integratedRv_idx]->alleleIdx[tmp_alleleIdx] = i;
-          alleles_pending[integratedRv_idx]->alleleCnt++;
-          tmp_alleleIdx++;
-        }
-      }
-      if (tmp_alleleIdx > 0) {
-        integratedRv_idx++;
-      } else {
-        break;
-      }
-      tmpRv = tmpRv->next;
-    }
-
-    // 4th loop -
-    // TODO
-    // printf("-----------------4th loop-----------------\n");
 
     printf("integratedRvCnt: %d\n", integratedRvCnt);
     printf("recSam - startPos: %" PRId64 ", endPos: %" PRId64 ", rname: %s\n",
            refStartPos, refEndPos, readRname);
     printf("rvArray: \n");
     for (int i = 0; i < integratedRvCnt; i++) {
-      printVcfRecord_brief(gv, rvData(rvArray[i]));
+      // printVcfRecord_brief(gv, rvData(rvArray[i]));
     }
-    for (int i = 0; i < integratedRvCnt; i++) {
-      PendingAlleles *tmpAllele = alleles_pending[i];
-      printf("pending allele (%d) idxes: (%d) ", i, tmpAllele->rvIdx);
-      for (int j = 0; j < tmpAllele->alleleCnt; j++) {
-        printf("%d ", tmpAllele->alleleIdx[j]);
-        // TODO this part of code is not correct
-        // printing of "PendingAlleles" unfinished
-      }
-      printf("\n");
-    }
+    // for (int i = 0; i < integratedRvCnt; i++) {
+    //   PendingAlleles *tmpAllele = alleles_pending[i];
+    //   printf("pending allele (%d) idxes: (%d) ", i, tmpAllele->rvIdx);
+    //   for (int j = 0; j < tmpAllele->alleleCnt; j++) {
+    //     printf("%d ", tmpAllele->alleleIdx[j]);
+    //     // TODO this part of code is not correct
+    //     // printing of "PendingAlleles" unfinished
+    //   }
+    //   printf("\n");
+    // }
 
     // -------------- generate all permutaions of variants --------------
 

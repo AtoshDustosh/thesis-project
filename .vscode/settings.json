@@ -1,0 +1,7 @@
+{
+  "files.associations": {
+    "grbvoperations.h": "c",
+    "grbvoptions.h": "c",
+    "stdlib.h": "c"
+  }
+}

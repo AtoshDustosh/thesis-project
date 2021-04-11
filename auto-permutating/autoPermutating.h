@@ -22,7 +22,7 @@ typedef struct _define_Element {
 
 typedef struct _define_EleCombinations {
   int *eleCombi;
-  int **alleleCombis;
+  int **recCombis;
   int combiSize;
   int combiCnt;
 } EleCombinations;
@@ -39,7 +39,7 @@ void combinations_print(Combinations *cr);
 
 void combinations_destroy(Combinations *cr);
 
-EleCombinations *eleCombinations_init(int *eleCombi, int **alleleCombis,
+EleCombinations *eleCombinations_init(int *eleCombi, int **recCombis,
                                       int combiSize, int combiCnt);
 
 void eleCombinations_print(EleCombinations *ecr);
