@@ -2,7 +2,7 @@
 
 #define MAX_LINE_BUFFER 2048
 
-static void countRecFa(char *filePath)
+static void countRecFa(const char *filePath)
 {
   printf("counting ref length ...\n");
   FILE *fp = fopen(filePath, "r");
@@ -39,7 +39,7 @@ static void countRecFa(char *filePath)
   fprintf(stdout, "Ref records count: %d\n", bpCnt);
 }
 
-static void countRecFastq(char *filePath)
+static void countRecFastq(const char *filePath)
 {
   printf("Counting fastq records ...\n");
   FILE* fp  = fopen(filePath, "r");
@@ -56,7 +56,7 @@ static void countRecFastq(char *filePath)
   fprintf(stdout, "Fastq records count: %d\n", recCnt);
 }
 
-static void countRecSam(char *filePath)
+static void countRecSam(const char *filePath)
 {
   printf("Counting sam records ...\n");
   FILE *fp = fopen(filePath, "r");
@@ -89,7 +89,7 @@ static void countRecSam(char *filePath)
   fprintf(stdout, "Sam records count: %d\n", recCnt);
 }
 
-static void countRecVcf(char *filePath)
+static void countRecVcf(const char *filePath)
 {
   printf("Counting vcf records ...\n");
   FILE* fp = fopen(filePath, "r");
@@ -124,8 +124,8 @@ void countRec(Options *opts)
     countRecFastq(getFastqFile(opts));
   if (getSamFile(opts) != NULL)
     countRecSam(getSamFile(opts));
-  if (getvcfFile(opts) != NULL)
-    countRecVcf(getvcfFile(opts));
+  if (getVcfFile(opts) != NULL)
+    countRecVcf(getVcfFile(opts));
 }
 
 void firstLines(Options *opts)

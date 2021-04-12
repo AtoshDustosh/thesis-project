@@ -50,7 +50,8 @@ void print_AlleleCombinations(AlleleCombinations *acbs) {
   for (int i = 0; i < acbs->combiSize; i++) {
     printf("%d ", acbs->rvCombi[i]);
   }
-  printf("| alleleCombis: \n");
+  printf("\n");
+  printf("| alleleCombis(ervIdx, alleleIdxInRv): \n");
   for (int i = 0; i < acbs->combiCnt; i++) {
     printf("|\t");
     for (int j = 0; j < acbs->combiSize; j++) {
@@ -125,14 +126,14 @@ static void recurseAlleleCombinations(ElementRecVcf *rvArray[], int rvCombi[],
     return;
   }
   // Iterate alleles of rvs and select the next allele
-  // "i = 1": ignore REF allele.
-  // TODO this area is very likely to be buggy
-  for (int i = 1; i < rvArray[rvCombi[newAlleleIdx]]->alleleCnt; i++) {
+  // This area is very likely to be buggy (but it actually works well)
+  // comment(2021.04.12): I'm so proud of myself for figuring this part out
+  for (int i = 0; i < rvArray[rvCombi[newAlleleIdx]]->alleleCnt; i++) {
     // If no vcf record's allele has been selected, continue recursion.
     if (newAlleleIdx == 0) {
       newAlleleCombi[newAlleleIdx] =
           rvArray[rvCombi[newAlleleIdx]]->alleleIdx[i];
-      recurseAlleleCombinations(rvArray, rvCombi, combiSize, newAlleleIdx,
+      recurseAlleleCombinations(rvArray, rvCombi, combiSize, newAlleleIdx + 1,
                                 newAlleleCombi, alleleCombis, combiCnt);
     } else {
       // If there exists selected vcf record's allele, check if the last
@@ -140,9 +141,9 @@ static void recurseAlleleCombinations(ElementRecVcf *rvArray[], int rvCombi[],
       ElementRecVcf *lastSelectedErv = rvArray[rvCombi[newAlleleIdx - 1]];
       ElementRecVcf *tmpSelectedErv = rvArray[rvCombi[newAlleleIdx]];
       if (rvDataPos(lastSelectedErv->rv) +
-          rvDataAlleleLength(lastSelectedErv->rv,
-                             newAlleleCombi[newAlleleIdx - 1] >
-                                 rvDataPos(tmpSelectedErv->rv))) {
+              rvDataAlleleLength(lastSelectedErv->rv,
+                                 newAlleleCombi[newAlleleIdx - 1]) >
+          rvDataPos(tmpSelectedErv->rv)) {
         // if the last selected allele covers this allele
         continue;
       } else {
@@ -157,11 +158,13 @@ static void recurseAlleleCombinations(ElementRecVcf *rvArray[], int rvCombi[],
 }
 
 AlleleCombinations *alleleCombinations(ElementRecVcf *ervArray[], int ervCnt,
-                                       int rvCombi[], int combiSize) {
+                                       int *rvCombi, int combiSize) {
   // check rvCombi
-  for (int i = 0; i < ervCnt; i++) {
+  for (int i = 0; i < combiSize; i++) {
     assert((rvCombi[i] < ervCnt) ||
-           (fprintf(stderr, "Error: rvCnt incompatible with rvCombi. \n") < 0));
+           (fprintf(stderr,
+                    "Error: rvCombi[%d](%d) incompatible with ervCnt(%d). \n",
+                    i, rvCombi[i], ervCnt) < 0));
   }
   int **alleleCombis = NULL;
   int combiCnt = 0;

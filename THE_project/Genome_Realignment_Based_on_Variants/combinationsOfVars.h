@@ -8,14 +8,14 @@
 #include "debug.h"
 #include "genomeVcf.h"
 
-
-typedef struct _define_ElementRecVcf{
+typedef struct _define_ElementRecVcf {
   RecVcf *rv;
   /*
-   * "alleleIdx" and "alleleCnt" are used to mark which alleles should be integrated and how many of them should be integrated on this vcf record.
+   * "alleleIdx" and "alleleCnt" are used to mark which alleles should be
+   * integrated and how many of them should be integrated on this vcf record.
    */
   int *alleleIdx;
-  int *alleleCnt;
+  int alleleCnt;
 } ElementRecVcf;
 
 /**
@@ -69,7 +69,7 @@ void destroy_AlleleCombinations(AlleleCombinations *acbs);
 Combinations *combinations(int array[], int arraySize, int combiSize);
 
 /**
- * @brief  Permutate selected vcf records and output all combinations of their
+ * * @brief  Permutate selected vcf records and output all combinations of their
  * alleles into the data structure  "AlleleCombinations". For vcf records with
  * multiple alleles, only 1 allele within the same vcf record can be selected.
  * Some vcf records may have long alleles and these alleles may cover the
@@ -79,12 +79,12 @@ Combinations *combinations(int array[], int arraySize, int combiSize);
  * @note
  * @param  *ervArray[]: array of ElementRecVcf object
  * @param  ervCnt: length of ervArray / count of vcf records
- * @param  rvCombi[]: combination of selected vcf records
+ * @param  *rvCombi: combination of selected vcf records
  * @param  combiSize: size of combination / number of selected vcf records
  * @retval
  */
 AlleleCombinations *alleleCombinations(ElementRecVcf *ervArray[], int ervCnt,
-                                       int rvCombi[], int combiSize);
+                                       int *rvCombi, int combiSize);
 
 void _testSet_combinationsOfVars();
 

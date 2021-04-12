@@ -90,6 +90,7 @@ static void _testSet_full() {
   _testSet_varIntegration();
   _testSet_alignment();
   printf("... all test passed :)\n");
+  printf("\n");
   // printf("press \"Enter\" to continue. \n");
   // getchar();
   // ... debug session

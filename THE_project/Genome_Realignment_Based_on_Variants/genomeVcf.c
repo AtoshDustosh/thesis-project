@@ -315,7 +315,7 @@ static int _test_LoadingAndIterator() {
   RecVcf *tmpRv = gvItNextRec(gvIt);
 
   while (tmpRv != NULL) {
-    printVcfRecord_brief(gv, rvData(tmpRv));
+    // printVcfRecord_brief(gv, rvData(tmpRv));
 
     tmpRv = gvItNextRec(gvIt);
     if (tmpRv == NULL) {

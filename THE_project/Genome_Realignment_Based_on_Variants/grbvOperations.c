@@ -114,6 +114,9 @@ static inline int countIntegratedAllele(RecVcf *rv, int64_t startPos,
         break;
       }
       default: {
+        fprintf(stderr,
+                "Warning: variant ignored. varRef: %s, varAlt[%d]: %s\n",
+                rvData(rv)->d.allele[0], i, rvData(rv)->d.allele[i]);
         // TODO ignore other kinds of varaints
       }
     }
@@ -485,6 +488,49 @@ void integrateVcfToSam(Options *opts) {
 }
 
 // TODO refactoring ...
+static inline void integrateVarAndRealign_refactored(
+    ElementRecVcf *ervArray[], int *ervCombi, int *alleleCombi, int combiSize,
+    int64_t refStartPos, const char *oldRefSeq, const char *readSeq,
+    GenomeVcf *gv) {
+  const int oldRefSeqLen = strlen(oldRefSeq);
+  // Go along both the oldRefSeq and those alleles.
+  char buf[oldRefSeqLen * 2];
+  memset(buf, 0, oldRefSeqLen * 2);
+
+  int idx_oldRefSeq = 0;
+  int idx_newRefSeq = 0;
+  for (int i = 0; i < combiSize; i++) {
+    // Synchronize the positions of buf and allele
+    int alleleStartPos = rvDataPos(ervArray[ervCombi[i]]->rv);
+    while (alleleStartPos > refStartPos + idx_oldRefSeq) {
+      buf[idx_newRefSeq++] = oldRefSeq[idx_oldRefSeq++];
+    }
+    const char *allele_ref = rvDataAllele(ervArray[ervCombi[i]]->rv, 0);
+    const char *allele_alt =
+        rvDataAllele(ervArray[ervCombi[i]]->rv, alleleCombi[i]);
+    int len_allele_ref = strlen(allele_ref);
+    int len_allele_alt = strlen(allele_alt);
+    while (len_allele_ref > 0) {
+      idx_oldRefSeq++;
+      len_allele_ref--;
+    }
+    int idx_allele_alt = 0;
+    while (len_allele_alt > 0) {
+      assert((idx_allele_alt < len_allele_alt) ||
+             (fprintf(stderr, "Error: array out of boundary. \n") < 0));
+      buf[idx_newRefSeq++] = allele_alt[idx_allele_alt++];
+      len_allele_alt--;
+    }
+    assert((idx_oldRefSeq < oldRefSeqLen) ||
+           (fprintf(stderr, "Error: array out of boundary. \n") < 0));
+    // TODO pad the rest unloaded old seq bases
+    printf("oldSeq: %s\n", oldRefSeq);
+    printf("newSeq: %s\n", buf);
+  }
+  return;
+}
+
+// TODO refactoring ...
 void integrateVcfToSam_refactored(Options *opts) {
   if (opts->samFile == NULL || opts->vcfFile == NULL) {
     fprintf(stderr,
@@ -537,8 +583,9 @@ void integrateVcfToSam_refactored(Options *opts) {
     if (refStartPos < 1) refStartPos = 1;
     if (refEndPos > tmpCf->length) refEndPos = tmpCf->length;
     char *refSeq = getSeqFromChromFa(refStartPos, refEndPos, tmpCf);
+    printf("recSam - startPos: %" PRId64 ", endPos: %" PRId64 ", rname: %s\n",
+           refStartPos, refEndPos, readRname);
 
-    // TODO
     // --------- get all variants' combinations within the interval -----
     // find the first variant that can be integrated and start iteration on
     // ChromVcf to find the rest variants
@@ -560,6 +607,7 @@ void integrateVcfToSam_refactored(Options *opts) {
       }
       tmpRv = tmpRv->next;
     }
+    printf("integratedRvCnt: %d\n", integratedRvCnt);
 
     // 2nd loop - save pointers to vcf records that needs integration, calculate
     // number of alleles of each vcf record that needs integration and get ready
@@ -597,39 +645,40 @@ void integrateVcfToSam_refactored(Options *opts) {
       }
       tmpRv = tmpRv->next;
     }
-    // TODO temporary  task:
-    // TODO print the results for checking correctness
-    // TODO temporary  task:
-    // TODO print the results for checking correctness
-    // TODO temporary  task:
-    // TODO print the results for checking correctness
-    // TODO temporary  task:
-    // TODO print the results for checking correctness
-    // TODO temporary  task:
-    // TODO print the results for checking correctness
-
-
-    // 3rd loop - create PendingAlleles for next step of calculating
-    // combinations
-    // printf("-----------------3rd loop-----------------\n");
-
-    printf("integratedRvCnt: %d\n", integratedRvCnt);
-    printf("recSam - startPos: %" PRId64 ", endPos: %" PRId64 ", rname: %s\n",
-           refStartPos, refEndPos, readRname);
     printf("rvArray: \n");
     for (int i = 0; i < integratedRvCnt; i++) {
-      // printVcfRecord_brief(gv, rvData(rvArray[i]));
+      printVcfRecord_brief(gv, rvData(ervArray[i]->rv));
+      printf("\tintegrated alleles' idxes: ");
+      for (int j = 0; j < ervArray[i]->alleleCnt; j++) {
+        printf("%d ", ervArray[i]->alleleIdx[j]);
+      }
+      printf("\n");
     }
-    // for (int i = 0; i < integratedRvCnt; i++) {
-    //   PendingAlleles *tmpAllele = alleles_pending[i];
-    //   printf("pending allele (%d) idxes: (%d) ", i, tmpAllele->rvIdx);
-    //   for (int j = 0; j < tmpAllele->alleleCnt; j++) {
-    //     printf("%d ", tmpAllele->alleleIdx[j]);
-    //     // TODO this part of code is not correct
-    //     // printing of "PendingAlleles" unfinished
-    //   }
-    //   printf("\n");
-    // }
+
+    int *ervIdxes = (int *)calloc(integratedRvCnt, sizeof(int));
+    for (int i = 0; i < integratedRvCnt; i++) ervIdxes[i] = i;
+    for (int i = 1; i < integratedRvCnt + 1; i++) {
+      Combinations *cbs = combinations(ervIdxes, integratedRvCnt, i);
+      printf("erv combi(size: %d) cnt: %d\n", i, cbs->combiCnt);
+      for (int j = 0; j < cbs->combiCnt; j++) {
+        printf("erv combi[%d]: ", j);
+        for (int k = 0; k < cbs->combiSize; k++) {
+          printf("%d ", cbs->combis[j][k]);
+        }
+        printf("\n");
+        AlleleCombinations *acbs = alleleCombinations(
+            ervArray, integratedRvCnt, cbs->combis[j], cbs->combiSize);
+        printf("allele combi cnt: %d\n", acbs->combiCnt);
+        print_AlleleCombinations(acbs);
+        // TODO integrate and realign
+        for (int k = 0; k < acbs->combiCnt; k++) {
+          integrateVarAndRealign_refactored(
+              ervArray, acbs->rvCombi, acbs->alleleCombis[k], acbs->combiSize,
+              refStartPos, refSeq, readSeq, gv);
+        }
+        destroy_AlleleCombinations(acbs);
+      }
+    }
 
     // -------------- generate all permutaions of variants --------------
 

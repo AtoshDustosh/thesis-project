@@ -12,7 +12,7 @@ FileList* designatedFiles(Options *opts){
   if(getSamFile(opts) != NULL){
     designatedFileCount++;
   }
-  if(getvcfFile(opts) != NULL){
+  if(getVcfFile(opts) != NULL){
     designatedFileCount++;
   }
 
@@ -37,7 +37,7 @@ FileList* designatedFiles(Options *opts){
     fileList->paths[iteratorTemp] = opts->samFile;
     iteratorTemp++;
   }
-  if(getvcfFile(opts) != NULL){
+  if(getVcfFile(opts) != NULL){
     fileList->paths[iteratorTemp] = opts->vcfFile;
     iteratorTemp++;
   }
