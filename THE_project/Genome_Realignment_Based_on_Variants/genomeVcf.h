@@ -99,13 +99,27 @@ static inline char *rvDataChromName(RecVcf *rv, GenomeVcf *gv) {
  */
 static inline int rvDataAlleleCnt(RecVcf *rv) { return rv->rec->n_allele; }
 
-static inline int rvDataAlleleLength(RecVcf *rv, int alleleIdx) {
+/**
+ * @brief  Return the covered length of this allele.
+ * There are several cases (REF ALT):
+ * 1. (A  ACCC) - INS - return 1
+ * 2. (A  C) - SNP - return 1
+ * 3. (ACGTA  A) - DEL - return 5
+ * 4. (CCC  C,CCCCCCCC) - DEL,INS - return 3,3
+ */
+static inline int rvDataAlleleCoverLength(RecVcf *rv, int alleleIdx) {
   assert(
       (alleleIdx < rv->rec->n_allele) ||
-      (fprintf(stderr,
-               "Error: array out of boundary for rvDataAlleleLength(...)\n") <
+      (fprintf(
+           stderr,
+           "Error: array out of boundary for rvDataAlleleCoverLength(...)\n") <
        0));
-  return strlen(rv->rec->d.allele[alleleIdx]);
+  int len_ref = strlen(rv->rec->d.allele[0]);
+  int len_allele = strlen(rv->rec->d.allele[alleleIdx]);
+  if (len_allele == len_ref)
+    return 1;
+  else
+    return len_ref;
 }
 
 /**
@@ -115,8 +129,9 @@ static inline int rvDataAlleleLength(RecVcf *rv, int alleleIdx) {
 static inline const char *rvDataAllele(RecVcf *rv, int alleleIdx) {
   assert(
       (alleleIdx < rv->rec->n_allele) ||
-      (fprintf(stderr,
-               "Error: array out of boundary for rvDataAlleleLength(...)\n") <
+      (fprintf(
+           stderr,
+           "Error: array out of boundary for rvDataAlleleCoverLength(...)\n") <
        0));
   return rv->rec->d.allele[alleleIdx];
 }

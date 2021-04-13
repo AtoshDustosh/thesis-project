@@ -8,6 +8,9 @@
     "grbvoperations.h": "c",
     "limits": "c",
     "alignment.h": "c",
-    "hts.h": "c"
+    "hts.h": "c",
+    "genomesam.h": "c",
+    "cstdio": "cpp",
+    "typeinfo": "cpp"
   }
 }

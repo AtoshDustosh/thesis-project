@@ -15,11 +15,11 @@ typedef struct _define_PendingAlleles {
   int alleleCnt;
 } PendingAlleles;
 
-// TODO --------------------------- split line ---------------------------
-// TODO --------------------------- split line ---------------------------
-// TODO --------------------------- split line ---------------------------
-// TODO --------------------------- split line ---------------------------
-// TODO --------------------------- split line ---------------------------
+//  --------------------------- split line ---------------------------
+//  --------------------------- split line ---------------------------
+//  --------------------------- split line ---------------------------
+//  --------------------------- split line ---------------------------
+//  --------------------------- split line ---------------------------
 
 /**
  * @brief NOT RECOMMENDED. Use method "countIntegratedAllele > 0" instead. Judge
@@ -62,7 +62,7 @@ static inline int ifCanIntegrateVar(RecVcf *rv, int64_t startPos,
         break;
       }
       default: {
-        // TODO ignore other kinds of varaints
+        // ignore other kinds of varaints
       }
     }
   }
@@ -117,7 +117,7 @@ static inline int countIntegratedAllele(RecVcf *rv, int64_t startPos,
         fprintf(stderr,
                 "Warning: variant ignored. varRef: %s, varAlt[%d]: %s\n",
                 rvData(rv)->d.allele[0], i, rvData(rv)->d.allele[i]);
-        // TODO ignore other kinds of varaints
+        // ignore other kinds of varaints
       }
     }
   }
@@ -156,7 +156,7 @@ static inline int ifCanIntegrateAllele(RecVcf *rv, int alleleIdx, int startPos,
       break;
     }
     default: {
-      // TODO ignore other kinds of varaints
+      // ignore other kinds of varaints
     }
   }
   int64_t varEndPos = varStartPos + varAffectedLength;
@@ -278,14 +278,14 @@ static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
             printf("old ref: %s\n", refSeq);
             align_ksw2(newSeq, strlen(newSeq), readSeq, strlen(readSeq), ar);
             printf("new ref: %s\n", newSeq);
-            printf("od score: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
+            printf("od mapq: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
             for (int i = 0; i < rsData(rs)->core.n_cigar; i++) {
               uint32_t cigarOpt = bam_get_cigar(rsData(rs))[i];
               uint32_t oplen = bam_cigar_oplen(cigarOpt);
               char opchar = bam_cigar_opchr(cigarOpt);
               printf("%" PRId32 "%c", oplen, opchar);
             }
-            printf(", score: %" PRIu8 ", cigar: %s\n", ar->score, ar->cigar);
+            printf(", mapq: %" PRIu8 ", cigar: %s\n", ar->mapq, ar->cigar);
             // ---------------------free-----------------------------
             free(newSeq);
             generatedCnt++;
@@ -304,7 +304,7 @@ static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
               // ---------------------printing------------------------
               printf("old ref: %s\n", refSeq);
               printf("new ref: %s\n", newSeq);
-              printf("od score: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
+              printf("od mapq: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
               for (int i = 0; i < rsData(rs)->core.n_cigar; i++) {
                 uint32_t cigarOpt = bam_get_cigar(rsData(rs))[i];
                 uint32_t oplen = bam_cigar_oplen(cigarOpt);
@@ -312,7 +312,7 @@ static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
                 printf("%" PRId32 "%c", oplen, opchar);
               }
               align_ksw2(newSeq, strlen(newSeq), readSeq, strlen(readSeq), ar);
-              printf(", score: %" PRIu8 ", cigar: %s\n", ar->score, ar->cigar);
+              printf(", mapq: %" PRIu8 ", cigar: %s\n", ar->mapq, ar->cigar);
               // ---------------------free-----------------------------
               free(newSeq);
               generatedCnt++;
@@ -343,7 +343,7 @@ static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
               // ---------------------printing------------------------
               printf("old ref: %s\n", refSeq);
               printf("new ref: %s\n", newSeq);
-              printf("od score: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
+              printf("od mapq: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
               for (int i = 0; i < rsData(rs)->core.n_cigar; i++) {
                 uint32_t cigarOpt = bam_get_cigar(rsData(rs))[i];
                 uint32_t oplen = bam_cigar_oplen(cigarOpt);
@@ -351,7 +351,7 @@ static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
                 printf("%" PRId32 "%c", oplen, opchar);
               }
               align_ksw2(newSeq, strlen(newSeq), readSeq, strlen(readSeq), ar);
-              printf(", score: %" PRIu8 ", cigar: %s\n", ar->score, ar->cigar);
+              printf(", mapq: %" PRIu8 ", cigar: %s\n", ar->mapq, ar->cigar);
               // ---------------------free-----------------------------
               free(newSeq);
               generatedCnt++;
@@ -487,50 +487,88 @@ void integrateVcfToSam(Options *opts) {
   destroy_GenomeVcf(gv);
 }
 
-// TODO refactoring ...
 static inline void integrateVarAndRealign_refactored(
     ElementRecVcf *ervArray[], int *ervCombi, int *alleleCombi, int combiSize,
     int64_t refStartPos, const char *oldRefSeq, const char *readSeq,
-    GenomeVcf *gv) {
+    GenomeVcf *gv, RecSam *rs, samFile *fp, GenomeSam *gs) {
+  printf("| integrated alleles: ");
+  for (int i = 0; i < combiSize; i++) {
+    printf("(%d,%d) ", ervCombi[i], alleleCombi[i]);
+  }
+  printf("\n");
   const int oldRefSeqLen = strlen(oldRefSeq);
-  // Go along both the oldRefSeq and those alleles.
+  // A buffer for constructing the new reference sequence
   char buf[oldRefSeqLen * 2];
   memset(buf, 0, oldRefSeqLen * 2);
 
+  // Go along both the oldRefSeq and those alleles.
   int idx_oldRefSeq = 0;
   int idx_newRefSeq = 0;
+  int fixPosStart =
+      refStartPos;  // Fix value of start pos, which may be changed by a
+                    // partially integrated DEL at the start of the region
   for (int i = 0; i < combiSize; i++) {
     // Synchronize the positions of buf and allele
     int alleleStartPos = rvDataPos(ervArray[ervCombi[i]]->rv);
-    while (alleleStartPos > refStartPos + idx_oldRefSeq) {
-      buf[idx_newRefSeq++] = oldRefSeq[idx_oldRefSeq++];
-    }
     const char *allele_ref = rvDataAllele(ervArray[ervCombi[i]]->rv, 0);
     const char *allele_alt =
         rvDataAllele(ervArray[ervCombi[i]]->rv, alleleCombi[i]);
     int len_allele_ref = strlen(allele_ref);
     int len_allele_alt = strlen(allele_alt);
-    while (len_allele_ref > 0) {
-      idx_oldRefSeq++;
-      len_allele_ref--;
-    }
     int idx_allele_alt = 0;
-    while (len_allele_alt > 0) {
-      assert((idx_allele_alt < len_allele_alt) ||
-             (fprintf(stderr, "Error: array out of boundary. \n") < 0));
+    if (alleleStartPos < refStartPos + idx_oldRefSeq) {
+      // Synchronize allele that is partially integrated, especially when the
+      // allele is a DEL and the start pos is smaller than the region's start
+      // pos.
+      // fprintf(stderr, "-----------Warning: partial allele integrated. \n");
+      idx_allele_alt += refStartPos + idx_oldRefSeq - alleleStartPos;
+      len_allele_ref -= refStartPos + idx_oldRefSeq - alleleStartPos;
+      fixPosStart += len_allele_ref;
+    }
+    while (alleleStartPos > refStartPos + idx_oldRefSeq) {
+      buf[idx_newRefSeq++] = oldRefSeq[idx_oldRefSeq++];
+    }
+    // Ignore the bases on old ref based on REF of the allele
+    for (int j = 0; j < len_allele_ref; j++) {
+      idx_oldRefSeq++;
+    }
+    // Copy the ALT bases of the allele to the new sequence
+    while (idx_allele_alt < len_allele_alt) {
       buf[idx_newRefSeq++] = allele_alt[idx_allele_alt++];
-      len_allele_alt--;
     }
     assert((idx_oldRefSeq < oldRefSeqLen) ||
            (fprintf(stderr, "Error: array out of boundary. \n") < 0));
-    // TODO pad the rest unloaded old seq bases
-    printf("oldSeq: %s\n", oldRefSeq);
-    printf("newSeq: %s\n", buf);
   }
+  // Pad the rest unloaded old seq bases
+  while (idx_oldRefSeq < oldRefSeqLen)
+    buf[idx_newRefSeq++] = oldRefSeq[idx_oldRefSeq++];
+
+  // Calculate new MAPQ
+  char *newRefSeq = strdup(buf);
+  printf("oldSeq: %s\n", oldRefSeq);
+  printf("newSeq: %s\n", newRefSeq);
+  printf("readSeq: %s\n", readSeq);
+  AlignResult *ar = init_AlignResult();
+  align_ssw(newRefSeq, strlen(newRefSeq), readSeq, strlen(readSeq), ar);
+  fixPos_AlignResult(ar, fixPosStart);
+  print_AlignResult(ar);
+
+  // Write the result into the output file
+  bam1_t *newRec =
+      bamSetPosCigarMapq(rsData(rs), arDataPos(ar), arDataReadBegin(ar),
+                         arDataReadEnd(ar), arDataCigar(ar), arDataMapQ(ar));
+  if (sam_write1(fp, gsDataHdr(gs), newRec) < 0) {
+    fprintf(stderr, "Error: failed to write sam record - \n");
+    printSamRecord_brief(gs, newRec);
+    exit(EXIT_FAILURE);
+  }
+
+  free(newRefSeq);
+  destroy_AlignResult(ar);
+  bam_destroy1(newRec);
   return;
 }
 
-// TODO refactoring ...
 void integrateVcfToSam_refactored(Options *opts) {
   if (opts->samFile == NULL || opts->vcfFile == NULL) {
     fprintf(stderr,
@@ -548,6 +586,13 @@ void integrateVcfToSam_refactored(Options *opts) {
   loadGenomeFaFromFile(gf, opts->faFile);
   loadGenomeSamFromFile(gs, opts->samFile);
   loadGenomeVcfFromFile(gv, opts->vcfFile);
+
+  // Write header for output file (new sam file)
+  htsFile *op_file = hts_open(getOutputFile(opts), "w");
+  if (sam_hdr_write(op_file, gsDataHdr(gs)) < 0) {
+    fprintf(stderr, "Error: failed to write sam file header. \n");
+    exit(EXIT_FAILURE);
+  }
 
   // Iterate all sam records and locate their corresponding variants.
   GenomeSamIterator *gsIt = init_GenomeSamIterator(gs);
@@ -595,7 +640,6 @@ void integrateVcfToSam_refactored(Options *opts) {
     tmpRv = firstRv;
 
     int integratedRvCnt = 0;
-    int *integratedAlleleCnts = NULL;
     // 1st loop - calculate number of vcf records that needs integration
     // printf("-----------------1st loop-----------------\n");
     while (tmpRv != NULL) {
@@ -655,8 +699,10 @@ void integrateVcfToSam_refactored(Options *opts) {
       printf("\n");
     }
 
+    // ---------------------- perform integration -----------------------
     int *ervIdxes = (int *)calloc(integratedRvCnt, sizeof(int));
     for (int i = 0; i < integratedRvCnt; i++) ervIdxes[i] = i;
+    int newRecCnt = 0;
     for (int i = 1; i < integratedRvCnt + 1; i++) {
       Combinations *cbs = combinations(ervIdxes, integratedRvCnt, i);
       printf("erv combi(size: %d) cnt: %d\n", i, cbs->combiCnt);
@@ -669,21 +715,26 @@ void integrateVcfToSam_refactored(Options *opts) {
         AlleleCombinations *acbs = alleleCombinations(
             ervArray, integratedRvCnt, cbs->combis[j], cbs->combiSize);
         printf("allele combi cnt: %d\n", acbs->combiCnt);
-        print_AlleleCombinations(acbs);
-        // TODO integrate and realign
+        // print_AlleleCombinations(acbs);
         for (int k = 0; k < acbs->combiCnt; k++) {
+          newRecCnt++;
           integrateVarAndRealign_refactored(
               ervArray, acbs->rvCombi, acbs->alleleCombis[k], acbs->combiSize,
-              refStartPos, refSeq, readSeq, gv);
+              refStartPos, refSeq, readSeq, gv, tmpRs, op_file, gs);
         }
         destroy_AlleleCombinations(acbs);
       }
     }
+    printf("new rec cnt: %d\n", newRecCnt);
 
-    // -------------- generate all permutaions of variants --------------
-
-    // --------------------- perform integration ------------------------
-
+    // --------------------- free allocated memory ----------------------
+    free(refSeq);
+    free(readSeq);
+    for (int i = 0; i < integratedRvCnt; i++) {
+      free(ervArray[i]);
+    }
+    free(ervArray);
+    free(ervIdxes);
     // ----------------------- keep on iterating --------------------
     printf("\n");
     tmpRs = gsItNextRec(gsIt);

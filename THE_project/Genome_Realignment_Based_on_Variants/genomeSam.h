@@ -62,9 +62,7 @@ static inline uint32_t rsDataSeqLength(RecSam *rs) {
   return rs->rec->core.l_qseq;
 }
 
-static inline uint8_t rsDataMapQ(RecSam *rs){
-  return rs->rec->core.qual;
-}
+static inline uint8_t rsDataMapQ(RecSam *rs) { return rs->rec->core.qual; }
 
 /**
  * @brief  Get the base sequence of the sam record. Note that the successfully
@@ -74,29 +72,64 @@ static inline uint8_t rsDataMapQ(RecSam *rs){
  */
 char *rsDataSeq(RecSam *rs);
 
-static inline int rsSetCigarAndMapq(RecSam *rs, char *cigarStr, uint8_t score) {
+/**
+ * @brief  Change the pos, cigar and mapq of a bam1_t object but maitain other
+ fields. Then return a copy of the modified bam1_t.
+ * @note
+ * @param read_begin  0-based position
+ * @param read_end    0-based position
+ * @param cigarStr    cigar. Length(cigarStr) must equal (read_end - read_begin)
+ * @retval new bam1_t object (changed pos, cigar and mapq). The bam1_t struct
+ returned by a successful call should be freed via bam_destroy1() when it is no
+ longer needed.
+ */
+static inline bam1_t *bamSetPosCigarMapq(bam1_t *rec, int64_t newPos,
+                                         int32_t read_begin, int32_t read_end,
+                                         const char *cigarStr,
+                                         uint8_t newMapQ) {
+  bam1_t *newRec = bam_init1();
   uint32_t *cigarBuf = NULL;
   char *end;
   size_t m = 0;
 
-  bam1_t *rec = rsData(rs);
-  size_t l_qname = rec->l_data;
-  const char *qname = bam_get_qname(rec);
+  size_t l_qname = rec->core.l_qname;
+  // const char *qname = bam_get_qname(rec);
+  char *qname = (char *)calloc(l_qname, sizeof(char));
+  strcpy(qname, bam_get_qname(rec));
   uint16_t flag = rec->core.flag;
   int32_t tid = rec->core.tid;
-  hts_pos_t pos = rec->core.pos;
-  uint8_t mapq = score;
+  hts_pos_t pos = newPos;
+  uint8_t mapq = newMapQ;
   size_t n_cigar = sam_parse_cigar(cigarStr, &end, &cigarBuf, &m);
   const uint32_t *cigar = cigarBuf;
   int32_t mtid = rec->core.mtid;
   hts_pos_t mpos = rec->core.mpos;
   hts_pos_t isize = rec->core.isize;
-  size_t l_seq = rec->core.l_qseq;
-  const char *seq = bam_get_seq(rec);
-  const char *qual = bam_get_qual(rec);
+  // This "+1" is for (array index [1]-[0] = 1, array length = 1 + 1)
+  size_t l_seq = read_end - read_begin + 1;
+  // const char *seq = bam_get_seq(rec);
+  // This "+1" is for the '\0' at the end of a string
+  char *seq = (char *)calloc(l_seq + 1, sizeof(char));
+  for (int i = 0; i < l_seq; i++) {
+    seq[i] = bam_get_seq(rec)[read_begin + i];
+  }
+  // const char *qual = bam_get_qual(rec);
+  char *qual = (char *)calloc(l_seq + 1, sizeof(char));
+  for (int i = 0; i < l_seq; i++) {
+    qual[i] = bam_get_qual(rec)[read_begin + i];
+  }
   size_t l_aux = bam_get_l_aux(rec);
-  return bam_set1(rec, l_qname, qname, flag, tid, pos, mapq, n_cigar, cigar,
-                  mtid, mpos, isize, l_seq, seq, qual, l_aux);
+  // TODO fix the qname redundant binary output .....
+  // TODO fix the qname redundant binary output .....
+  // TODO fix the qname redundant binary output .....
+  // TODO fix the qname redundant binary output .....
+  bam_set1(newRec, l_qname, qname, flag, tid, pos, mapq, n_cigar, cigar, mtid,
+           mpos, isize, l_seq, seq, qual, l_aux);
+  printf("l_qname: %lu\n", l_qname);
+  free(qname);
+  free(seq);
+  free(qual);
+  return newRec;
 }
 
 static inline char *csDataName(ChromSam *cs) { return cs->name; }

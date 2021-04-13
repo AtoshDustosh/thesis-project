@@ -141,7 +141,7 @@ static void recurseAlleleCombinations(ElementRecVcf *rvArray[], int rvCombi[],
       ElementRecVcf *lastSelectedErv = rvArray[rvCombi[newAlleleIdx - 1]];
       ElementRecVcf *tmpSelectedErv = rvArray[rvCombi[newAlleleIdx]];
       if (rvDataPos(lastSelectedErv->rv) +
-              rvDataAlleleLength(lastSelectedErv->rv,
+              rvDataAlleleCoverLength(lastSelectedErv->rv,
                                  newAlleleCombi[newAlleleIdx - 1]) >
           rvDataPos(tmpSelectedErv->rv)) {
         // if the last selected allele covers this allele

@@ -84,10 +84,14 @@ void align_ksw2(const char *tseq, const int tlen, const char *qseq,
   char *cigar = (char *)calloc(strlen(buf) + 1, sizeof(char));
   strcpy(cigar, buf);
 
-  // Assign results
+  // Assign results (global alignment)
   ar->pos = 0;
   ar->cigar = cigar;
-  ar->score = ez.score;
+  ar->mapq = ez.score;
+  ar->ref_begin = 0;
+  ar->ref_end = tlen - 1;
+  ar->read_begin = 0;
+  ar->read_end = qlen - 1;
 
   free(ez.cigar);
   free(numTseq);
@@ -129,10 +133,14 @@ void align_ssw(const char *tseq, const int tlen, const char *qseq,
   char *cigar = (char *)calloc(strlen(buf) + 1, sizeof(char));
   strcpy(cigar, buf);
 
-  // Assign results
+  // Assign results (local alignment)
   ar->pos = result->ref_begin1;
-  ar->score = result->score1;
+  ar->mapq = result->score1;
   ar->cigar = cigar;
+  ar->ref_begin = result->ref_begin1;
+  ar->ref_end = result->ref_end1;
+  ar->read_begin = result->read_begin1;
+  ar->read_end = result->read_end1;
 
   // printf("ref:\t%s\n", tseq);
   // printf("read:\t%s\n", qseq);
@@ -160,10 +168,6 @@ void align_ssw(const char *tseq, const int tlen, const char *qseq,
 }
 
 static int _test_ksw2Alignment() {
-  // default parameters for genome sequence alignment
-  static int32_t match = 2, mismatch = -2;
-  static int32_t gapOpen = 3, gapExtension = 1;
-  alignInitialize(match, mismatch, gapOpen, gapExtension);
   // align
   static const char *tseq = "CAGCCTTTCTGACCCGGAAATCAAAATAGGCACAACAAA";
   static const char *qseq = "CTGAGCCGGTAAATC";
@@ -176,10 +180,6 @@ static int _test_ksw2Alignment() {
 }
 
 static int _test_sswAlignment() {
-  // default parameters for genome sequence alignment
-  static int32_t match = 2, mismatch = -2;
-  static int32_t gapOpen = 3, gapExtension = 1;
-  alignInitialize(match, mismatch, gapOpen, gapExtension);
   // align
   static const char *tseq = "CAGCCTTTCTGACCCGGAAATCAAAATAGGCACAACAAA";
   static const char *qseq = "CTGAGCCGGTAAATC";
@@ -192,6 +192,10 @@ static int _test_sswAlignment() {
 }
 
 void _testSet_alignment() {
+  // default parameters for genome sequence alignment
+  static int32_t match = 4, mismatch = -6;
+  static int32_t gapOpen = 3, gapExtension = 1;
+  alignInitialize(match, mismatch, gapOpen, gapExtension);
   assert(_test_ksw2Alignment());
   assert(_test_sswAlignment());
 }
