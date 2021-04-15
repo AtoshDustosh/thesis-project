@@ -491,11 +491,11 @@ static inline void integrateVarAndRealign_refactored(
     ElementRecVcf *ervArray[], int *ervCombi, int *alleleCombi, int combiSize,
     int64_t refStartPos, const char *oldRefSeq, const char *readSeq,
     GenomeVcf *gv, RecSam *rs, samFile *fp, GenomeSam *gs) {
-  printf("| integrated alleles: ");
-  for (int i = 0; i < combiSize; i++) {
-    printf("(%d,%d) ", ervCombi[i], alleleCombi[i]);
-  }
-  printf("\n");
+  // printf("| integrated alleles: ");
+  // for (int i = 0; i < combiSize; i++) {
+  //   printf("(%d,%d) ", ervCombi[i], alleleCombi[i]);
+  // }
+  // printf("\n");
   const int oldRefSeqLen = strlen(oldRefSeq);
   // A buffer for constructing the new reference sequence
   char buf[oldRefSeqLen * 2];
@@ -545,13 +545,13 @@ static inline void integrateVarAndRealign_refactored(
 
   // Calculate new MAPQ
   char *newRefSeq = strdup(buf);
-  printf("oldSeq: %s\n", oldRefSeq);
-  printf("newSeq: %s\n", newRefSeq);
-  printf("readSeq: %s\n", readSeq);
+  // printf("oldSeq: %s\n", oldRefSeq);
+  // printf("newSeq: %s\n", newRefSeq);
+  // printf("readSeq: %s\n", readSeq);
   AlignResult *ar = init_AlignResult();
   align_ssw(newRefSeq, strlen(newRefSeq), readSeq, strlen(readSeq), ar);
   fixPos_AlignResult(ar, fixPosStart);
-  print_AlignResult(ar);
+  // print_AlignResult(ar);
 
   // Write the result into the output file
   bam1_t *newRec =
@@ -628,8 +628,8 @@ void integrateVcfToSam_refactored(Options *opts) {
     if (refStartPos < 1) refStartPos = 1;
     if (refEndPos > tmpCf->length) refEndPos = tmpCf->length;
     char *refSeq = getSeqFromChromFa(refStartPos, refEndPos, tmpCf);
-    printf("recSam - startPos: %" PRId64 ", endPos: %" PRId64 ", rname: %s\n",
-           refStartPos, refEndPos, readRname);
+    // printf("recSam - startPos: %" PRId64 ", endPos: %" PRId64 ", rname: %s\n",
+    //        refStartPos, refEndPos, readRname);
 
     // --------- get all variants' combinations within the interval -----
     // find the first variant that can be integrated and start iteration on
@@ -651,7 +651,7 @@ void integrateVcfToSam_refactored(Options *opts) {
       }
       tmpRv = tmpRv->next;
     }
-    printf("integratedRvCnt: %d\n", integratedRvCnt);
+    // printf("integratedRvCnt: %d\n", integratedRvCnt);
 
     // 2nd loop - save pointers to vcf records that needs integration, calculate
     // number of alleles of each vcf record that needs integration and get ready
@@ -689,15 +689,15 @@ void integrateVcfToSam_refactored(Options *opts) {
       }
       tmpRv = tmpRv->next;
     }
-    printf("rvArray: \n");
-    for (int i = 0; i < integratedRvCnt; i++) {
-      printVcfRecord_brief(gv, rvData(ervArray[i]->rv));
-      printf("\tintegrated alleles' idxes: ");
-      for (int j = 0; j < ervArray[i]->alleleCnt; j++) {
-        printf("%d ", ervArray[i]->alleleIdx[j]);
-      }
-      printf("\n");
-    }
+    // printf("rvArray: \n");
+    // for (int i = 0; i < integratedRvCnt; i++) {
+    //   printVcfRecord_brief(gv, rvData(ervArray[i]->rv));
+    //   printf("\tintegrated alleles' idxes: ");
+    //   for (int j = 0; j < ervArray[i]->alleleCnt; j++) {
+    //     printf("%d ", ervArray[i]->alleleIdx[j]);
+    //   }
+    //   printf("\n");
+    // }
 
     // ---------------------- perform integration -----------------------
     int *ervIdxes = (int *)calloc(integratedRvCnt, sizeof(int));
@@ -705,16 +705,16 @@ void integrateVcfToSam_refactored(Options *opts) {
     int newRecCnt = 0;
     for (int i = 1; i < integratedRvCnt + 1; i++) {
       Combinations *cbs = combinations(ervIdxes, integratedRvCnt, i);
-      printf("erv combi(size: %d) cnt: %d\n", i, cbs->combiCnt);
+      // printf("erv combi(size: %d) cnt: %d\n", i, cbs->combiCnt);
       for (int j = 0; j < cbs->combiCnt; j++) {
-        printf("erv combi[%d]: ", j);
-        for (int k = 0; k < cbs->combiSize; k++) {
-          printf("%d ", cbs->combis[j][k]);
-        }
-        printf("\n");
+        // printf("erv combi[%d]: ", j);
+        // for (int k = 0; k < cbs->combiSize; k++) {
+        //   printf("%d ", cbs->combis[j][k]);
+        // }
+        // printf("\n");
         AlleleCombinations *acbs = alleleCombinations(
             ervArray, integratedRvCnt, cbs->combis[j], cbs->combiSize);
-        printf("allele combi cnt: %d\n", acbs->combiCnt);
+        // printf("allele combi cnt: %d\n", acbs->combiCnt);
         // print_AlleleCombinations(acbs);
         for (int k = 0; k < acbs->combiCnt; k++) {
           newRecCnt++;
@@ -725,7 +725,8 @@ void integrateVcfToSam_refactored(Options *opts) {
         destroy_AlleleCombinations(acbs);
       }
     }
-    printf("new rec cnt: %d\n", newRecCnt);
+    // printf("new rec cnt: %d\n", newRecCnt);
+    // printf("\n");
 
     // --------------------- free allocated memory ----------------------
     free(refSeq);
@@ -736,7 +737,6 @@ void integrateVcfToSam_refactored(Options *opts) {
     free(ervArray);
     free(ervIdxes);
     // ----------------------- keep on iterating --------------------
-    printf("\n");
     tmpRs = gsItNextRec(gsIt);
     if (tmpRs == NULL) {
       tmpCs = gsItNextChrom(gsIt);
@@ -744,9 +744,16 @@ void integrateVcfToSam_refactored(Options *opts) {
     }
   }
 
+  // Free structures
+  destroy_GenomeSamIterator(gsIt);
+
+  hts_close(op_file);
+
   destroy_GenomeFa(gf);
   destroy_GenomeSam(gs);
   destroy_GenomeVcf(gv);
+
+  printf("...successfully finished.\n");
 }
 
 // *************************************************************

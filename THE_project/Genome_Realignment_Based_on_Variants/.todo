@@ -9,7 +9,7 @@
 
   // add a command line to filter bad mapped reads
 
-  ./main --faFile data/test.fa --fastqFile data/test.fastq --samFile data/test.sam --vcfFile data/test.vcf --outputFile data/grbvOut.txt --integrateVcfToSam
+  ./main --faFile data/test.fa --fastqFile data/test.fastq --samFile data/test.sam --vcfFile data/test.vcf --outputFile data/grbvOut.sam --integrateVcfToSam
 
 - TODOs:
   1. Refactor process of integration. 

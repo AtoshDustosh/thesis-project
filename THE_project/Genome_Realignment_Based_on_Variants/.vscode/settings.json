@@ -11,6 +11,7 @@
     "hts.h": "c",
     "genomesam.h": "c",
     "cstdio": "cpp",
-    "typeinfo": "cpp"
+    "typeinfo": "cpp",
+    "genomefamacros.h": "c"
   }
 }

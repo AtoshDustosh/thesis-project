@@ -92,10 +92,9 @@ static inline bam1_t *bamSetPosCigarMapq(bam1_t *rec, int64_t newPos,
   char *end;
   size_t m = 0;
 
-  size_t l_qname = rec->core.l_qname;
-  // const char *qname = bam_get_qname(rec);
-  char *qname = (char *)calloc(l_qname, sizeof(char));
-  strcpy(qname, bam_get_qname(rec));
+  const char *qname = bam_get_qname(rec);
+  // It seems the l_qname retained using rec->core.l_qname is not correct.
+  size_t l_qname = strlen(qname);
   uint16_t flag = rec->core.flag;
   int32_t tid = rec->core.tid;
   hts_pos_t pos = newPos;
@@ -111,24 +110,38 @@ static inline bam1_t *bamSetPosCigarMapq(bam1_t *rec, int64_t newPos,
   // This "+1" is for the '\0' at the end of a string
   char *seq = (char *)calloc(l_seq + 1, sizeof(char));
   for (int i = 0; i < l_seq; i++) {
-    seq[i] = bam_get_seq(rec)[read_begin + i];
+    switch (bam_seqi(bam_get_seq(rec), read_begin + i)) {
+      case 1: {
+        seq[i] = 'A';
+        break;
+      }
+      case 2: {
+        seq[i] = 'C';
+        break;
+      }
+      case 4: {
+        seq[i] = 'G';
+        break;
+      }
+      case 8: {
+        seq[i] = 'T';
+        break;
+      }
+      case 15: {
+        seq[i] = 'T';
+        break;
+      }
+      default: {
+        fprintf(stderr, "Error: unexpected error when decoding bases.\n");
+        exit(EXIT_FAILURE);
+      }
+    }
   }
-  // const char *qual = bam_get_qual(rec);
-  char *qual = (char *)calloc(l_seq + 1, sizeof(char));
-  for (int i = 0; i < l_seq; i++) {
-    qual[i] = bam_get_qual(rec)[read_begin + i];
-  }
+  const char *qual = bam_get_qual(rec);
   size_t l_aux = bam_get_l_aux(rec);
-  // TODO fix the qname redundant binary output .....
-  // TODO fix the qname redundant binary output .....
-  // TODO fix the qname redundant binary output .....
-  // TODO fix the qname redundant binary output .....
   bam_set1(newRec, l_qname, qname, flag, tid, pos, mapq, n_cigar, cigar, mtid,
            mpos, isize, l_seq, seq, qual, l_aux);
-  printf("l_qname: %lu\n", l_qname);
-  free(qname);
   free(seq);
-  free(qual);
   return newRec;
 }
 
