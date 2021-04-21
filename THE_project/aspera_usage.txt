@@ -14,8 +14,11 @@
 
  [usage] ascp -h
 
-
  -- Usage
+
+ascp -QT -l 300m -P33001 -i path/to/aspera/installation/etc/asperaweb_id_dsa.openssh \
+era-fasp@fasp.sra.ebi.ac.uk:vol1/fastq/ERR164/ERR164407/ERR164407.fastq.gz \
+local/target/directory
 
 ascp -v -QT// -Q用于自适应流量控制，磁盘限制所需;-T是取消加密，否则有时候数据下载不了. "-v": 输出必要信息（verbose mode）
 -l 300m // -l设置最大传输速度，一般200m到500m，若不设置，反而速度会较低，可能有个较低的默认值
