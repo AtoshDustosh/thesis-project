@@ -59,19 +59,16 @@ typedef struct _define_Options {
 /*
  * Methods for accessing data from a "Options *".
  */
-static inline const char *getFaFile(Options *opts) { return opts->faFile; }
-static inline const char *getFastqFile(Options *opts) {
-  return opts->fastqFile;
-}
-static inline const char *getSamFile(Options *opts) { return opts->samFile; }
-static inline const char *getVcfFile(Options *opts) { return opts->vcfFile; }
-static inline const char *getOutputFile(Options *opts) {
-  return opts->outputFile;
+static inline char *getFaFile(Options *opts) { return opts->faFile; }
+static inline char *getFastqFile(Options *opts) { return opts->fastqFile; }
+static inline char *getSamFile(Options *opts) { return opts->samFile; }
+static inline char *getVcfFile(Options *opts) { return opts->vcfFile; }
+static inline char *getOutputFile(Options *opts) { return opts->outputFile; }
+static inline void setOutputFile(Options *opts, char *op_file) {
+  opts->outputFile = op_file;
 }
 
-static inline int MAPQ_threshold(Options *opts){
-  return opts->selectBadReads;
-}
+static inline int MAPQ_threshold(Options *opts) { return opts->selectBadReads; }
 
 typedef struct _define_FileList {
   char **paths;

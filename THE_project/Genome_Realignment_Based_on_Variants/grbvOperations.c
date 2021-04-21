@@ -570,26 +570,37 @@ static inline void integrateVarAndRealign_refactored(
 }
 
 void integrateVcfToSam_refactored(Options *opts) {
-  if (opts->samFile == NULL || opts->vcfFile == NULL) {
+  if (getSamFile(opts) == NULL || getVcfFile(opts) == NULL) {
     fprintf(stderr,
             "Error: arguments not complete for variants integration. \n");
     exit(EXIT_FAILURE);
   }
-  if (opts->outputFile == NULL) {
-    opts->outputFile = "data/defaultOutput.txt";
+  if (getOutputFile(opts) == NULL) {
+    setOutputFile(opts, "data/defaultOutput.txt");
   }
 
   GenomeFa *gf = init_GenomeFa();
   GenomeSam *gs = init_GenomeSam();
   GenomeVcf *gv = init_GenomeVcf();
 
-  loadGenomeFaFromFile(gf, opts->faFile);
-  loadGenomeSamFromFile(gs, opts->samFile);
-  loadGenomeVcfFromFile(gv, opts->vcfFile);
+  loadGenomeFaFromFile(gf, getFaFile(opts));
+  loadGenomeSamFromFile(gs, getSamFile(opts));
+  loadGenomeVcfFromFile(gv, getVcfFile(opts));
 
   // Write header for output file (new sam file)
-  htsFile *op_file = hts_open(getOutputFile(opts), "w");
-  if (sam_hdr_write(op_file, gsDataHdr(gs)) < 0) {
+  samFile *op_file = NULL;
+  op_file = sam_open(getOutputFile(opts), "w");
+  if (op_file == NULL) {
+    fprintf(stderr, "Error: cannot open file %s with mode \"w\"\n",
+            getOutputFile(opts));
+    exit(EXIT_FAILURE);
+  }
+  
+  sam_hdr_t *header = gsDataHdr(gs);
+  // sam_hdr_add_line(header, "SQ", "SN", "ref3", "LN", "5003", NULL);
+  // TODO see "sam.c" in htslib/test. And check the method "bam_aux_append()"
+
+  if (sam_hdr_write(op_file, header) < 0) {
     fprintf(stderr, "Error: failed to write sam file header. \n");
     exit(EXIT_FAILURE);
   }
@@ -628,7 +639,8 @@ void integrateVcfToSam_refactored(Options *opts) {
     if (refStartPos < 1) refStartPos = 1;
     if (refEndPos > tmpCf->length) refEndPos = tmpCf->length;
     char *refSeq = getSeqFromChromFa(refStartPos, refEndPos, tmpCf);
-    // printf("recSam - startPos: %" PRId64 ", endPos: %" PRId64 ", rname: %s\n",
+    // printf("recSam - startPos: %" PRId64 ", endPos: %" PRId64 ", rname:
+    // %s\n",
     //        refStartPos, refEndPos, readRname);
 
     // --------- get all variants' combinations within the interval -----
@@ -747,7 +759,7 @@ void integrateVcfToSam_refactored(Options *opts) {
   // Free structures
   destroy_GenomeSamIterator(gsIt);
 
-  hts_close(op_file);
+  sam_close(op_file);
 
   destroy_GenomeFa(gf);
   destroy_GenomeSam(gs);

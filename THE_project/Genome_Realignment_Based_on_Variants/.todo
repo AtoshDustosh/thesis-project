@@ -12,8 +12,6 @@
   ./main --faFile data/test.fa --fastqFile data/test.fastq --samFile data/test.sam --vcfFile data/test.vcf --outputFile data/grbvOut.sam --integrateVcfToSam
 
 - TODOs:
-  1. Refactor process of integration. 
-  2. Permutation of variants.
-
-problem:
-  1. permutation of variants. Difficult to implement the dynamic array for permutations.
+  1. manipulation of SVs with special formats
+  2. manipulation based on haplotypes
+  3. refactor the loading program for *.fa/fna files. Some files of this type don't have the field "LN" in their info lines.

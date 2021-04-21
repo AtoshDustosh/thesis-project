@@ -3,6 +3,7 @@
 @SQ	SN:chr2	LN:330
 @SQ	SN:chr3	LN:222
 @SQ	SN:chr4	LN:242
+@SQ	SN:ref3	LN:5003
 @PG	ID:bwa	PN:bwa	VN:0.7.17-r1188	CL:bwa mem data/test.fa data/test.fastq
 @PG	ID:samtools	PN:samtools	PP:bwa	VN:1.10	CL:samtools sort -o data/test.sam --output-fmt SAM data/test.sam
 TEST_1_01match	0	chr1	12	218	57M	*	0	0	AAACCCCCCTATACCCCAGCAAGACCAGACATCCCCCCCCCATAGACACCCCCACGT	IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
