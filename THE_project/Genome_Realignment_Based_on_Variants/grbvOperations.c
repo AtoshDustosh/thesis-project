@@ -498,15 +498,18 @@ static inline void integrateVarAndRealign_refactored(
   // printf("\n");
   const int oldRefSeqLen = strlen(oldRefSeq);
   // A buffer for constructing the new reference sequence
+  // TODO this buffer cannot support the integration of a large SV
   char buf[oldRefSeqLen * 2];
   memset(buf, 0, oldRefSeqLen * 2);
 
   // Go along both the oldRefSeq and those alleles.
   int idx_oldRefSeq = 0;
   int idx_newRefSeq = 0;
-  int fixPosStart =
-      refStartPos;  // Fix value of start pos, which may be changed by a
-                    // partially integrated DEL at the start of the region
+  // Fix value of start pos, which may be changed by a partially integrated DEL
+  // at the start of the region
+  int fixPosStart = refStartPos;
+
+  // Start integration
   for (int i = 0; i < combiSize; i++) {
     // Synchronize the positions of buf and allele
     int alleleStartPos = rvDataPos(ervArray[ervCombi[i]]->rv);
@@ -516,11 +519,11 @@ static inline void integrateVarAndRealign_refactored(
     int len_allele_ref = strlen(allele_ref);
     int len_allele_alt = strlen(allele_alt);
     int idx_allele_alt = 0;
+    // Synchronize allele before integration, especially when the
+    // allele is a DEL and the start pos is in front of the region's start
+    // pos. Ignore the bases in the front of the allele.
     if (alleleStartPos < refStartPos + idx_oldRefSeq) {
-      // Synchronize allele that is partially integrated, especially when the
-      // allele is a DEL and the start pos is smaller than the region's start
-      // pos.
-      // fprintf(stderr, "-----------Warning: partial allele integrated. \n");
+      // fprintf(stderr, "-----------Warning: allele partially integrated.\n");
       idx_allele_alt += refStartPos + idx_oldRefSeq - alleleStartPos;
       len_allele_ref -= refStartPos + idx_oldRefSeq - alleleStartPos;
       fixPosStart += len_allele_ref;
@@ -528,16 +531,39 @@ static inline void integrateVarAndRealign_refactored(
     while (alleleStartPos > refStartPos + idx_oldRefSeq) {
       buf[idx_newRefSeq++] = oldRefSeq[idx_oldRefSeq++];
     }
-    // Ignore the bases on old ref based on REF of the allele
+    // Ignore the bases on old ref according to REF of the allele
     for (int j = 0; j < len_allele_ref; j++) {
-      idx_oldRefSeq++;
+      if(idx_oldRefSeq < oldRefSeqLen){
+        idx_oldRefSeq++;
+      }
     }
     // Copy the ALT bases of the allele to the new sequence
     while (idx_allele_alt < len_allele_alt) {
       buf[idx_newRefSeq++] = allele_alt[idx_allele_alt++];
     }
-    assert((idx_oldRefSeq < oldRefSeqLen) ||
-           (fprintf(stderr, "Error: array out of boundary. \n") < 0));
+    if (idx_oldRefSeq > oldRefSeqLen) {
+      fprintf(stderr, "Error: array out of boundary. \n");
+      printf("old ref start pos: %" PRId64 ", old ref len: %d\n", refStartPos,
+             oldRefSeqLen);
+      printf("read seq: %s\n", readSeq);
+      printSamRecord_brief(gs, rsData(rs));
+      printf("variants: \n");
+      for (int i = 0; i < combiSize; i++) {
+        printVcfRecord_brief(gv, rvData(ervArray[i]->rv));
+      }
+      printf("\n");
+      printf("var combi: ");
+      for (int i = 0; i < combiSize; i++) {
+        printf("%d ", ervCombi[i]);
+      }
+      printf("\n");
+      printf("allele combi: ");
+      for (int i = 0; i < combiSize; i++) {
+        printf("%d ", alleleCombi[i]);
+      }
+      printf("\n");
+      exit(EXIT_FAILURE);
+    }
   }
   // Pad the rest unloaded old seq bases
   while (idx_oldRefSeq < oldRefSeqLen)
@@ -572,7 +598,8 @@ static inline void integrateVarAndRealign_refactored(
 void integrateVcfToSam_refactored(Options *opts) {
   if (getSamFile(opts) == NULL || getVcfFile(opts) == NULL) {
     fprintf(stderr,
-            "Error: arguments not complete for variants integration. \n");
+            "Error: arguments not complete for variants integration - lack "
+            "input files *.sam or *.vcf. \n");
     exit(EXIT_FAILURE);
   }
   if (getOutputFile(opts) == NULL) {
@@ -595,10 +622,9 @@ void integrateVcfToSam_refactored(Options *opts) {
             getOutputFile(opts));
     exit(EXIT_FAILURE);
   }
-  
+
   sam_hdr_t *header = gsDataHdr(gs);
   // sam_hdr_add_line(header, "SQ", "SN", "ref3", "LN", "5003", NULL);
-  // TODO see "sam.c" in htslib/test. And check the method "bam_aux_append()"
 
   if (sam_hdr_write(op_file, header) < 0) {
     fprintf(stderr, "Error: failed to write sam file header. \n");
@@ -632,8 +658,16 @@ void integrateVcfToSam_refactored(Options *opts) {
       continue;
     }
 
+    // TODO test the usage of aux_xxx methods from htslib/sam.h
+  // TODO see "sam.c" in htslib/test. And check the method "bam_aux_get()"
+  // TODO see "SAMtags.pdf" and check the value types when extracting tags.
+  // TODO extract tags and print out 
+  // TODO try modifying the tags and modify the values of those tags
+  
+
     // --------------------- get the ref sequence -----------------------
     ChromFa *tmpCf = getChromFromGenomeFabyName(readRname, gf);
+    // Theses XXXPOS are all 1-based.
     int64_t refStartPos = readStartPos - ecLen;
     int64_t refEndPos = readStartPos + readLength - 1 + ecLen;
     if (refStartPos < 1) refStartPos = 1;

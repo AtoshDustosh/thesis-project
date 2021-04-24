@@ -12,10 +12,10 @@
 #include "ksw2.h"
 #include "ssw.h"
 
-#define SCORE_DEFAULT_MATCH 2
-#define SCORE_DEFAULT_MISMATCH -2
-#define SCORE_DEFAULT_GAPOPEN 3
-#define SCORE_DEFAULT_GAPEXTENSION 1
+#define SCORE_DEFAULT_MATCH 1
+#define SCORE_DEFAULT_MISMATCH -4
+#define SCORE_DEFAULT_GAPOPEN -6
+#define SCORE_DEFAULT_GAPEXTENSION -1
 
 typedef struct _define_AlignResult {
   int64_t pos;

@@ -10,13 +10,12 @@
 
 #include "alignment.h"
 #include "auxiliaryMethods.h"
+#include "combinationsOfVars.h"
+#include "debug.h"
 #include "genomeFa.h"
 #include "genomeSam.h"
 #include "genomeVcf.h"
 #include "grbvOptions.h"
-#include "combinationsOfVars.h"
-
-#include "debug.h"
 
 /**
  * @brief  Integrate variants in *.vcf files into alignment records of reads in

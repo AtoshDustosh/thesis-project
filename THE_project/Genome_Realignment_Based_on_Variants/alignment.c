@@ -15,11 +15,11 @@ static int score_gapOpen = SCORE_DEFAULT_GAPOPEN;
 static int score_gapExtension = SCORE_DEFAULT_GAPEXTENSION;
 
 void alignInitialize(int match, int mismatch, int gapOpen, int gapExtension) {
-  // match, gapOpen, gapExtension > 0, mismatch < 0
+  // match > 0, mismatch, gapOpen, gapExtension < 0
   score_match = match > 0 ? match : -match;
   score_mismatch = mismatch < 0 ? mismatch : -mismatch;
-  score_gapOpen = gapOpen > 0 ? gapOpen : -gapOpen;
-  score_gapExtension = gapExtension > 0 ? gapExtension : -gapExtension;
+  score_gapOpen = gapOpen < 0 ? gapOpen : -gapOpen;
+  score_gapExtension = gapExtension < 0 ? gapExtension : -gapExtension;
   // initialize scoring matrix for genome sequences. For example,
   // when match = 2, and mismatch = -2, the matrix is:
   //  A  C  G  T	N (or other ambiguous code)

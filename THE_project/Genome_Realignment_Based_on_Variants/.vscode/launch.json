@@ -15,15 +15,15 @@
 
         "--faFile",
         "data/test.fa",
-        "--fastqFile",
-        "data/test.fastq",
+        // "--fastqFile",
+        // "data/test.fastq",
         "--samFile",
         "data/test.sam",
         "--vcfFile",
         "data/test.vcf",
 
         "--outputFile",
-        "data/grbvOut.txt",
+        "data/grbvOut.sam",
 
         // test grbv operations
         // "--selectBadReads",
