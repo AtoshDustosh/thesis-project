@@ -32,6 +32,7 @@
  */
 #define OPT_COUNTREC 201
 #define OPT_FIRSTLINES 202
+#define OPT_EXTRACTCHROM 203
 
 /*
  * GRBV operations.
@@ -40,7 +41,10 @@
 #define OPT_COMPARESAM 302
 #define OPT_INTEGRATEVCFTOSAM 303
 
+#define OPTION_CONFLICT 1
+
 typedef struct _define_Options {
+  int ifOptConflict;
   int verbose;
 
   char *faFile;
@@ -50,11 +54,24 @@ typedef struct _define_Options {
   char *outputFile;
 
   int countRec;
-  int firstLines;  // also store the value of [firstline_number]
+  int firstLines;    // also store the value of [firstline_number]
+  int extractChrom;  // also store the value of [chrom_idx]
 
   int selectBadReads;  // also store the value of [MAPQ_threshold]
   int compareSam;
 } Options;
+
+static inline void optCheck_conflict(Options *opts) {
+  if (opts->ifOptConflict != OPTION_CONFLICT) {
+    opts->ifOptConflict = OPTION_CONFLICT;
+  } else {
+    fprintf(stderr,
+            "Warning: conflict options for this program. Please use multiple "
+            "command lines to execute your tasks if needed, instead of "
+            "running multiple operations in one command line. \n");
+    exit(EXIT_FAILURE);
+  }
+}
 
 /*
  * Methods for accessing data from a "Options *".

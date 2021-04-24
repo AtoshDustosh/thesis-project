@@ -1,4 +1,4 @@
-- command lines 1:
+- command lines for integration:
   art_illumina -p -sam -i data/test.fa -l 50 -f 20 -m 200 -s 10 -o data/test-paired_end
   
   bwa index data/test.fa
@@ -29,3 +29,7 @@
 --simulator art
 
 
+- command lines for simple operations:
+  ./main --faFile test.fa --outputFile test-chrom.fa --extractChrom 1
+
+  ./main --faFile hs37d5.fa --outputFile hs37d5-chrom.fa --extractChrom 21

@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "alignment.h"
 #include "auxiliaryMethods.h"
 #include "genomeFa.h"
 #include "genomeSam.h"
@@ -19,7 +20,6 @@
 #include "grbvOptions.h"
 #include "simpleOperations.h"
 #include "varIntegration.h"
-#include "alignment.h"
 
 const char *optStr = "";
 int loptArg = 0;
@@ -33,6 +33,7 @@ static struct option optInitArray[] = {
 
     {"countRec", no_argument, NULL, OPT_COUNTREC},
     {"firstLines", required_argument, NULL, OPT_FIRSTLINES},
+    {"extractChrom", required_argument, NULL, OPT_EXTRACTCHROM},
 
     {"selectBadReads", required_argument, NULL, OPT_SELECTBADREADS},
     {"integrateVcfToSam", no_argument, NULL, OPT_INTEGRATEVCFTOSAM},
@@ -58,11 +59,16 @@ static void Usage() {
 
   printf(" -- Simple operations\n");
   printf(
-      "\tcountRec\tcount records in previously set files. Only works on the "
-      "right file format\n");
+      "\tcountRec\tcount records for all input files. Execute successfully "
+      "only when the files' formats are correct\n");
   printf(
-      "\tfirstLines [number]\tprint the first [number] lines of all files to "
+      "\tfirstLines [number]\tprint the first [number] lines for all files to "
       "console\n");
+  printf(
+      "\textractChrom [chrom_idx 1-based]\textract bases of the selected "
+      "chromosome "
+      "and write into designated output file together with the chromosome's "
+      "info field\n");
   printf("\n");
 
   printf(" -- GRBV operations\n");
@@ -77,7 +83,7 @@ static void Usage() {
       "purposes of the project. \n");
 }
 
-static void _testSet_full() {
+static int _testSet_full() {
   // TODO debug session ...
   _testSet_auxiliaryMethods();
   printf("... auxiliary methods test passed. \n");
@@ -94,13 +100,13 @@ static void _testSet_full() {
   // printf("press \"Enter\" to continue. \n");
   // getchar();
   // ... debug session
+  return 1;
 }
 
 int main(int argc, char *argv[]) {
-  _testSet_full();
-
   Options options;
 
+  options.ifOptConflict = 0;
   options.verbose = 0;
 
   options.faFile = NULL;
@@ -119,6 +125,7 @@ int main(int argc, char *argv[]) {
     switch (optRet) {
       case OPT_VERBOSE: {
         options.verbose = 1;
+        assert(_testSet_full());
         break;
       }
       case OPT_SET_OUTPUTFILE: {
@@ -161,18 +168,28 @@ int main(int argc, char *argv[]) {
         break;
       }
       case OPT_COUNTREC: {
+        optCheck_conflict(&options);
         printf("Count records of files.\n");
         options.countRec = 1;
         countRec(&options);
         break;
       }
       case OPT_FIRSTLINES: {
+        optCheck_conflict(&options);
         printf("Print first %s lines of files.\n", optarg);
         options.firstLines = atoi(optarg);
         firstLines(&options);
         break;
       }
+      case OPT_EXTRACTCHROM: {
+        optCheck_conflict(&options);
+        printf("Extract bases of the #%s chromosome. \n", optarg);
+        options.extractChrom = atoi(optarg);
+        extractChrom(&options);
+        break;
+      }
       case OPT_SELECTBADREADS: {
+        optCheck_conflict(&options);
         printf("Select bad reads with MAPQ lower than %s\n", optarg);
         options.selectBadReads = atoi(optarg);
         if (options.selectBadReads < 0) {
@@ -186,6 +203,7 @@ int main(int argc, char *argv[]) {
         break;
       }
       case OPT_INTEGRATEVCFTOSAM: {
+        optCheck_conflict(&options);
         integrateVcfToSam_refactored(&options);
         break;
       }
