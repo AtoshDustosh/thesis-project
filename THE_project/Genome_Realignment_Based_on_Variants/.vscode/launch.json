@@ -11,7 +11,7 @@
       "request": "launch",
       "program": "${fileDirname}/${fileBasenameNoExtension}",
       "args": [
-        // "--verbose",
+        "--verbose",
 
         "--faFile",
         "data/test.fa",
@@ -28,7 +28,7 @@
         // test grbv operations
         // "--selectBadReads",
         // "20",
-        "--integrateVcfToSam",
+        // "--integrateVcfToSam",
 
         // test simple operations
         // "--countRec",

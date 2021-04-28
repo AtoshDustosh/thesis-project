@@ -2,6 +2,7 @@
 #define KSW2_H_
 
 #include <stdint.h>
+#include <stdio.h>
 
 #define KSW_NEG_INF -0x40000000
 

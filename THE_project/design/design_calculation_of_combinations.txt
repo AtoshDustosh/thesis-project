@@ -1,4 +1,4 @@
-// ---------------------------- permutations selection ---------------------------
+// ---------------------------- calculation of combinations ---------------------------
 variants (sorted by POS of their vcf records)
 	1.1  2  3  4  5.1  6
 	1.2	          5.2
