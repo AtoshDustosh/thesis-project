@@ -12,6 +12,7 @@
 #include "ksw2.h"
 #include "ssw.h"
 
+
 #define SCORE_DEFAULT_MATCH 1
 #define SCORE_DEFAULT_MISMATCH -4
 #define SCORE_DEFAULT_GAPOPEN -6

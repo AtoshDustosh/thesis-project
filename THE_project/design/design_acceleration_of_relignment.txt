@@ -1,0 +1,4 @@
+// ---------------------------- acceleration of realignment --------------------------
+
+1. implemented procedures for realignment:
+	After figuring out all combinations of variants and integrations, align the original SEQ of the sam record onto the new sequence using SSW library (local alignment). This will produce results for realignment, which includes POS, CIGAR, MAPQ.

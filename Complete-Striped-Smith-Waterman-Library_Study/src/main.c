@@ -199,8 +199,8 @@ int main(int argc, char* const argv[]) {
                  gapExtension =
                      1;  // default parameters for genome sequence alignment
   // reference sequence
-  static const char* ref_seq = "CAGCCTTTCTGACCCGGAAATCAAAATAGGCACAACAAA";
-  static const char* read_seq = "CTGAGCCGGTAAATC";
+  static const char* ref_seq = "AAAAAAAAACGTACGTACGTAAAAACCCCCGTGTGA";
+  static const char* read_seq = "ACGTACGTAAACCC";
 
   s_align* result = align(read_seq, strlen(read_seq), ref_seq, strlen(ref_seq),
                           match, mismatch, gapOpen, gapExtension);

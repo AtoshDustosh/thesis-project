@@ -93,7 +93,6 @@ static int _testSet_full() {
   printf("... genomeSam test passed. \n");
   _testSet_genomeVcf();
   printf("... genomeVcf test passed. \n");
-  _testSet_varIntegration();
   _testSet_alignment();
   printf("... all test passed :)\n");
   printf("\n");

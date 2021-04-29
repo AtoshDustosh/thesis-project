@@ -9,21 +9,21 @@
       "name": "gcc - 生成和调试活动文件",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${fileDirname}/${fileBasenameNoExtension}",
+      "program": "${fileDirname}/main",
       "args": [
         "--verbose",
 
-        "--faFile",
-        "data/test.fa",
+        // "--faFile",
+        // "data/test.fa",
         // "--fastqFile",
         // "data/test.fastq",
-        "--samFile",
-        "data/test.sam",
-        "--vcfFile",
-        "data/test.vcf",
+        // "--samFile",
+        // "data/test.sam",
+        // "--vcfFile",
+        // "data/test.vcf",
 
-        "--outputFile",
-        "data/grbvOut.sam",
+        // "--outputFile",
+        // "data/grbvOut.sam",
 
         // test grbv operations
         // "--selectBadReads",

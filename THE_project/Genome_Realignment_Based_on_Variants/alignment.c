@@ -4,18 +4,7 @@
  * This table is used to transform nucleotide letters into numbers.
  * Only used for "align_ssw()"
  */
-static int8_t nt_table[256] = {
-    0, 1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0, 4, 1, 4, 4, 4, 2,
-    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-    4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
+static int8_t nt_table[256];
 
 // Scoring matrix
 static int8_t scoreMat[25];
@@ -26,11 +15,13 @@ static int score_gapOpen = SCORE_DEFAULT_GAPOPEN;
 static int score_gapExtension = SCORE_DEFAULT_GAPEXTENSION;
 
 void alignInitialize(int match, int mismatch, int gapOpen, int gapExtension) {
-  // match > 0, mismatch, gapOpen, gapExtension < 0
+  // Inappropriate scores will result in odd cigars (especially when you get
+  // confused on whether gapOpen and gapExtension should be positive or
+  // negative). match, gapOpen, gapExtension > 0, mismatch < 0
   score_match = match > 0 ? match : -match;
   score_mismatch = mismatch < 0 ? mismatch : -mismatch;
-  score_gapOpen = gapOpen < 0 ? gapOpen : -gapOpen;
-  score_gapExtension = gapExtension < 0 ? gapExtension : -gapExtension;
+  score_gapOpen = gapOpen > 0 ? gapOpen : -gapOpen;
+  score_gapExtension = gapExtension > 0 ? gapExtension : -gapExtension;
   // initialize scoring matrix for genome sequences. For example,
   // when match = 2, and mismatch = -2, the matrix is:
   //  A  C  G  T	N (or other ambiguous code)
@@ -53,7 +44,7 @@ void alignInitialize(int match, int mismatch, int gapOpen, int gapExtension) {
     scoreMat[20 + i] = 0;     // the last row
   }
   // Initialize the encoding matrix for bases
-  // memset(nt_table, 4, 256);
+  memset(nt_table, 4, 256);
   nt_table['A'] = nt_table['a'] = 0;
   nt_table['C'] = nt_table['c'] = 1;
   nt_table['G'] = nt_table['g'] = 2;
@@ -62,11 +53,13 @@ void alignInitialize(int match, int mismatch, int gapOpen, int gapExtension) {
 
 void align_ksw2(const char *tseq, const int tlen, const char *qseq,
                 const int qlen, AlignResult *ar) {
+  // printf("target seq(%d): %s\n", tlen, tseq);
+  // printf("query seq(%d): %s\n", qlen, qseq);
   static int zdrop = -1;
   static int bandWidth = -1;
   if (ar == NULL) {
-    fprintf(stderr, "Warning: null pointer for AlignResult. Autofixed. \n");
-    ar = init_AlignResult();
+    fprintf(stderr, "Error: null pointer for AlignResult. \n");
+    exit(EXIT_FAILURE);
   }
 
   // Code original sequences (char*) into matrix (uint8_t*)
@@ -82,24 +75,50 @@ void align_ksw2(const char *tseq, const int tlen, const char *qseq,
   void *km = 0;
 
   // Align
-  // TODO bug???? WTF??? What happened to my align results????
-  ksw_extz(km, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
-           score_gapExtension, bandWidth, zdrop, 0, &ez);
-  // ksw_extz2_sse(km, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
-  //               score_gapExtension, bandWidth, zdrop, 0, 0, &ez);
+  // ksw_extz(km, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
+  //          score_gapExtension, bandWidth, zdrop, 0, &ez);
+  ksw_extz2_sse(km, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
+                score_gapExtension, bandWidth, zdrop, 0, 0, &ez);
+  // ez->score = ksw_gg2_sse(km, qlen, (uint8_t*)qseq, tlen, (uint8_t*)tseq, m,
+  // mat, q, e, w, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
+  // ez.score = ksw_gg2_sse(km, qlen, numQseq, tlen, numTseq, 5, scoreMat,
+  //                        score_gapOpen, score_gapExtension, bandWidth,
+  //                        &ez.m_cigar, &ez.n_cigar, &ez.cigar);
 
   // Create CIGAR string
-  char buf[256];
-  memset(buf, 0, sizeof(buf));
+  static char globalCigar[256];
+  static char localCigar[256];
+  memset(globalCigar, 0, sizeof(globalCigar));
+  memset(localCigar, 0, sizeof(localCigar));
   for (int i = 0; i < ksw_extz_cigarCnt(&ez); ++i) {
     char tmpStr[10];
+    int cigarLen = ksw_extz_cigarLen(&ez, i);
+    char cigarOp = ksw_extz_cigarOp(&ez, i);
     // There is no itoa() under Linux. Use sprintf instead.
-    sprintf(tmpStr, "%d%c", ksw_extz_cigarLen(&ez, i),
-            ksw_extz_cigarOp(&ez, i));
-    strcat(buf, tmpStr);
+    sprintf(tmpStr, "%d%c", cigarLen, cigarOp);
+    strcat(globalCigar, tmpStr);
+    // local cigar creation
+    switch (cigarOp) {
+      case 'M': {
+        // TODO
+        break;
+      }
+      case 'I': {
+        // TODO
+        break;
+      }
+      case 'D': {
+        // TODO
+        break;
+      }
+      default: {
+        fprintf(stderr, "Error: unrecognized cigar operation symbol. \n");
+        exit(EXIT_FAILURE);
+      }
+    }
   }
-  char *cigar = (char *)calloc(strlen(buf) + 1, sizeof(char));
-  strcpy(cigar, buf);
+  char *cigar = (char *)calloc(strlen(globalCigar) + 1, sizeof(char));
+  strcpy(cigar, globalCigar);
 
   // Assign results (global alignment)
   ar->pos = 0;
@@ -117,9 +136,11 @@ void align_ksw2(const char *tseq, const int tlen, const char *qseq,
 
 void align_ssw(const char *tseq, const int tlen, const char *qseq,
                const int qlen, AlignResult *ar) {
+  // printf("target seq(%d): %s\n", tlen, tseq);
+  // printf("query seq(%d): %s\n", qlen, qseq);
   if (ar == NULL) {
-    fprintf(stderr, "Warning: null pointer for AlignResult. Autofixed. \n");
-    ar = init_AlignResult();
+    fprintf(stderr, "Error: null pointer for AlignResult. \n");
+    exit(EXIT_FAILURE);
   }
   // Code original sequences (char*) into matrix (uint8_t*)
   int8_t *numRead = (int8_t *)malloc(qlen + 1);
@@ -134,9 +155,8 @@ void align_ssw(const char *tseq, const int tlen, const char *qseq,
 
   // Align
   // See instructions for ssw_align about the value of "maskLen"
-  int maskLen = qlen > 30 ? qlen / 2 : 15;
   s_align *result = ssw_align(profile, numRef, tlen, score_gapOpen,
-                              score_gapExtension, 1, 0, 0, maskLen);
+                              score_gapExtension, 1, 0, 0, qlen / 2);
 
   // Create CIGAR string
   char buf[256];
@@ -158,6 +178,8 @@ void align_ssw(const char *tseq, const int tlen, const char *qseq,
   ar->cigar = cigar;
   ar->ref_begin = result->ref_begin1;
   ar->ref_end = result->ref_end1;
+  // TODO This result is actually incorrect. It ignores the insertions at the
+  // beginning and the end of the read.
   ar->read_begin = result->read_begin1;
   ar->read_end = result->read_end1;
 
@@ -180,6 +202,7 @@ void align_ssw(const char *tseq, const int tlen, const char *qseq,
   // printf("\n");
 
   init_destroy(profile);
+  align_destroy(result);
   free(numRef);
   free(numRead);
 
@@ -187,18 +210,24 @@ void align_ssw(const char *tseq, const int tlen, const char *qseq,
 }
 
 static int _test_ksw2Alignment(const char *tseq, const char *qseq) {
+  printf(" - ksw2 align\n");
+  printf("tseq: %s\nqseq: %s\n", tseq, qseq);
   AlignResult *ar = init_AlignResult();
-  align_ksw2(tseq, strlen(tseq), qseq, strlen(qseq), ar);
-  printf("ksw2 align\t");
+  const int tlen = strlen(tseq);
+  const int qlen = strlen(qseq);
+  align_ksw2(tseq, tlen, qseq, qlen, ar);
   print_AlignResult(ar);
   destroy_AlignResult(ar);
   return 1;
 }
 
 static int _test_sswAlignment(const char *tseq, const char *qseq) {
+  printf(" - ssw align\n");
+  printf("tseq: %s\nqseq: %s\n", tseq, qseq);
   AlignResult *ar = init_AlignResult();
-  align_ssw(tseq, strlen(tseq), qseq, strlen(qseq), ar);
-  printf("ssw align\t");
+  const int tlen = strlen(tseq);
+  const int qlen = strlen(qseq);
+  align_ssw(tseq, tlen, qseq, qlen, ar);
   print_AlignResult(ar);
   destroy_AlignResult(ar);
   return 1;
@@ -206,15 +235,13 @@ static int _test_sswAlignment(const char *tseq, const char *qseq) {
 
 void _testSet_alignment() {
   // default parameters for genome sequence alignment
-  static int32_t match = 4, mismatch = -6;
-  static int32_t gapOpen = -3, gapExtension = -1;
+  static int32_t match = 2, mismatch = -4;
+  static int32_t gapOpen = 3, gapExtension = 1;
   alignInitialize(match, mismatch, gapOpen, gapExtension);
 
   // test cases
-  static const char *tseq = "AGCCTTTCTGACCCGGAAATCAAAATAGGCACAACAAA";
-  static const char *qseq = "AGCCTTTCTGACCCGGAAATCTAGG";
-  printf("target seq(%lu): %s\n", strlen(tseq), tseq);
-  printf("query seq(%lu): %s\n", strlen(qseq), qseq);
+  static const char *tseq = "AAAAAAAAACGTACGTACGTAAAAACCCCCGTGTGA";
+  static const char *qseq = "TTAAAAAAAAACGTACGTACGTCCCCCCG";
 
   assert(_test_ksw2Alignment(tseq, qseq));
   assert(_test_sswAlignment(tseq, qseq));

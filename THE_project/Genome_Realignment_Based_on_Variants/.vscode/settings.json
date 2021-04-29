@@ -12,6 +12,8 @@
     "genomesam.h": "c",
     "cstdio": "cpp",
     "typeinfo": "cpp",
-    "genomefamacros.h": "c"
+    "genomefamacros.h": "c",
+    "ksw2.h": "c",
+    "vcf.h": "c"
   }
 }
