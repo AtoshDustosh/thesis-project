@@ -22,10 +22,10 @@ typedef struct _define_AlignResult {
   int64_t pos;
   char *cigar;
   uint8_t mapq;
-  int32_t ref_begin;
-  int32_t ref_end;
-  int32_t read_begin;
-  int32_t read_end;
+  int32_t ref_begin; // 0-based
+  int32_t ref_end;  // 0-based, 
+  int32_t read_begin; // 0-based
+  int32_t read_end; // 0-based
 } AlignResult;
 
 static inline int64_t arDataPos(AlignResult *ar) { return ar->pos; }

@@ -90,25 +90,48 @@ void align_ksw2(const char *tseq, const int tlen, const char *qseq,
   static char localCigar[256];
   memset(globalCigar, 0, sizeof(globalCigar));
   memset(localCigar, 0, sizeof(localCigar));
-  for (int i = 0; i < ksw_extz_cigarCnt(&ez); ++i) {
-    char tmpStr[10];
+  int flag_posFixed = 0;
+  int cigar_cnt = ksw_extz_cigarCnt(&ez);
+  for (int i = 0; i < cigar_cnt; ++i) {
+    char cigar_i[10];
     int cigarLen = ksw_extz_cigarLen(&ez, i);
     char cigarOp = ksw_extz_cigarOp(&ez, i);
+    // Copy global cigar operations
     // There is no itoa() under Linux. Use sprintf instead.
-    sprintf(tmpStr, "%d%c", cigarLen, cigarOp);
-    strcat(globalCigar, tmpStr);
+    sprintf(cigar_i, "%d%c", cigarLen, cigarOp);
+    strcat(globalCigar, cigar_i);
     // local cigar creation
     switch (cigarOp) {
       case 'M': {
         // TODO
+        if (flag_posFixed == 0) {
+          flag_posFixed = 1;
+        }
+        ar->ref_end += cigarLen;
+        ar->read_end += cigarLen;
+        strcat(localCigar, cigar_i);
         break;
       }
       case 'I': {
         // TODO
+        ar->read_end += cigarLen;
+        strcat(localCigar, cigar_i);
         break;
       }
       case 'D': {
         // TODO
+        if (flag_posFixed == 0) {
+          ar->pos += cigarLen;
+          ar->ref_begin += cigarLen;
+          ar->ref_end += cigarLen;
+        } else {
+          if (i != cigar_cnt - 1) {  // If this is not the last cigar op
+            ar->ref_end += cigarLen;
+            strcat(localCigar, cigar_i);
+          } else {
+            // Do nothing (ignore this 'D')
+          }
+        }
         break;
       }
       default: {
@@ -119,6 +142,10 @@ void align_ksw2(const char *tseq, const int tlen, const char *qseq,
   }
   char *cigar = (char *)calloc(strlen(globalCigar) + 1, sizeof(char));
   strcpy(cigar, globalCigar);
+
+  printf("local cigar: %s\n", localCigar);
+  printf("pos: %" PRId64 "\n", ar->pos);
+  print_AlignResult(ar);
 
   // Assign results (global alignment)
   ar->pos = 0;
@@ -241,7 +268,7 @@ void _testSet_alignment() {
 
   // test cases
   static const char *tseq = "AAAAAAAAACGTACGTACGTAAAAACCCCCGTGTGA";
-  static const char *qseq = "TTAAAAAAAAACGTACGTACGTCCCCCCG";
+  static const char *qseq = "ACGTACGTAAACCC";
 
   assert(_test_ksw2Alignment(tseq, qseq));
   assert(_test_sswAlignment(tseq, qseq));

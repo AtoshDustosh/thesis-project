@@ -52,7 +52,8 @@ char *usageTest1(const char *tseq, const char *qseq, int sc_mch, int sc_mis,
   qs = (uint8_t *)malloc(ql);
   for (i = 0; i < tl; ++i) ts[i] = c[(uint8_t)tseq[i]];  // encode to 0/1/2/3
   for (i = 0; i < ql; ++i) qs[i] = c[(uint8_t)qseq[i]];
-  ksw_extz(0, ql, qs, tl, ts, 5, mat, gapo, gape, -1, -1, 0, &ez);
+  int flag = 0;
+  ksw_extz(0, ql, qs, tl, ts, 5, mat, gapo, gape, -1, -1, flag, &ez);
   /*
    * Just copy the codes above when using this.
    */
@@ -82,14 +83,9 @@ char *usageTest1(const char *tseq, const char *qseq, int sc_mch, int sc_mis,
 }
 
 int main(int argc, char *argv[]) {
-  usageExample("ATAGCTAGCTAGCAT", "AGCTAcCGCAT", 1, -2, 2, 1);
-  char *cigar = usageTest1(
-      "CGAAACTGGGCTACTCCATGACCAGGGGCAAAATAGGCTTTTAGCCGCTGCGTTCTGGGAGCTCCTCCCCCT"
-      "TCTGGGAGCTCCTCCCCCTCCCCAGAAGGCCAAGGGATGTGGGGGCTGGGGGACTGGGAGGCCTGGCAGTCT"
-      "T",
-      "CGAAACTGGGCTACTCCATGACCAGGGGCAAAATAGGCTTTTAGCCGCTGCGTTCTGGGAGCTCCTCCCCCT"
-      "CCCCAGAAGGCCAAGGGATGTTGGGG",
-      1, -2, 2, 1);
+  usageExample("ATAGCTAGCTAGCAT", "AGCTAcCGCAT", 2, -4, 3, 1);
+  char *cigar = usageTest1("AAAAAAAAACGTACGTACGTAAAAACCCCCGTGTGA",
+                           "ACGTACGTAAACCC", 2, -4, 3, 1);
   printf("cigar: %s\n", cigar);
   return 0;
 }
