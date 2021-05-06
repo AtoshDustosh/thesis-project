@@ -190,303 +190,6 @@ static inline RecVcf *findFirstVarThatCanBeIntegrated(ChromVcf *cv,
   return NULL;
 }
 
-/**
- * @brief Check whether or not to integrate an SNP.
- *
- * @param varPos 1-based variant position
- * @param refStartPos 1-based position of the start point of refSeq
- * @param refEndPos 1-based position of the end point of refSeq
- */
-static inline int ifShouldIntegrateSNP(int64_t varPos, int64_t refStartPos,
-                                       int64_t refEndPos) {
-  if (varPos >= refStartPos && varPos <= refEndPos) {
-    /*
-     * ref: ------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx---------
-     * del: -----------------------------------S----------------------------
-     */
-    return 1;
-  } else {
-    return 0;
-  }
-}
-
-static inline int ifShouldIntegrateINS(int64_t varPos, int64_t refStartPos,
-                                       int64_t refEndPos) {
-  if (varPos >= refStartPos && varPos <= refEndPos) {
-    /*
-     * ref: ------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx---------
-     * del: -----------------------------------IIIIIIIII--------------------
-     */
-    return 1;
-  } else {
-    return 0;
-  }
-}
-
-static inline int ifShouldIntegrateDEL(int64_t varStartPos, int64_t varEndPos,
-                                       int64_t refStartPos, int64_t refEndPos) {
-  // this is based on the assumption that varEndPos > varStartPos
-  if (varEndPos >= refStartPos && varStartPos <= refEndPos) {
-    /*
-     * ref: ------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx---------
-     * del: -----------------------------------DDDDDDDDD--------------------
-     * del: ---------------------------------------------------DDDDDDDD-----
-     * del: ---------DDDDDDD------------------------------------------------
-     */
-    return 1;
-  } else {
-    /*
-     * ref: ------------xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx---------
-     * del: ---DDDDDDD------------------------------------------------------
-     * del: ---------------------------------------------------------DDDD---
-     */
-    return 0;
-  }
-}
-
-/**
- * @brief Integrate an allele into the reference genome if there exists common
- * region between the variant and reference genome, and then do the realignment.
- * Do nothing if no common region exists.
- * @return int number of sam records generated after this variant is integrated
- * (>= 0); -1 if error occurs.
- */
-static inline int integrateVarAndRealign(RecVcf *rv, RecSam *rs, char *refSeq,
-                                         char *readSeq, int64_t refStartPos,
-                                         int64_t refEndPos, GenomeVcf *gv) {
-  assert(rv != NULL && refSeq != NULL);
-  int generatedCnt = 0;
-  int alleleCnt = rvData(rv)->n_allele;
-  if (alleleCnt == 1) {  // this vcf record contains no ALT but only REF
-    return generatedCnt;
-  } else {  // this vcf record contains ALT (variants)
-    printVcfRecord_brief(gv, rvData(rv));
-    int64_t varPos = rvDataPos(rv);
-    for (int i = 1; i < alleleCnt; i++) {
-      AlignResult *ar = init_AlignResult();
-      switch (bcf_get_variant_type(rvData(rv), i)) {
-        case VCF_SNP: {
-          if (ifShouldIntegrateSNP(varPos, refStartPos, refEndPos) ==
-              0) {  // check SNP
-            break;
-          } else {
-            int varIdx = varPos - refStartPos;
-            char snp = rvData(rv)->d.allele[i][0];
-            char *newSeq = strdup(refSeq);
-            newSeq[varIdx] = snp;
-            // ---------------------printing------------------------
-            printf("old ref: %s\n", refSeq);
-            align_ksw2(newSeq, strlen(newSeq), readSeq, strlen(readSeq), ar);
-            printf("new ref: %s\n", newSeq);
-            printf("od mapq: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
-            for (int i = 0; i < rsData(rs)->core.n_cigar; i++) {
-              uint32_t cigarOpt = bam_get_cigar(rsData(rs))[i];
-              uint32_t oplen = bam_cigar_oplen(cigarOpt);
-              char opchar = bam_cigar_opchr(cigarOpt);
-              printf("%" PRId32 "%c", oplen, opchar);
-            }
-            printf(", mapq: %" PRIu8 ", cigar: %s\n", ar->mapq, ar->cigar);
-            // ---------------------free-----------------------------
-            free(newSeq);
-            generatedCnt++;
-            break;
-          }
-        }
-        case VCF_INDEL: {
-          if (strlen(rvData(rv)->d.allele[0]) == 1) {  // this is an insertion
-            if (ifShouldIntegrateINS(varPos, refStartPos, refEndPos) == 0) {
-              break;  // check INS
-            } else {
-              int varIdx = varPos - refStartPos;
-              char *inserted = rvData(rv)->d.allele[i];
-              inserted++;  // pass the first base (the REF field)
-              char *newSeq = insertStr(refSeq, inserted, varIdx);
-              // ---------------------printing------------------------
-              printf("old ref: %s\n", refSeq);
-              printf("new ref: %s\n", newSeq);
-              printf("od mapq: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
-              for (int i = 0; i < rsData(rs)->core.n_cigar; i++) {
-                uint32_t cigarOpt = bam_get_cigar(rsData(rs))[i];
-                uint32_t oplen = bam_cigar_oplen(cigarOpt);
-                char opchar = bam_cigar_opchr(cigarOpt);
-                printf("%" PRId32 "%c", oplen, opchar);
-              }
-              align_ksw2(newSeq, strlen(newSeq), readSeq, strlen(readSeq), ar);
-              printf(", mapq: %" PRIu8 ", cigar: %s\n", ar->mapq, ar->cigar);
-              // ---------------------free-----------------------------
-              free(newSeq);
-              generatedCnt++;
-            }
-          } else {  // this is a deletion
-            int64_t varEndPos = varPos + rvDataMaxVarLength(rv) - 1;
-            if (ifShouldIntegrateDEL(varPos, varEndPos, refStartPos,
-                                     refEndPos) == 0) {
-              break;  // check DEL
-            } else {
-              char *deleted = rvData(rv)->d.allele[0];
-              deleted++;
-              uint32_t lengthDeleted = strlen(deleted);
-              char *newSeq =
-                  (char *)calloc(strlen(refSeq) - lengthDeleted, sizeof(char));
-              // *Idx is the 0-based index in the refSeq for bases
-              int varStartIdx =
-                  varPos - refStartPos + 1;  // "+1": ignore the REF
-              if (varStartIdx < 0) varStartIdx = 0;
-              int varEndIdx = varPos + lengthDeleted - refStartPos;
-              if (varEndPos > refEndPos) varEndIdx = strlen(refSeq) - 1;
-              for (int i = 0; i < varStartIdx; i++) {
-                newSeq[i] = refSeq[i];
-              }
-              for (int i = varEndIdx; i < strlen(refSeq); i++) {
-                newSeq[i - lengthDeleted] = refSeq[i];
-              }
-              // ---------------------printing------------------------
-              printf("old ref: %s\n", refSeq);
-              printf("new ref: %s\n", newSeq);
-              printf("od mapq: %" PRIu8 ", old cigar: ", rsDataMapQ(rs));
-              for (int i = 0; i < rsData(rs)->core.n_cigar; i++) {
-                uint32_t cigarOpt = bam_get_cigar(rsData(rs))[i];
-                uint32_t oplen = bam_cigar_oplen(cigarOpt);
-                char opchar = bam_cigar_opchr(cigarOpt);
-                printf("%" PRId32 "%c", oplen, opchar);
-              }
-              align_ksw2(newSeq, strlen(newSeq), readSeq, strlen(readSeq), ar);
-              printf(", mapq: %" PRIu8 ", cigar: %s\n", ar->mapq, ar->cigar);
-              // ---------------------free-----------------------------
-              free(newSeq);
-              generatedCnt++;
-            }
-          }
-          break;
-        }
-        default: {
-          fprintf(stderr,
-                  "Warning: integration for variant type not supported. \n");
-        }
-      }
-      destroy_AlignResult(ar);
-    }
-  }
-  return generatedCnt;
-}
-
-void integrateVcfToSam(Options *opts) {
-  const uint8_t ecLen = 5;  // error control length
-  if (opts->samFile == NULL || opts->vcfFile == NULL ||
-      opts->outputFile == NULL) {
-    fprintf(
-        stderr,
-        "Error: arguments not complete for \"integrateVcfToSam\" option. \n");
-    exit(EXIT_FAILURE);
-  }
-
-  GenomeFa *gf = init_GenomeFa();
-  GenomeSam *gs = init_GenomeSam();
-  GenomeVcf *gv = init_GenomeVcf();
-
-  loadGenomeFaFromFile(gf, opts->faFile);
-  loadGenomeSamFromFile(gs, opts->samFile);
-  loadGenomeVcfFromFile(gv, opts->vcfFile);
-
-  // printGenomeFa(gf);
-  // printGenomeSam(gs);
-  // printGenomeVcf(gv);
-
-  // iterate sam and vcf at the same time.
-  GenomeSamIterator *gsIt = init_GenomeSamIterator(gs);
-  ChromSam *tmpCs = gsItNextChrom(gsIt);
-  RecSam *tmpRs = gsItNextRec(gsIt);
-  GenomeVcfIterator *gvIt = init_GenomeVcfIterator(gv);
-  ChromVcf *tmpCv = NULL;
-  RecVcf *tmpRv = NULL;
-  uint32_t ifSameCv = 0;
-
-  // Iterate all sam records and process variants
-  while (tmpRs != NULL) {
-    // -------------- extract data from sam record ------------
-    const char *readRname = rsDataRname(gs, tmpRs);
-    if (readRname == NULL) {
-      tmpRs = gsItNextRec(gsIt);
-      if (tmpRs == NULL) {
-        tmpCs = gsItNextChrom(gsIt);
-        tmpRs = gsItNextRec(gsIt);
-      }
-      continue;
-    }
-    char *readQname = bam_get_qname(rsData(tmpRs));
-    int64_t readStartPos = rsDataPos(tmpRs);
-    uint32_t readLength = rsDataSeqLength(tmpRs);
-    char *readSeq = rsDataSeq(tmpRs);
-
-    // --------------- get the ref sequence ------------------
-    ChromFa *tmpCf = getChromFromGenomeFabyName(readRname, gf);
-    int64_t refStartPos = readStartPos - ecLen;
-    int64_t refEndPos = readStartPos + readLength - 1 + ecLen;
-    if (refStartPos < 1) refStartPos = 1;
-    if (refEndPos > tmpCf->length) refEndPos = tmpCf->length;
-    char *refSeq = getSeqFromChromFa(refStartPos, refEndPos, tmpCf);
-
-    printf("readQName: %s, readStartPos: %" PRIu64 ", readLen: %" PRIu32
-           ", readRname: %s\n",
-           readQname, readStartPos, readLength, readRname);
-    printf("refStartPos: %" PRId64 ", refEndPos: %" PRId64 "\n", refStartPos,
-           refEndPos);
-
-    // -------------- locate the valid variants --------------
-    // get the ChromVcf
-    ifSameCv = 0;
-    if (tmpCv != NULL) {
-      if (strcmp(readRname, tmpCv->name) != 0) {
-        tmpCv = getChromFromGenomeVcfbyName(readRname, gv);
-        if (tmpCv == NULL) {
-          fprintf(stderr, "Error: didn't found chrom with name: %s\n",
-                  readRname);
-          exit(EXIT_FAILURE);
-        }
-      } else {
-        ifSameCv = 1;
-      }
-    } else {
-      tmpCv = getChromFromGenomeVcfbyName(readRname, gv);
-    }
-
-    // 1. find the first variant that should be integrated
-    // 2. integrate the variant and check whether the next vaiant should be
-    // integrated
-    tmpRv = findFirstVarThatCanBeIntegrated(tmpCv, refStartPos, refEndPos);
-    while (tmpRv != NULL &&
-           ifCanIntegrateVar(tmpRv, refStartPos, refEndPos) == 1) {
-      if (integrateVarAndRealign(tmpRv, tmpRs, refSeq, readSeq, refStartPos,
-                                 refEndPos, gv) < 0) {
-        fprintf(stderr, "Warning: integration failed for this record.\n");
-        printVcfRecord_brief(gv, rvData(tmpRv));
-        printf("refStartPos: %" PRId64 ", refEndPos: %" PRId64 "\n",
-               refStartPos, refEndPos);
-      }
-      tmpRv = tmpRv->next;
-    }
-    printf("\n");
-
-    // -------------------------- split line -------------------
-    free(readSeq);
-    free(refSeq);
-
-    // the following codes are the core of sam-records-iteration
-    tmpRs = gsItNextRec(gsIt);
-    if (tmpRs == NULL) {
-      tmpCs = gsItNextChrom(gsIt);
-      tmpRs = gsItNextRec(gsIt);
-    }
-  }
-
-  destroy_GenomeSamIterator(gsIt);
-  destroy_GenomeVcfIterator(gvIt);
-
-  destroy_GenomeFa(gf);
-  destroy_GenomeSam(gs);
-  destroy_GenomeVcf(gv);
-}
-
 static inline void integrateVarAndRealign_refactored(
     ElementRecVcf *ervArray[], int *ervCombi, int *alleleCombi, int combiSize,
     int64_t refStartPos, const char *oldRefSeq, const char *readSeq,
@@ -533,7 +236,7 @@ static inline void integrateVarAndRealign_refactored(
     }
     // Ignore the bases on old ref according to REF of the allele
     for (int j = 0; j < len_allele_ref; j++) {
-      if(idx_oldRefSeq < oldRefSeqLen){
+      if (idx_oldRefSeq < oldRefSeqLen) {
         idx_oldRefSeq++;
       }
     }
@@ -596,10 +299,11 @@ static inline void integrateVarAndRealign_refactored(
 }
 
 void integrateVcfToSam_refactored(Options *opts) {
-  if (getSamFile(opts) == NULL || getVcfFile(opts) == NULL) {
+  if (getSamFile(opts) == NULL || getVcfFile(opts) == NULL ||
+      getFaFile(opts) == NULL) {
     fprintf(stderr,
             "Error: arguments not complete for variants integration - lack "
-            "input files *.sam or *.vcf. \n");
+            "input files *.sam , *.fa or *.vcf. \n");
     exit(EXIT_FAILURE);
   }
   if (getOutputFile(opts) == NULL) {
@@ -659,11 +363,10 @@ void integrateVcfToSam_refactored(Options *opts) {
     }
 
     // TODO test the usage of aux_xxx methods from htslib/sam.h
-  // TODO see "sam.c" in htslib/test. And check the method "bam_aux_get()"
-  // TODO see "SAMtags.pdf" and check the value types when extracting tags.
-  // TODO extract tags and print out 
-  // TODO try modifying the tags and modify the values of those tags
-  
+    // TODO see "sam.c" in htslib/test. And check the method "bam_aux_get()"
+    // TODO see "SAMtags.pdf" and check the value types when extracting tags.
+    // TODO extract tags and print out
+    // TODO try modifying the tags and modify the values of those tags
 
     // --------------------- get the ref sequence -----------------------
     ChromFa *tmpCf = getChromFromGenomeFabyName(readRname, gf);
@@ -782,6 +485,7 @@ void integrateVcfToSam_refactored(Options *opts) {
     }
     free(ervArray);
     free(ervIdxes);
+
     // ----------------------- keep on iterating --------------------
     tmpRs = gsItNextRec(gsIt);
     if (tmpRs == NULL) {
@@ -792,6 +496,7 @@ void integrateVcfToSam_refactored(Options *opts) {
 
   // Free structures
   destroy_GenomeSamIterator(gsIt);
+  destroy_GenomeVcfIterator(gvIt);
 
   sam_close(op_file);
 
@@ -859,3 +564,139 @@ void selectBadReads(Options *opts) {
   hts_close(outputFile);
   hts_close(samFile);
 }
+
+static inline void check_param_integrateVcfToSam(Options *opts){
+  if(getSamFile(opts) == NULL){
+    fprintf("Error: lack input *.sam file. \n");
+    exit(EXIT_FAILURE);
+  }
+  if(getVcfFile(opts) == NULL){
+    fprintf("Error: lack iput *.vcf file. \n");
+    exit(EXIT_FAILURE);
+  }
+  if(getFaFile(opts) == NULL){
+    fprintf("Error: lack input *.fa file. \n");
+    exit(EXIT_FAILURE);
+  }
+  if(getOutputFile(opts) == NULL){
+    fprinf("Error: output file undesignateed. \n");
+    exit(EXIT_FAILURE);
+  }
+}
+
+void integrateVcfToSam(Options *opts) {
+  check_param_integrateVcfToSam(opts);
+
+  GenomeFa *gf = init_GenomeFa();
+  GenomeSam *gs = init_GenomeSam();
+  GenomeVcf *gv = init_GenomeVcf();
+
+  loadGenomeFaFromFile(gf, getFaFile(opts));
+  loadGenomeSamFromFile(gs, getSamFile(opts));
+  loadGenomeVcfFromFile(gv, getVcfFile(opts));
+
+  // Write header for output file (new sam file)
+  samFile *out_file = NULL;
+  out_file = sam_open(getOutputFile(opts), "w");
+  if (out_file == NULL) {
+    fprintf(stderr, "Error: cannot open file %s with mode \"w\"\n",
+            getOutputFile(opts));
+    exit(EXIT_FAILURE);
+  }
+  sam_hdr_t *header = gsDataHdr(gs);
+  if (sam_hdr_write(out_file, header) < 0) {
+    fprintf(stderr, "Error: failed to write sam file header. \n");
+    exit(EXIT_FAILURE);
+  }
+
+  // Build iterator for sam records and vcf records
+  GenomeSamIterator *gsIt = init_GenomeSamIterator(gs);
+  ChromSam *tmpCs = gsItNextChrom(gsIt);
+  RecSam *tmpRs = gsItNextRec(gsIt);
+
+  GenomeVcfIterator *gvIt = init_GenomeVcfIterator(gv);
+  ChromVcf *tmpCv = NULL;
+  RecVcf *tmpRv = NULL;
+  
+  // Iterate all sam records and process them one by one.
+  while(tmpRs != NULL){
+    // ------------- get information of temporary sam record ------------
+    const char *readRname = rsDataRname(gs, tmpRs);
+    const char *readQname = bam_get_qname(rsData(tmpRs));
+    int64_t readStartPos = rsDataPos(tmpRs);
+    uint32_t readLength = rsDataSeqLength(tmpRs);
+    char *readSeq = rsDataSeq(tmpRs);
+    // In this project, we ignore those unmapped reads.
+    if (readRname == NULL) {
+      tmpRs = gsItNextRec(gsIt);
+      if (tmpRs == NULL) {
+        tmpCs = gsItNextChrom(gsIt);
+        tmpRs = gsItNextRec(gsIt);
+      }
+      continue;
+    }
+    
+    // TODO finish your design before implementation
+    
+    // ----------------------- keep on iterating --------------------
+    tmpRs = gsItNextRec(gsIt);
+    if (tmpRs == NULL) {
+      tmpCs = gsItNextChrom(gsIt);
+      tmpRs = gsItNextRec(gsIt);
+    }
+  }
+
+
+  // Free structures
+  destroy_GenomeSamIterator(gsIt);
+  destroy_GenomeVcfIterator(gvIt);
+
+  sam_close(out_file);
+
+  destroy_GenomeFa(gf);
+  destroy_GenomeSam(gs);
+  destroy_GenomeVcf(gv);
+
+  printf("...successfully finished.\n");
+}
+
+/****************************************************************/
+/****************************************************************/
+/****************************************************************/
+/****************************************************************/
+/************************* Debug Methods ************************/
+/****************************************************************/
+/****************************************************************/
+/****************************************************************/
+/****************************************************************/
+
+static int _test_realignment() {
+  const char *tseq = "AAAAAAAAACGTACGTACGTAAAAACCCCCGTGTGA";
+  const int tlen = strlen(tseq);
+  const int64_t tpos = 101;  // 1-based, included
+  const char *qseq = "TTTTACGTACGTACCCCCGTAAA";
+  const int qlen = strlen(qseq);
+  const int64_t qpos = 112;  // 1-based, included
+
+  const char *old_cigar_str = "3I9M4D8M3I";
+
+  // Transfer the cigar string into coded integer array
+  uint32_t *old_cigar_array = NULL;
+  char *end = NULL;
+  size_t m = 0;
+  int old_cigar_len =
+      sam_parse_cigar(old_cigar_str, &end, &old_cigar_array, &m);
+
+  // for(int i = 0; i < old_cigar_len; i++){
+  //   int opLen = bam_cigar_oplen(old_cigar_array[i]);
+  //   char opChr = bam_cigar_opchr(old_cigar_array[i]);
+  //   printf("%d%c", opLen, opChr);
+  // }
+  // printf("\n");
+
+  // TODO aborted test
+
+  return 1;
+}
+
+void _testSet_grbvOperations() { return; }

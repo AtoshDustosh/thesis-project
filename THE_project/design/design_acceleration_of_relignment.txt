@@ -1,4 +1,18 @@
 // ---------------------------- acceleration of realignment --------------------------
 
-1. implemented procedures for realignment:
-	After figuring out all combinations of variants and integrations, align the original SEQ of the sam record onto the new sequence using SSW library (local alignment). This will produce results for realignment, which includes POS, CIGAR, MAPQ.
+1. 当前变异整合以及重比对的实现
+	- 检查sam记录并获取ref的区间
+	- 提取ref的序列，以及与该区间有范围交集的所有变异
+	- 计算所有变异彼此兼容的组合，整合变异组合得到多条新的ref序列
+	- 将sam记录中的SEQ（read）与新的ref序列一一做比对（使用SSW库提供的函数)
+	- 将比对结果整理成新的sam记录并写入输出文件
+
+2. 下一步修改的计划
+	2.1 比对的算法替换为ksw2库中的extz_sse的函数
+		这一步没有问题，但是关键是ksw2库提供的是全局比对的算法，需要做修改才能转换成局部比对。
+
+	2.2 ksw2转换为局部比对算法
+		按照之前商定的计划，可以通过锁定read原cigar上一段M，向两侧做semi-global比对。
+		但是这个中间的M的区间要如何确定，取长度最长的那段M吗？
+		比如cigar如3I 2D 10M 2D 40M 2I 20M 15S，这种情况下是否就是取40M作为锁定的那个区间？
+		另外，模拟生成的数据中

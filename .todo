@@ -20,26 +20,6 @@
 	对于CIGAR类似"10S25M12S"的sam记录，在整合过程中，其中的25M区间内的变异不做处理，对10S和12S两个区间内的变异一起做组合变异整合处理。
 	假设选定某个变异的组合，并整合到SEQ上得到新序列之后，可以对被整合的10S区间做ksw2的全局比对，固定一端做延伸比对，不过10S区域的部分在比对过程中需要翻转碱基顺序（不需要逆转碱基），比对后的CIGAR也需要翻转。
 	另外，10S和12S区域内比对结束后，需要将两区域的CIGAR与中间的25M（可能由于DEL变异而被修改）做整合，可能需要合并CIGAR的相同op
-	
-	// 下面的这个例子并不是正确的（合适的）
-	举个具体的例子，以match：mismatch：gapOpen：gapExtension=2：-4：3：1，
-		tseq “AAAAAAAAACGTACGTACGTAAAAACCCCCGTGTGA”
-		qseq 				     “ACGTACGTAAA--CCC”
-	为例，在全局比对中会得到12D11M4D3M6D的结果，局部比对中会得到8M2D6M的结果。这个例子中的全局比对和局部比对的结果不同，和算法本身的比分设置有关。
-	假设tseq是整合了变异之后的序列，考虑如何将全局比对的结果转换成近似局部比对的结果，并且获取比对的POS和CIGAR。
-	在上面的例子中，全局比对的结果中去除掉两侧的D就近似为局部比对的结果。
-	考虑更普遍的例子，match：mismatch：gapOpen：gapExtension=2：-4：3：1，
-		tseq "AAAAAAAAACGTACGTACGTAAAAACCCCCGTGTGA"
-		qseq 				 "TTTTACGTACGT----ACCCCCGTAA-A"
-	全局比对的结果为3I11D9M3D9M2I3D1M，局部比对的结果为9M3D9M（忽略了I）
-	从CIGAR第一个符号往后扫，同时对照read和ref，忽略I，遇到D，POS增加，遇到第一个M时POS固定。
-	在扫描CIGAR的过程中，把遇到的I和M全部写入转换后的CIGAR，遇到的D只有在POS固定之后才写入转换后的CIGAR。另外，如果D是最后一个CIGAR操作符，那么忽略这个D。
-	考虑边界的例子，match：mismatch：gapOpen：gapExtension=2：-4：3：1，
-		tseq 		“AAAAAAAAACGTACGTACGTAAAAACCCCCGTGTGA”
-		qseq  “TTAAAAAAAAACGTACGTACGT----CCCCCCG”
-	全局比对的结果为2I20M4D7M5D，局部比对的结果为20M5D5M（忽略了I）
-	前面修改POS的方法同样适用
-	\\ 上面的这个例子并不是正确的（合适的）
 
 	2.4 整合过程的细节改进
 	整合了DEL类型的变异之后，tseq（来自参考基因组）的长度减小，在整合了多个DEL之后甚至会出现tseq反而比qseq（来自read）还要短得多的情况。为了避免这种不正常的整合，在整合上DEL类型的变异之后，需要将tseq前后向两侧延伸一段距离范围内的碱基序列补充过来，以保证tseq长度大于qseq长度。

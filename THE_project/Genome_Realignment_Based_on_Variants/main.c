@@ -19,7 +19,6 @@
 #include "grbvOperations.h"
 #include "grbvOptions.h"
 #include "simpleOperations.h"
-#include "varIntegration.h"
 
 const char *optStr = "";
 int loptArg = 0;
@@ -94,6 +93,9 @@ static int _testSet_full() {
   _testSet_genomeVcf();
   printf("... genomeVcf test passed. \n");
   _testSet_alignment();
+  printf("... alignment test passed. \n");
+  _testSet_grbvOperations();
+  printf("... grbvOperation test passed. \n");
   printf("... all test passed :)\n");
   printf("\n");
   // printf("press \"Enter\" to continue. \n");

@@ -17,6 +17,12 @@
 #include "genomeVcf.h"
 #include "grbvOptions.h"
 
+/*
+ * Realign algorithms / methods.
+ */
+#define REALIGN_ALGORITHM_KSW2 1
+#define REALIGN_ALGORITHM_SSW 2
+
 /**
  * @brief  Integrate variants in *.vcf files into alignment records of reads in
  * *.sam files. Do realignment during the integration and modify the cigars and
@@ -37,5 +43,7 @@ void integrateVcfToSam_refactored(Options *opts);
  * sam file and then output them into the previously set output file
  */
 void selectBadReads(Options *opts);
+
+void _testSet_grbvOperations();
 
 #endif
