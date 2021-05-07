@@ -2,10 +2,8 @@
 #include <time.h>
 
 #include "BPlusTree.h"
-#include "genomeVcf_bPlus.h"
 
 int main(int argc, const char* argv[]) {
-  printf("rank inner node: %d\n", rank_inner_node);
   int i;
   BPlusTree T;
   T = Initialize();
