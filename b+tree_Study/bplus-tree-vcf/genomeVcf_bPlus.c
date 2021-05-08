@@ -16,8 +16,7 @@ struct VcfBPlusNode {
   /**
    * @brief  A 1-dimension array of VcfBPlusKey. The size of it depends on
    * whether this node is a leaf node. If it's a leaf node, size(keys) =
-   * rank_leaf_node - 1. If it's an inner node, size(keys) = rank_inner_node
-   * - 1.
+   * rank_leaf_node. If it's an inner node, size(keys) = rank_inner_node - 1.
    */
   VcfBPlusKey *keys;
 
@@ -27,12 +26,11 @@ struct VcfBPlusNode {
 
   /**
    * @brief  A 1-dimension array of pointers. The size of it depends on whether
-   * this node is a leaf node. If it's a leaf node, size(pointers) =
-   * rank_leaf_node - 1. If it's an inner node, size(pointers) = rank_inner_node
-   * - 1.
-   * These pointers can point to either VcfBPlusNode, or RecVcf_bplus. As
-   * for the recognization of the pointers, it depends on the principle of a b
-   * plus tree.
+   * this node is a leaf node or an inner node. If it's a leaf node,
+   * size(pointers) = rank_leaf_node. If it's an inner node, size(pointers) =
+   * rank_inner_node. These pointers can point to either VcfBPlusNode, or
+   * RecVcf_bplus. As for the recognization of the pointers, it depends on the
+   * principle of a b plus tree.
    */
   Pointer *pointers;
 };
@@ -190,12 +188,17 @@ VcfBPlusNode *init_VcfBPlusNode(bool isLeaf, VcfBPlusNode *parent) {
   bpnode->parent = parent;
   bpnode->cnt_key = 0;
   bpnode->left = NULL;
-  bpnode->right =NULL;
+  bpnode->right = NULL;
+  /*
+   * The following memory allocation is not exactly the same as the official
+   * bplus tree principles. Because we have 2 extra pointers to a node's
+   * brothers, and thus in a leaf node, there is no need to allocate 1 more
+   * memory unit for pointer to brother.
+   */
   // Assign memories for pointers
   // Use calloc to set all values either NULL or unavailable_keyValue
   if (isLeaf) {
-    bpnode->keys =
-        (VcfBPlusKey *)calloc(RANK_LEAF_NODE - 1, sizeof(VcfBPlusKey));
+    bpnode->keys = (VcfBPlusKey *)calloc(RANK_LEAF_NODE, sizeof(VcfBPlusKey));
     bpnode->pointers = (Pointer *)calloc(RANK_LEAF_NODE, sizeof(Pointer));
   } else {
     bpnode->keys =
@@ -209,7 +212,7 @@ VcfBPlusTree *init_VcfBPlusTree() {
   VcfBPlusTree *bptree = (VcfBPlusTree *)calloc(1, sizeof(VcfBPlusTree));
   // Root node is also a leaf node at the beginning.
   VcfBPlusNode *root = init_VcfBPlusNode(true, NULL);
-  
+
   bptree->first = root;
   bptree->last = root;
   bptree->height = 1;
@@ -246,7 +249,7 @@ GenomeVcf_bplus *init_GenomeVcf_bplus(int rank_inner_node, int rank_leaf_node,
   RANK_INNER_NODE = rank_inner_node;
   RANK_LEAF_NODE = rank_leaf_node;
   GenomeVcf_bplus *gv = (GenomeVcf_bplus *)calloc(1, sizeof(GenomeVcf_bplus));
-  gv->hdr = strdup(hdr);
+  gv->hdr = bcf_hdr_dup(hdr);
   return gv;
 }
 
@@ -269,8 +272,8 @@ void genomeVcf_bplus_traverse(GenomeVcf_bplus *gv) {
       assert(node->isLeaf == true);
       // Print all arrays in the node
       for (int i = 0; i < node->cnt_key + 1; i++) {
-        RecVcf_bplus *rv = (RecVcf_bplus*)node->pointers[i];
-        genomeVcf_bplus_printRec(gv,rv);
+        RecVcf_bplus *rv = (RecVcf_bplus *)node->pointers[i];
+        genomeVcf_bplus_printRec(gv, rv);
       }
       node = node->right;
     }
@@ -282,32 +285,189 @@ void genomeVcf_bplus_traverse(GenomeVcf_bplus *gv) {
  * Methods for manipulating GenomeVcf
  ************************************/
 
-// TODO search record in the bptree.
-/**
- * @brief  Search for a vcf record with the same POS in the bptree.
- * @param  *rv: vcf record to be searched for
- * @param  *root: root node. Maybe not the root of the tree. But search will
- * start from this node.
- * @retval  **ret_node: bpnode where the vcf record is stored if it exists in
- * the bptree. Otherwise return NULL, which indicates that there is no such
- * record.
- * @retval  *ret_arrayIdx: index of arrays in the bpnode if found the record.
- * Otherwise return -1.
- */
-void vcfbplus_searchRec(RecVcf_bplus *rv, VcfBPlusNode *root,
-                        VcfBPlusNode **ret_node, int *ret_arrayIdx) {
-  if (root->isLeaf) {
-    //TODO
-  } else {  // If the root node is an inner node
+VcfBPlusKey find_leftmost_key(VcfBPlusNode *bpnode) {
+  if (bpnode->isLeaf) {
+    return bpnode->keys[0];
+  } else {
+    while (bpnode->pointers[0] != NULL) {
+      bpnode = (VcfBPlusNode *)bpnode->pointers[0];
+      if (bpnode->isLeaf) {
+        return bpnode->keys[0];
+      }  // Else, go on to the next left most sub-node
+    }
   }
 }
 
-// TODO insert records into arrays within nodes in the tree ... and adjust the
-// structures of the tree
+VcfBPlusKey find_rightmost_key(VcfBPlusNode *bpnode) {
+  if (bpnode->isLeaf) {
+    return bpnode->keys[bpnode->cnt_key - 1];
+  } else {
+    while (bpnode->pointers[bpnode->cnt_key] != NULL) {
+      bpnode = (VcfBPlusNode *)bpnode->pointers[bpnode->cnt_key];
+      if (bpnode->isLeaf) {
+        return bpnode->keys[bpnode->cnt_key - 1];
+      }  // Else, go on to the next right most sub-node
+    }
+  }
+}
+
+/**
+ * @brief  Find position for insertion of a new record after the input position.
+ * That position for insertion may contain another record that have different
+ * key, or may be empty, or may not exist.
+ * @param  *bpnode: bpnode which contains the key corresponding to idx_key.
+ * @param  idx_key: record's key idx on the bpnode. There may exist identified
+ * keys as this one on the bpnode and the bpnode's brothers.
+ * @param  inserted_key:  key for the new record.
+ * @retval  **ret_bpnode: pointer to the bpnode where the new record should be
+ * inserted. NULL when no position found and thus you should create a new leaf
+ * node.
+ * @retval  *ret_idx_key: pointer to index where the new record should be
+ * inserted. -1 when no position found and thus you should create a new leaf
+ * node.
+ */
+void find_insertLeafPos_after(VcfBPlusNode *bpnode, int idx_key,
+                              VcfBPlusKey inserted_key,
+                              VcfBPlusNode **ret_bpnode, int *ret_idx_key) {
+  assert(bpnode->isLeaf == true);
+  assert(idx_key >= 0 && idx_key < bpnode->cnt_key);
+  VcfBPlusKey tmp_key = bpnode->keys[idx_key];
+  // Check all leaf nodes from the input bpnode
+  VcfBPlusNode *tmp_bpnode = bpnode;
+  int tmp_idx_key = idx_key;
+  while (tmp_bpnode != NULL) {
+    // Check temporary node to find the position for insertion
+    for (int i = tmp_idx_key; i < RANK_LEAF_NODE; i++) {
+      if (i < tmp_bpnode->cnt_key) {
+        // Check if there exists another record with different key on this node
+        VcfBPlusKey checking_key = tmp_bpnode->keys[i];
+        if (checking_key != inserted_key) {
+          // Found the first record that contains different key on this node
+          *ret_bpnode = tmp_bpnode;
+          *ret_idx_key = i;
+          return;
+        }
+      } else {  // In such case, this node is not full, so you can insert here
+        assert(tmp_bpnode->keys[i] == unavailable_keyValue);
+        *ret_bpnode = tmp_bpnode;
+        *ret_idx_key = i;
+      }
+    }
+    // Go on to check the brother (rightside brother)
+    tmp_bpnode = tmp_bpnode->right;
+    tmp_idx_key = 0;
+  }
+  // If all leaf nodes after the input position are full.
+  *ret_bpnode == NULL;
+  *ret_idx_key = -1;
+}
+
+/**
+ * @brief  Locate the first (from left) vcf record with the requested POS in the
+ * bplus tree.
+ * @note   If this is an inner node, it always satisfies *ret_pointerIdx >= 0.
+ * If this is a leaf node, when *ret_pointerIdx == -1, it indicates that the
+ * leaf node is empty (and according to the principles of a bplus tree, this
+ * node is also the root node). And when the node is a leaf node, it always
+ * satisfies localRoot->keys[ret_pointerIdx] <= requested_key <
+ * localRoot->keys[ret_pointerIdx + 1].
+ * @param  requested_key: requested key
+ * @param  *localRoot: root node. May not be the root of the tree. But search
+ * will start from this node.
+ * @retval  *ret_pointerIdx: pointer to the index of pointer (node value) in the
+ * node.
+ */
+void vcfbplus_locate(VcfBPlusKey requested_key, VcfBPlusNode *localRoot,
+                     int *ret_pointerIdx) {
+  // TODO debug
+  *ret_pointerIdx = -1;
+  int l_idx = 0;
+  int r_idx = localRoot->cnt_key - 1;
+  while (1) {
+    // Binary search the position of the requested key
+    if (l_idx <= r_idx) {
+      int mid_idx = (l_idx + r_idx) / 2;
+      VcfBPlusKey mid_key = localRoot->keys[mid_idx];
+      if (requested_key == mid_key) {
+        *ret_pointerIdx = mid_idx;
+        // Locate the first position with the requested key
+        // This part of code is used for handling duplicated POS
+        while (*ret_pointerIdx > 0) {
+          if (localRoot->keys[*ret_pointerIdx - 1] == requested_key)
+            *ret_pointerIdx = *ret_pointerIdx - 1;
+          else
+            break;
+        }
+        if (localRoot->isLeaf == false) *ret_pointerIdx = *ret_pointerIdx + 1;
+        return;
+      } else if (mid_key < requested_key) {
+        l_idx = mid_key + 1;
+      } else {
+        r_idx = mid_key - 1;
+      }
+    } else {  // If there is no such record with requested key
+      // This part of code is used for handling duplicated POS
+      *ret_pointerIdx = l_idx - 1;
+      VcfBPlusKey tmp_key = localRoot->keys[*ret_pointerIdx];
+      // Locate the first position with the requested key
+      while (*ret_pointerIdx > 0) {
+        if (localRoot->keys[*ret_pointerIdx - 1] == tmp_key)
+          *ret_pointerIdx = *ret_pointerIdx - 1;
+        else
+          break;
+      }
+      if (localRoot->isLeaf == false) *ret_pointerIdx = *ret_pointerIdx + 1;
+      return;
+    }
+  }
+}
+
+/**
+ * @brief  Insert a record into the bplus tree. There may already exist records
+ * with the same POS (key) as the inserted record's POS. And in such cases, we
+ * insert the new record after the last (from left) record that contains
+ * the same POS.
+ * @param  *rv: inserted record. Note that this method will not create a copy of
+ * * the input record object.
+ * @param  *bptree: bplus tree
+ */
 void vcfbplus_insertRec(RecVcf_bplus *rv, VcfBPlusTree *bptree) {
-  // Search the record in bptree
-  VcfBPlusNode *root = bptree->root;
-  // TODO
+  // TODO debug
+  // Locate the position where the new record should be inserted
+  VcfBPlusNode *bpnode = bptree->root;
+  VcfBPlusKey inserted_key = rv_pos(rv);
+  int ret_pointerIdx = -1;
+  // Locate the leaf node where the record should be inserted
+  while (bpnode->isLeaf == false) {
+    vcfbplus_locate(inserted_key, bpnode, &ret_pointerIdx);
+    bpnode = (VcfBPlusNode *)(bpnode->pointers[ret_pointerIdx]);
+  }
+  // Locate the position in the leaf node where the record should be inserted
+  assert(bpnode->isLeaf == true);
+  vcfbplus_locate(inserted_key, bpnode, &ret_pointerIdx);
+  // Find position for insertion
+  VcfBPlusNode *inserted_node = NULL;
+  int inserted_idx = -1;
+  find_insertLeafPos_after(bpnode, ret_pointerIdx, inserted_key, &inserted_node,
+                           &inserted_idx);
+  assert(inserted_node == NULL || inserted_node->isLeaf == true);
+
+  // TODO handle insertion
+  // 1. handle directly insert into an empty position
+  // 2. handle insert to a position which contains another record with different
+  // key
+  // 3. handle insert when there is no left room and should create a new leaf
+  // node.
+  if (inserted_node == NULL) {
+    // TODO create a new leaf node and reconstructure the whole bplus tree
+  } else {
+    if (inserted_node->pointers[inserted_idx] == NULL) {
+      // If the selected position for insertion is empty
+      inserted_node->pointers[inserted_idx] = rv;
+    } else {
+      // TODO replace the original record using input record and move it
+    }
+  }
 }
 
 void genomeVcf_bplus_insertRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv) {
@@ -336,7 +496,10 @@ void genomeVcf_bplus_insertRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv) {
 }
 
 void genomeVcf_bplus_removeRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv) {
-  // TODO It is probably unnecessary to implement this method.
+  fprintf(stderr,
+          "Error: there is no need to remove a record from the structure - "
+          "unimplemented method.\n");
+  exit(EXIT_FAILURE);
 }
 
 GenomeVcf_bplus *genomeVcf_bplus_loadFile(char *filePath, int rank_inner_node,

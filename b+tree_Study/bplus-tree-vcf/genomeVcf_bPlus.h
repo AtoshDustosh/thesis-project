@@ -17,8 +17,9 @@ static inline int ceil_int(int value) {
 }
 
 /**
- * @brief  Ranks of bplus tree. A node with rank = 3 indicates that this node
- * contains no more than 3 keys and no more than 4 pointers.
+ * @brief  Ranks of bplus tree. For example, a node with rank = 3 indicates that
+ * this node contains no more than 3 keys or no more than 3 pointers to other
+ * nodes.
  * @note   A global variable with "static const" feels like "public static
  * final" in java. But on second thought, I may need to input the rank of leaf
  * node and inner node, so let's just make them "static".
@@ -29,6 +30,10 @@ static int RANK_LEAF_NODE = 4;
 /**
  * @brief  This key type uses the POS field of a vcf record. And thus any key
  * must satisfy condition (key >= 1).
+ * Note that some vcf records have the same POS and thus the same key in the
+ * bplus tree structure. We allow such cases to be valid. And when searching for
+ * records using POS, it will return the first record (left most on the leaf
+ * nodes) and you can use iterator to get the next record with the same key.
  */
 typedef int64_t VcfBPlusKey;
 static const int64_t unavailable_keyValue = 0;
