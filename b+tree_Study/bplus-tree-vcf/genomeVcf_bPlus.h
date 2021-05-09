@@ -12,31 +12,37 @@
 
 #include "debug.h"
 
-static inline int ceil_int(int value) {
+static inline int ceil_int_divby2(int value) {
   return value % 2 == 0 ? value / 2 : value / 2 + 1;
 }
 
 /**
- * @brief  Ranks of bplus tree. For example, a node with rank = 3 indicates that
- * this node contains no more than 3 keys or no more than 3 pointers to other
- * nodes.
+ * @brief  Rank for the inner nodes. For example, a tree with inner rank being 5
+ * indicates that an inner node contains no more than "5" pointers to other
+ * nodes and no more than "4" keys.
  * @note   A global variable with "static const" feels like "public static
  * final" in java. But on second thought, I may need to input the rank of leaf
  * node and inner node, so let's just make them "static".
  */
-static int RANK_INNER_NODE = 6;
-static int RANK_LEAF_NODE = 4;
+static int RANK_INNER_NODE = 5;
+/**
+ * @brief  Rank for the leaf nodes. For example, a tree with leaf rank being 5
+ * indicates that a leaf node contains no more than "5" pointers to records and
+ * no more than "5" keys.
+ */
+static int RANK_LEAF_NODE = 5;
 
 /**
  * @brief  This key type uses the POS field of a vcf record. And thus any key
  * must satisfy condition (key >= 1).
  * Note that some vcf records have the same POS and thus the same key in the
- * bplus tree structure. We allow such cases to be valid. And when searching for
- * records using POS, it will return the first record (left most on the leaf
- * nodes) and you can use iterator to get the next record with the same key.
+ * bplus tree structure. We allow such cases to be valid, but store them all as
+ * a single-linked-list. When you search for records with specified POS, it will
+ * return you the header of that linked-list. And then you can iterate to check
+ * all records.
  */
 typedef int64_t VcfBPlusKey;
-static const int64_t unavailable_keyValue = 0;
+static const VcfBPlusKey unavailable_keyValue = 0;
 
 typedef void *Pointer;
 
@@ -107,6 +113,12 @@ void genomeVcf_bplus_printRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv);
 /************************************
  *           Basic Structures
  ************************************/
+
+/**
+ * @brief  Functions as an iterator for all vcf records that have the same POS.
+ * @retval pointer to the next RecVcf_bplus object that contains the same POS
+ */
+extern RecVcf_bplus *next_RecVcf_bplus(RecVcf_bplus *rv);
 
 /**
  * @brief  Initialize a GenomeVcf_bplus object with specified arguments for
