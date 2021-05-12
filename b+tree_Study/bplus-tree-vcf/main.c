@@ -8,7 +8,9 @@
 
 
 int main(int argc, char *argv[]){
-  printf("hello, world!\n");
+  GenomeVcf_bplus *gv = genomeVcf_bplus_loadFile("test.vcf", 5, 5);
 
-  return 1;
+  destroy_GenomeVcf_bplus(gv);
+
+  return 0;
 }

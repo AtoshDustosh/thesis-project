@@ -14,6 +14,8 @@ struct VcfBPlusNode {
   // Pointer to the parent of this bpnode
   VcfBPlusNode *parent;
   // Indexes of positions in the parent
+  // Maybe useful when implementing a "remove" method. But that's not in the
+  // plan. So the correctness of these 2 fields is not confirmed.
   int idx_key_parent;
   int idx_pointer_parent;
 
@@ -77,35 +79,28 @@ VcfBPlusKey vcfbplus_tree_find_leftmost_key(VcfBPlusNode *bpnode);
 VcfBPlusKey vcfbplus_tree_find_rightmost_key(VcfBPlusNode *bpnode);
 
 /**
- * @brief  Sub-method for vcfbplus_node_split.
- * @todo   Finish the relationship of methods first before continue implementing this method.
- * // TODO
- * // TODO
- * // TODO
- * // TODO
- * // TODO
- * // TODO
- * // TODO
- * // TODO
- * // TODO
- * // TODO
- * // TODO
- * // TODO
- * // TODO
- * // TODO
- * // TODO
- * 
+ * @brief  Split the inner node. Select the middle key of the inner node as the
+ * key pushed up into the parent inner node or the root. The middle key will not
+ * be kept in the 2 new nodes after splitting.
+ * @note   Sub-method for vcfbplus_node_split.
+ * @param  *bptree:  bptree.
+ * @param  *bpnode:  bpnode to be split.
+ * @param  inserted_key:  bplus key to be inserted into "*bpnode"
+ * @param  inserted_pointer:  pointer to the new bpnode of lower level. That
+ * bpnode can be a leaf node or an inner node.
  */
 void vcfbplus_node_split_inner(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
-                               int inserted_key_idx, VcfBPlusKey inserted_key,
-                               int inserted_pointer_idx,
+                               VcfBPlusKey inserted_key,
                                Pointer inserted_pointer);
 /**
- * @brief  Sub-method for vcfbplus_node_split.
+ * @brief  Split the leaf node. Select the first key of the right half node as
+ * the key pushed up into the parent inner node. The right half node contains 1
+ * more key than the left half node.
+ * @note   Sub-method for vcfbplus_node_split.
  * @todo   The splitting process can be optimized ...
  */
 void vcfbplus_node_split_leaf(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
-                              int inserted_idx, VcfBPlusKey inserted_key,
+                              VcfBPlusKey inserted_key,
                               Pointer inserted_pointer);
 
 /**
@@ -123,7 +118,7 @@ void vcfbplus_node_split_leaf(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
  */
 void vcfbplus_node_split(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
                          int inserted_key_idx, VcfBPlusKey inserted_key,
-                         int inserted_poiner_idx, Pointer inserted_pointer);
+                         int inserted_pointer_idx, Pointer inserted_pointer);
 
 /**
  * @brief  Insert a pointer and its corresponding key into a leaf node. That
@@ -203,6 +198,7 @@ void vcfbplus_tree_insertRec(RecVcf_bplus *rv, VcfBPlusTree *bptree);
 RecVcf_bplus *init_RecVcf_bplus(bcf1_t *data, RecVcf_bplus *next) {
   RecVcf_bplus *rv = (RecVcf_bplus *)malloc(sizeof(RecVcf_bplus));
   rv->data = bcf_dup(data);
+  bcf_unpack(rv->data, BCF_UN_ALL);
   rv->next = next;
   return rv;
 }
@@ -237,12 +233,6 @@ VcfBPlusNode *init_VcfBPlusNode(bool isLeaf) {
   bpnode->cnt_key = 0;
   bpnode->left = NULL;
   bpnode->right = NULL;
-  /*
-   * The following memory allocation is not exactly the same as the official
-   * bplus tree principles. Because we have 2 extra pointers to a node's
-   * brothers, and thus in a leaf node, there is no need to allocate 1 more
-   * memory unit for pointer to brother.
-   */
   // Assign memories for pointers
   // Use calloc to set all values either NULL or unavailable_keyValue
   if (isLeaf) {
@@ -261,6 +251,7 @@ VcfBPlusTree *init_VcfBPlusTree() {
   // Root node is also a leaf node at the beginning.
   VcfBPlusNode *root = init_VcfBPlusNode(true);
 
+  bptree->root = root;
   bptree->first = root;
   bptree->last = root;
   bptree->height = 1;
@@ -319,7 +310,7 @@ void genomeVcf_bplus_traverse(GenomeVcf_bplus *gv) {
     while (node != NULL) {
       assert(node->isLeaf == true);
       // Print all arrays in the node
-      for (int i = 0; i < node->cnt_key + 1; i++) {
+      for (int i = 0; i < node->cnt_key; i++) {
         RecVcf_bplus *rv = (RecVcf_bplus *)node->pointers[i];
         // Print all records in the element (linked-list)
         while (rv != NULL) {
@@ -327,6 +318,7 @@ void genomeVcf_bplus_traverse(GenomeVcf_bplus *gv) {
           rv = next_RecVcf_bplus(rv);
         }
       }
+      printf("node key cnt: %d, node root: %p\n", node->cnt_key, node->parent);
       node = node->right;
     }
     cv = cv->next;
@@ -336,6 +328,40 @@ void genomeVcf_bplus_traverse(GenomeVcf_bplus *gv) {
 /************************************
  * Methods for manipulating Structures
  ************************************/
+
+void vcfbplus_tree_print(VcfBPlusTree *bptree) {
+  // TODO
+  static VcfBPlusNode *queue_bpnode[2048];
+  int idx_queue_in = 0;
+  int idx_queue_out = 0;
+
+  VcfBPlusNode *bpnode = bptree->root;
+  queue_bpnode[idx_queue_in++] = bpnode;
+  while (idx_queue_out < idx_queue_in) {
+    bpnode = queue_bpnode[idx_queue_out++];
+    if (bpnode->isLeaf) {
+      printf("*");
+      for (int i = 0; i < bpnode->cnt_key - 1; i++) {
+        printf("%" PRId64 ",", bpnode->keys[i]);
+      }
+      printf("%" PRId64 "", bpnode->keys[bpnode->cnt_key - 1]);
+      printf("*");
+      printf("\n");
+    } else {
+      printf("|");
+      for (int i = 0; i < bpnode->cnt_key - 1; i++) {
+        printf("%" PRId64 ",", bpnode->keys[i]);
+      }
+      printf("%" PRId64 "", bpnode->keys[bpnode->cnt_key - 1]);
+      printf("|");
+      printf("\n");
+      // Enqueue sub-bpnodes
+      for (int i = 0; i < bpnode->cnt_key + 1; i++) {
+        queue_bpnode[idx_queue_in++] = (VcfBPlusNode *)bpnode->pointers[i];
+      }
+    }
+  }
+}
 
 VcfBPlusKey vcfbplus_tree_find_leftmost_key(VcfBPlusNode *bpnode) {
   if (bpnode->isLeaf) {
@@ -363,8 +389,104 @@ VcfBPlusKey vcfbplus_tree_find_rightmost_key(VcfBPlusNode *bpnode) {
   }
 }
 
+void vcfbplus_node_split_inner(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
+                               VcfBPlusKey inserted_key,
+                               Pointer inserted_pointer) {
+  // TODO Splitting, linkers change (inserted node's linkers)
+  assert(bpnode->cnt_key == RANK_INNER_NODE - 1);
+  // Integrate the original keys and inserted keys. Do the same to pointers.
+  VcfBPlusNode *new_bpnode = init_VcfBPlusNode(false);
+  VcfBPlusKey keys_all[RANK_INNER_NODE];
+  // Although #(pointer) == #(key) + 1, the first pointer will not be changed
+  // during integrate or splitting. So ignore the first pointer.
+  Pointer pointers_all[RANK_INNER_NODE];
+  bool if_inserted_copied = false;
+  int idx_all = 0;
+  for (int i = 0; i < RANK_INNER_NODE; i++) {
+    if (inserted_key > bpnode->keys[i]) {
+      keys_all[idx_all] = bpnode->keys[i];
+      // The first pointer is ignored
+      pointers_all[idx_all] = bpnode->pointers[i + 1];  // TODO debug
+      idx_all++;
+    } else if (inserted_key < bpnode->keys[i]) {
+      if (if_inserted_copied) {
+        keys_all[idx_all] = bpnode->keys[i];
+        pointers_all[idx_all] = bpnode->pointers[i + 1];
+        idx_all++;
+      } else {
+        if_inserted_copied = true;
+        keys_all[idx_all] = inserted_key;
+        pointers_all[idx_all] = inserted_pointer;
+        idx_all++;
+        i--;  // TODO debug
+      }
+    } else {
+      assert(false);
+    }
+  }
+  if (if_inserted_copied == false) {
+    keys_all[RANK_INNER_NODE] = inserted_key;
+    pointers_all[RANK_INNER_NODE] = inserted_pointer;
+  }
+  // Split integrated keys and pointers.
+  int cnt_key_left_node = (RANK_INNER_NODE + 1) / 2;
+  // Copy to the left node
+  bpnode->cnt_key = 0;
+  for (int i = 0; i < cnt_key_left_node; i++) {
+    ((VcfBPlusNode *)(pointers_all[i]))->parent = bpnode;
+    bpnode->keys[i] = keys_all[i];
+    ((VcfBPlusNode *)(pointers_all[i]))->idx_key_parent = i;
+    // bpnode->pointers[0] is ignored
+    bpnode->pointers[i + 1] = pointers_all[i];
+    ((VcfBPlusNode *)(pointers_all[i]))->idx_pointer_parent = i + 1;
+    bpnode->cnt_key = bpnode->cnt_key + 1;
+  }
+  // Copy to the right node
+  int idx_new_bpnode = 0;
+  new_bpnode->cnt_key = 0;
+  for (int i = cnt_key_left_node + 1; i < RANK_INNER_NODE; i++) {
+    ((VcfBPlusNode *)(pointers_all[i]))->parent = new_bpnode;
+    new_bpnode->keys[idx_new_bpnode] = keys_all[i];
+    ((VcfBPlusNode *)(pointers_all[i]))->idx_key_parent = idx_new_bpnode;
+    new_bpnode->pointers[idx_new_bpnode] = pointers_all[i];
+    ((VcfBPlusNode *)(pointers_all[i]))->idx_pointer_parent = idx_new_bpnode;
+    new_bpnode->cnt_key = new_bpnode->cnt_key + 1;
+    idx_new_bpnode++;
+  }
+  // Push up the middle key
+  VcfBPlusKey key_mid = keys_all[cnt_key_left_node];
+  if (bpnode->parent != NULL) {
+    // If this inner node has a parent node (an inner node)
+    VcfBPlusNode *parent = bpnode->parent;
+    int idx_pointer_parent = 0;
+    int idx_key_parent = 0;
+    vcfbplus_node_locate(key_mid, parent, &idx_pointer_parent);
+    idx_key_parent = idx_pointer_parent == 0 ? 0 : idx_pointer_parent - 1;
+    new_bpnode->parent = parent;
+    new_bpnode->idx_pointer_parent = idx_pointer_parent;
+    new_bpnode->idx_key_parent = idx_key_parent;
+    vcfbplus_node_insert_inner(bptree, parent, idx_key_parent, key_mid,
+                               idx_pointer_parent, (Pointer)new_bpnode);
+  } else {
+    // If this inner node is the root.
+    VcfBPlusNode *parent = init_VcfBPlusNode(false);
+    parent->keys[0] = key_mid;
+    parent->pointers[0] = bpnode;
+    parent->pointers[1] = new_bpnode;
+    parent->cnt_key = 1;
+    bpnode->parent = parent;
+    bpnode->idx_key_parent = 0;
+    bpnode->idx_pointer_parent = 0;
+    new_bpnode->parent = parent;
+    new_bpnode->idx_key_parent = 0;
+    new_bpnode->idx_pointer_parent = 1;
+    bptree->root = parent;
+    bptree->height = bptree->height + 1;
+  }
+}
+
 void vcfbplus_node_split_leaf(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
-                              int inserted_idx, VcfBPlusKey inserted_key,
+                              VcfBPlusKey inserted_key,
                               Pointer inserted_pointer) {
   assert(bpnode->cnt_key == RANK_LEAF_NODE);
   // Integrate the original keys and inserted key. Do the same to pointers.
@@ -376,22 +498,27 @@ void vcfbplus_node_split_leaf(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
   for (int i = 0; i < RANK_LEAF_NODE; i++) {
     if (inserted_key > bpnode->keys[i]) {
       keys_all[idx_all] = bpnode->keys[i];
-      pointers_all[idx_all] = bpnode->keys[i];
+      pointers_all[idx_all] = bpnode->pointers[i];
       idx_all++;
     } else if (inserted_key < bpnode->keys[i]) {
       if (if_inserted_copied) {
         keys_all[idx_all] = bpnode->keys[i];
-        pointers_all[idx_all] = bpnode->keys[i];
+        pointers_all[idx_all] = bpnode->pointers[i];
         idx_all++;
       } else {
         if_inserted_copied = true;
         keys_all[idx_all] = inserted_key;
         pointers_all[idx_all] = inserted_pointer;
         idx_all++;
+        i--;  // TODO debug this
       }
     } else {
       assert(false);
     }
+  }
+  if (if_inserted_copied == false) {
+    keys_all[RANK_LEAF_NODE] = inserted_key;
+    pointers_all[RANK_LEAF_NODE] = inserted_pointer;
   }
   // Split integrated keys and pointers into 2 nodes.
   int cnt_key_left_node = (RANK_LEAF_NODE + 1) / 2;
@@ -402,7 +529,7 @@ void vcfbplus_node_split_leaf(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
     bpnode->cnt_key = bpnode->cnt_key + 1;
   }
   int idx_key_new_node = 0;
-  for (int i = cnt_key_left_node + 1; i < RANK_LEAF_NODE + 1; i++) {
+  for (int i = cnt_key_left_node; i < RANK_LEAF_NODE + 1; i++) {
     new_bpnode->keys[idx_key_new_node] = keys_all[i];
     new_bpnode->pointers[idx_key_new_node] = pointers_all[i];
     new_bpnode->cnt_key = new_bpnode->cnt_key + 1;
@@ -414,30 +541,52 @@ void vcfbplus_node_split_leaf(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
   new_bpnode->left = bpnode;
   bpnode->right = new_bpnode;
   // Update parent keys and pointers
-  VcfBPlusNode *parent = bpnode->parent;
-  VcfBPlusKey new_key_parent = new_bpnode->keys[0];
-  new_bpnode->parent = parent;
-  new_bpnode->idx_key_parent = bpnode->idx_key_parent;
-  new_bpnode->idx_pointer_parent = bpnode->idx_pointer_parent;
-  // TODO check if the following comment is correct / valid / makes sense ...
-  // When the parent is split, these linkers(idx_key_parent and so on)
-  // might be changed. But that's not the work of this function.
-  vcfbplus_node_insert_inner(bptree, bpnode->parent, bpnode->idx_key_parent + 1,
-                             new_key_parent, bpnode->idx_pointer_parent + 1,
-                             (Pointer)new_bpnode);
+  if (bpnode->parent != NULL) {
+    // This leaf node has a parent node (an inner node)
+    VcfBPlusNode *parent = bpnode->parent;
+    VcfBPlusKey new_key_parent = new_bpnode->keys[0];
+    new_bpnode->parent = parent;
+    new_bpnode->idx_key_parent = bpnode->idx_key_parent;
+    new_bpnode->idx_pointer_parent = bpnode->idx_pointer_parent;
+    // When the parent is split, these linkers(idx_key_parent and so on) for
+    // "new_bpnode" might be changed. But that's not the work of this function.
+    vcfbplus_node_insert_inner(
+        bptree, bpnode->parent, bpnode->idx_key_parent + 1, new_key_parent,
+        bpnode->idx_pointer_parent + 1, (Pointer)new_bpnode);
+    if (new_bpnode->right == NULL) {
+      bptree->last = new_bpnode;
+    }
+  } else {
+    // Codes within this brackets run only once during the creation of the tree.
+    // This leaf node is the root node. Split the root node.
+    VcfBPlusNode *parent = init_VcfBPlusNode(false);
+    parent->keys[0] = new_bpnode->keys[0];
+    parent->pointers[0] = bpnode;
+    parent->pointers[1] = new_bpnode;
+    parent->cnt_key = 1;
+    bpnode->parent = parent;
+    bpnode->idx_key_parent = 0;
+    bpnode->idx_pointer_parent = 0;
+    new_bpnode->parent = parent;
+    new_bpnode->idx_key_parent = 0;
+    new_bpnode->idx_pointer_parent = 1;
+    bptree->root = parent;
+    bptree->first = bpnode;
+    bptree->last = new_bpnode;
+    bptree->height = bptree->height + 1;
+  }
 }
 
 void vcfbplus_node_split(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
                          int inserted_key_idx, VcfBPlusKey inserted_key,
-                         int inserted_poiner_idx, Pointer inserted_pointer) {
+                         int inserted_pointer_idx, Pointer inserted_pointer) {
   // There is no identical key as the inserted key in the split node.
   if (bpnode->isLeaf) {
     // If the node is a leaf node
-    vcfbplus_node_split_leaf(bptree, bpnode, inserted_key_idx, inserted_key,
-                             inserted_pointer);
+    vcfbplus_node_split_leaf(bptree, bpnode, inserted_key, inserted_pointer);
   } else {
     // If the node is an inner node
-    // TODO
+    vcfbplus_node_split_inner(bptree, bpnode, inserted_key, inserted_pointer);
   }
   return;
 }
@@ -465,7 +614,8 @@ void vcfbplus_node_insert_leaf(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
       // Inserted position is occupied by another record.
       if (bpnode->cnt_key == RANK_LEAF_NODE) {
         // This leaf node is full. Need to split the node
-        // TODO
+        vcfbplus_node_split_leaf(bptree, bpnode, inserted_key,
+                                 inserted_pointer);
       } else if (bpnode->cnt_key < RANK_LEAF_NODE) {
         // This leaf node is not full. Insert and move records afterwards.
         VcfBPlusKey tmp_inserted_key = inserted_key;
@@ -487,7 +637,8 @@ void vcfbplus_node_insert_leaf(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
     }
   } else {
     // Need to split the node
-    // TODO
+    // The inserted position is at the end of the node, but out of boundary.
+    vcfbplus_node_split_leaf(bptree, bpnode, inserted_key, inserted_pointer);
   }
 }
 
@@ -497,6 +648,7 @@ void vcfbplus_node_insert_inner(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
                                 Pointer inserted_pointer) {
   if (inserted_key_idx < RANK_INNER_NODE - 1) {
     assert(inserted_pointer_idx < RANK_INNER_NODE);
+    assert(bpnode->keys[inserted_key_idx] <= inserted_key);
     // Insert the new key into one of the positions for keys in the node
     if (bpnode->keys[inserted_key_idx] == unavailable_keyValue) {
       // Empty position. Directly insert.
@@ -507,7 +659,8 @@ void vcfbplus_node_insert_inner(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
       // Inserted position is occupied by another pointer.
       if (bpnode->cnt_key == RANK_INNER_NODE - 1) {
         // This inner node is full. Need to split the node.
-        // TODO
+        vcfbplus_node_split_inner(bptree, bpnode, inserted_key,
+                                  inserted_pointer);
       } else {
         // This inner node is not full. Insert and move pointers afterwards.
         VcfBPlusKey tmp_inserted_key = inserted_key;
@@ -530,7 +683,8 @@ void vcfbplus_node_insert_inner(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
     }
   } else {
     // Need to split the node
-    // TODO
+    // The inserted position is at the end of the node, but out of boundary.
+    vcfbplus_node_split_inner(bptree, bpnode, inserted_key, inserted_pointer);
   }
 }
 
@@ -550,7 +704,6 @@ void vcfbplus_node_insert(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
 
 void vcfbplus_node_locate(VcfBPlusKey requested_key, VcfBPlusNode *localRoot,
                           int *ret_pointerIdx) {
-  // TODO modify after changing the leaf node's elements into linked-list.
   *ret_pointerIdx = -1;
   int l_idx = 0;
   int r_idx = localRoot->cnt_key - 1;
@@ -564,9 +717,9 @@ void vcfbplus_node_locate(VcfBPlusKey requested_key, VcfBPlusNode *localRoot,
         if (localRoot->isLeaf == false) *ret_pointerIdx = *ret_pointerIdx + 1;
         return;
       } else if (mid_key < requested_key) {
-        l_idx = mid_key + 1;
+        l_idx = mid_idx + 1;
       } else {
-        r_idx = mid_key - 1;
+        r_idx = mid_idx - 1;
       }
     } else {  // If there is no such record with requested key
       *ret_pointerIdx = l_idx - 1;
@@ -577,7 +730,6 @@ void vcfbplus_node_locate(VcfBPlusKey requested_key, VcfBPlusNode *localRoot,
 }
 
 void vcfbplus_tree_insertRec(RecVcf_bplus *rv, VcfBPlusTree *bptree) {
-  // TODO modify after changing the leaf node's elements into linked-list.
   // Locate the position where the new record should be inserted
   VcfBPlusNode *bpnode = bptree->root;
   VcfBPlusKey inserted_key = rv_pos(rv);
@@ -594,6 +746,8 @@ void vcfbplus_tree_insertRec(RecVcf_bplus *rv, VcfBPlusTree *bptree) {
   vcfbplus_node_locate(inserted_key, bpnode, &ret_pointerIdx);
 
   // Insert
+  vcfbplus_node_insert_leaf(bptree, bpnode, ret_pointerIdx, inserted_key,
+                            (Pointer)rv);
 }
 
 void genomeVcf_bplus_insertRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv) {
@@ -602,7 +756,8 @@ void genomeVcf_bplus_insertRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv) {
   // This will accelerate the program by omitting the process of locating
   // chromosome, if requested chrom is the same as the last used one.
   static ChromVcf_bplus *lastUsed_chromVcf;
-  if (strcmp(chromName, lastUsed_chromVcf->name) != 0) {
+  if (lastUsed_chromVcf == NULL ||
+      strcmp(chromName, lastUsed_chromVcf->name) != 0) {
     // Locate the chromosome (check from the 1st chrom in the linked-list)
     lastUsed_chromVcf = gv->chroms;
     while (lastUsed_chromVcf != NULL) {
@@ -615,10 +770,24 @@ void genomeVcf_bplus_insertRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv) {
     // Possibly there exists no such chromosome
     if (lastUsed_chromVcf == NULL) {
       lastUsed_chromVcf = init_ChromVcf_bplus(chromName);
+      ChromVcf_bplus *tmp_chromVcf = gv->chroms;
+      if (tmp_chromVcf == NULL) {
+        gv->chroms = lastUsed_chromVcf;
+      } else {
+        while (tmp_chromVcf != NULL) {
+          if (tmp_chromVcf->next == NULL) {
+            tmp_chromVcf->next = lastUsed_chromVcf;
+            break;
+          } else {
+            tmp_chromVcf = tmp_chromVcf->next;
+          }
+        }
+      }
     }
   }
   // Insert the record into vcf_bplus tree
-  // TODO
+  vcfbplus_tree_insertRec(rv, lastUsed_chromVcf->tree);
+  lastUsed_chromVcf->cnt_rec++;
 }
 
 void genomeVcf_bplus_removeRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv) {
@@ -652,7 +821,18 @@ GenomeVcf_bplus *genomeVcf_bplus_loadFile(char *filePath, int rank_inner_node,
     bcf1_t *tmpRec = bcf_dup(rec);
     bcf_unpack(tmpRec, BCF_UN_ALL);
 
-    genomeVcf_bplus_insertRec(gv, init_RecVcf_bplus(tmpRec, NULL));
+    RecVcf_bplus *rv = init_RecVcf_bplus(tmpRec, NULL);
+
+    genomeVcf_bplus_insertRec(gv, rv);
+
+    // genomeVcf_bplus_traverse(gv);
+    // printf("\n");
+    vcfbplus_tree_print(gv->chroms->tree);
+
+    // TODO debug
+    // TODO idx_key_parent and idx_pointer_parent are wrong when "127" is inserted. They are not properly set for the split nodes
+
+    genomeVcf_bplus_printRec(gv, rv);
 
     bcf_destroy1(tmpRec);
     loadedCnt++;
@@ -724,29 +904,31 @@ void genomeVcf_bplus_printRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv) {
   assert(rv->data != NULL);
   bcf1_t *rec = rv_object(rv);
   // chrom
-  printf("%s\t", bcf_seqname_safe(gv->hdr, rec));
+  fprintf(stderr, "%s\t", bcf_seqname_safe(gv->hdr, rec));
   // pos
-  printf("%" PRId64 "\t", rec->pos + 1);
+  fprintf(stderr, "%" PRId64 "\t", rec->pos + 1);
   // id
-  printf("%s\t", rec->d.id);
+  fprintf(stderr, "%s\t", rec->d.id);
   // ref alt
-  printf("%s\t", rec->d.allele[0]);
+  fprintf(stderr, "%s\t", rec->d.allele[0]);
   if (rec->n_allele == 1) {
-    printf(".");
+    fprintf(stderr, ".");
   } else {
     for (int i = 1; i < rec->n_allele; i++) {
       if (i >= 2) {
-        printf(",%s(%d)", rec->d.allele[i], bcf_get_variant_type(rec, i));
+        fprintf(stderr, ",%s(%d)", rec->d.allele[i],
+                bcf_get_variant_type(rec, i));
       } else {
-        printf("%s(%d)", rec->d.allele[i], bcf_get_variant_type(rec, i));
+        fprintf(stderr, "%s(%d)", rec->d.allele[i],
+                bcf_get_variant_type(rec, i));
       }
     }
   }
-  printf("\t");
+  fprintf(stderr, "\t");
   // qual
-  printf("%f\t", rec->qual);
+  fprintf(stderr, "%f\t", rec->qual);
   // TODO filter, info, format and other fields are ignored
-  printf("\n");
+  fprintf(stderr, "\n");
 }
 
 /****************************************************************/
