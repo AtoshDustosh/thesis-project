@@ -1,0 +1,19 @@
+//------------------------------- problems and solutions --------------------------
+1. simulated data lacks header definition for some INFO,FORMAT or other fields.
+For example, SVTYPE, SVLEN not defined in the header.
+
+This is because the "varsim" tool does not fill these header macros into the generated files. So you have to do it manually.
+
+Commandlines:
+	// Extract the original header macros
+	bcftools view -h used_vcfile.vcf > used_vcfile.header.vcf
+
+	// Convert the header macro file into compressed vcf.
+	bcftools convert -Oz used_vcfile.header.vcf -o used_vcfile.header.vcf.gz
+
+	// Convert the generated vcf file into compressed vcf file. Strangely, bcftools doesn't handle raw vcf files.
+	bcftools convert -Oz generated_vcfFile.vcf -o generated_vcfFile.vcf.gz
+
+	// Merge the original header macros and the generated vcf file
+	bcftools merge generated_vcfFile.vcf.gz used_vcfile.header.vcf.gz -o merged.vcf
+	// or add "-Oz" option to output as compressed vcf file

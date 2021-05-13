@@ -63,8 +63,6 @@ struct ChromVcf_bplus {
 
 struct GenomeVcf_bplus {
   bcf_hdr_t *hdr;
-  uint64_t cnt_snp;
-  uint64_t cnt_sv;
   uint32_t cnt_chrom;
   // This is a linked-list without empty header.
   ChromVcf_bplus *chroms;
@@ -220,9 +218,8 @@ void destroy_RecVcf_bplus(RecVcf_bplus *rv) {
  * the node's brothers or parent. That task should be handled by those methods
  * that call this initialization method.
  * @param  isLeaf:  whether this node is a leaf node.
- * @retval A bpnode object. There is no such method as "destroy_VcfBPlusNode".
- * You should destroy the whole bplus tree or remove one of the records, instead
- * of destroying a single node.
+ * @retval A bpnode object. You should destroy the whole bplus tree or remove
+ * one of the records, instead of destroying a single node.
  */
 VcfBPlusNode *init_VcfBPlusNode(bool isLeaf) {
   VcfBPlusNode *bpnode = (VcfBPlusNode *)malloc(sizeof(VcfBPlusNode));
@@ -246,6 +243,28 @@ VcfBPlusNode *init_VcfBPlusNode(bool isLeaf) {
   return bpnode;
 }
 
+void destroy_VcfBPlusNode(VcfBPlusNode *bpnode) {
+  if (bpnode->isLeaf) {
+    // Free every node element of the leaf node
+    for (int i = 0; i < bpnode->cnt_key; i++) {
+      // Free all elements in the linked-list of a node element
+      RecVcf_bplus *rv = bpnode->pointers[i];
+      while (rv != NULL) {
+        RecVcf_bplus *tmp_rv = rv->next;
+        destroy_RecVcf_bplus(rv);
+        rv = tmp_rv;
+      }
+    }
+    free(bpnode);
+  } else {
+    for (int i = 0; i < bpnode->cnt_key + 1; i++) {
+      VcfBPlusNode *tmp_bpnode = (VcfBPlusNode *)bpnode->pointers[i];
+      destroy_VcfBPlusNode(tmp_bpnode);
+    }
+    free(bpnode);
+  }
+}
+
 VcfBPlusTree *init_VcfBPlusTree() {
   VcfBPlusTree *bptree = (VcfBPlusTree *)calloc(1, sizeof(VcfBPlusTree));
   // Root node is also a leaf node at the beginning.
@@ -259,7 +278,8 @@ VcfBPlusTree *init_VcfBPlusTree() {
 }
 
 void destroy_VcfBPlusTree(VcfBPlusTree *bptree) {
-  // TODO
+  destroy_VcfBPlusNode(bptree->root);
+  free(bptree);
 }
 
 /**
@@ -271,7 +291,6 @@ void destroy_VcfBPlusTree(VcfBPlusTree *bptree) {
  */
 ChromVcf_bplus *init_ChromVcf_bplus(const char *name) {
   ChromVcf_bplus *cv = (ChromVcf_bplus *)calloc(1, sizeof(ChromVcf_bplus));
-  // TODO initialize tree structures
   cv->tree = init_VcfBPlusTree();
   cv->name = strdup(name);
   return cv;
@@ -292,14 +311,18 @@ GenomeVcf_bplus *init_GenomeVcf_bplus(int rank_inner_node, int rank_leaf_node,
   return gv;
 }
 
-void destroy_GenomeVcf_bplus(GenomeVcf_bplus *gv_bPlus) {
-  // TODO Implement this method after finishing all other construction methods
+void destroy_GenomeVcf_bplus(GenomeVcf_bplus *gv) {
+  ChromVcf_bplus *cv = gv->chroms;
+  while (cv != NULL) {
+    ChromVcf_bplus *tmp_cv = cv->next;
+    destroy_ChromVcf_bplus(cv);
+    cv = tmp_cv;
+  }
+  free(gv);
 }
 
 void genomeVcf_bplus_traverse(GenomeVcf_bplus *gv) {
   // Print info fields of the Genome
-  printf("cnt(snp): %" PRIu64 ", cnt(sv): %" PRIu64 "\n", gv->cnt_snp,
-         gv->cnt_sv);
   printf("cnt(chrom): %" PRIu32 "\n", gv->cnt_chrom);
   ChromVcf_bplus *cv = gv->chroms;
   while (cv != NULL) {
@@ -330,7 +353,6 @@ void genomeVcf_bplus_traverse(GenomeVcf_bplus *gv) {
  ************************************/
 
 void vcfbplus_tree_print(VcfBPlusTree *bptree) {
-  // TODO
   static VcfBPlusNode *queue_bpnode[2048];
   int idx_queue_in = 0;
   int idx_queue_out = 0;
@@ -392,7 +414,6 @@ VcfBPlusKey vcfbplus_tree_find_rightmost_key(VcfBPlusNode *bpnode) {
 void vcfbplus_node_split_inner(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
                                VcfBPlusKey inserted_key,
                                Pointer inserted_pointer) {
-  // TODO Splitting, linkers change (inserted node's linkers)
   assert(bpnode->cnt_key == RANK_INNER_NODE - 1);
   // Integrate the original keys and inserted keys. Do the same to pointers.
   VcfBPlusNode *new_bpnode = init_VcfBPlusNode(false);
@@ -465,7 +486,7 @@ void vcfbplus_node_split_inner(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
     // ((VcfBPlusNode *)(pointers_all[i]))->idx_key_parent = idx_new_bpnode;
     new_bpnode->pointers[idx_new_bpnode + 1] = pointers_all[i];
     // ((VcfBPlusNode *)(pointers_all[i]))->idx_pointer_parent =
-        idx_new_bpnode + 1;
+    idx_new_bpnode + 1;
     new_bpnode->cnt_key = new_bpnode->cnt_key + 1;
     idx_new_bpnode++;
   }
@@ -526,7 +547,7 @@ void vcfbplus_node_split_leaf(VcfBPlusTree *bptree, VcfBPlusNode *bpnode,
         keys_all[idx_all] = inserted_key;
         pointers_all[idx_all] = inserted_pointer;
         idx_all++;
-        i--;  // TODO debug this
+        i--;
       }
     } else {
       assert(false);
@@ -808,6 +829,7 @@ void genomeVcf_bplus_insertRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv) {
           }
         }
       }
+      gv->cnt_chrom++;
     }
   }
   // Insert the record into vcf_bplus tree
@@ -820,6 +842,45 @@ void genomeVcf_bplus_removeRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv) {
           "Error: there is no need to remove a record from the structure - "
           "unimplemented method.\n");
   exit(EXIT_FAILURE);
+}
+
+RecVcf_bplus *genomeVcf_bplus_getRec(GenomeVcf_bplus *gv, const char *chromName,
+                                     int64_t pos) {
+  assert(pos >= 1);
+  static ChromVcf_bplus *lastUsed_chromVcf;
+  if (lastUsed_chromVcf == NULL ||
+      strcmp(lastUsed_chromVcf->name, chromName) != 0) {
+    lastUsed_chromVcf = gv->chroms;
+    while (lastUsed_chromVcf != NULL) {
+      if (strcmp(lastUsed_chromVcf->name, chromName) == 0) {
+        break;
+      } else {
+        lastUsed_chromVcf = lastUsed_chromVcf->next;
+      }
+    }
+  }
+  if (lastUsed_chromVcf == NULL) {
+    // Possibly there is no requested chrom in genomeVcf
+    return NULL;
+  }
+  // Locate and find record(s)
+  VcfBPlusTree *bptree = lastUsed_chromVcf->tree;
+  VcfBPlusNode *bpnode = bptree->root;
+
+  int ret_pointerIdx = -1;
+  while (bpnode->isLeaf == false) {
+    vcfbplus_node_locate(pos, bpnode, &ret_pointerIdx);
+    bpnode = (VcfBPlusNode *)(bpnode->pointers[ret_pointerIdx]);
+  }
+
+  vcfbplus_node_locate(pos, bpnode, &ret_pointerIdx);
+
+  RecVcf_bplus *rv = (RecVcf_bplus *)bpnode->pointers[ret_pointerIdx];
+  if (rv_pos(rv) == pos) {
+    return rv;
+  } else {
+    return NULL;
+  }
 }
 
 GenomeVcf_bplus *genomeVcf_bplus_loadFile(char *filePath, int rank_inner_node,
@@ -855,7 +916,7 @@ GenomeVcf_bplus *genomeVcf_bplus_loadFile(char *filePath, int rank_inner_node,
     // printf("\n");
     // vcfbplus_tree_print(gv->chroms->tree);
 
-    genomeVcf_bplus_printRec(gv, rv);
+    // genomeVcf_bplus_printRec(gv, rv);
 
     bcf_destroy1(tmpRec);
     loadedCnt++;
@@ -866,12 +927,23 @@ GenomeVcf_bplus *genomeVcf_bplus_loadFile(char *filePath, int rank_inner_node,
 }
 
 void genomeVcf_bplus_writeFile(GenomeVcf_bplus *gv, char *filePath) {
-  // TODO
+  fprintf(stderr, "Error: this method is unnecessary to implement.\n");
+  exit(EXIT_FAILURE);
 }
 
 /**********************************
  * Accessing data within structures
  **********************************/
+
+inline int gv_cnt_rec(GenomeVcf_bplus *gv) {
+  int cnt_rec = 0;
+  ChromVcf_bplus *cv = gv->chroms;
+  while (cv != NULL) {
+    cnt_rec = cnt_rec + cv->cnt_rec;
+    cv = cv->next;
+  }
+  return cnt_rec;
+}
 
 inline bcf1_t *rv_object(RecVcf_bplus *rv) {
   assert(rv->data != NULL);

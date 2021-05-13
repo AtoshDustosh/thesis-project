@@ -12,10 +12,6 @@
 
 #include "debug.h"
 
-static inline int ceil_int_divby2(int value) {
-  return value % 2 == 0 ? value / 2 : value / 2 + 1;
-}
-
 /**
  * @brief  Rank for the inner nodes. For example, a tree with inner rank being 5
  * indicates that an inner node contains no more than "5" pointers to other
@@ -68,6 +64,11 @@ typedef struct GenomeVcf_bplus GenomeVcf_bplus;
 /**********************************
  * Accessing data within structures
  **********************************/
+
+/**
+ * @brief  Get count of all records loaded in this genomeVcf object.
+ */
+extern int gv_cnt_rec(GenomeVcf_bplus *gv);
 
 /**
  * @brief  Get the pointer to the original data object within rv.
@@ -147,6 +148,14 @@ void genomeVcf_bplus_traverse(GenomeVcf_bplus *gv);
 void genomeVcf_bplus_insertRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv);
 
 void genomeVcf_bplus_removeRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv);
+
+/**
+ * @brief  Get records from genomeVcf object with input POS and chrom name.
+ * @retval pointer to a vcf object with POS. Use "next_RecVcf_bplus" to get its
+ * next record with the same POS.
+ */
+RecVcf_bplus *genomeVcf_bplus_getRec(GenomeVcf_bplus *gv, const char *chromName,
+                                     int64_t pos);
 
 GenomeVcf_bplus *genomeVcf_bplus_loadFile(char *filePath, int rank_inner_node,
                                           int rank_leaf_node);
