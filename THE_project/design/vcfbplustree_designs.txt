@@ -1,24 +1,8 @@
 1. How to locate position of the next pointer with input Key for the bplus tree?
-	Consider the following case with total 5 key in a node and 3 duplicated POS.
-NODE idx         0   1   2   3   4
-POS         |   15  35  35  35  100  |
-POINTER idx   0    1   2   3   4    5
-	Results for locating keys are as follows:
-		(key,located_pointer_idx)
-		(2,0)
-		(15,1)
-		(24,1)
-		(35,2)
-		(40,2)
-		(100,5)
-		(1449,5)
-	The most important part is how to locate pointers with key 35 and 40. These 2 cases have to deal with duplicated keys.
+	In the program, we used a binary search to locate the pointer according to the key. 
 
-	In the program, we used a binary search to locate the pointer according to the key. But that retained a result as (key,located_pointer_idx)=(35,3).
-	So we go back on the node. And check if the last position for the pointer is valid with input key. 
-	When you search for a record with POS (key), you start from the root node. And thus according to the progress of searching on a bplus tree, we don't have to deal with inter-inner_nodes problems, despite some inner nodes may contain exactly the same keys. For example, the following 2 nodes are brothers. And they can either be inner nodes, or leaf nodes. Both cases could happen when the program runs.
-NODE idx         0   1   2   3   4				0   1   2   3   4
-POS          |  35  35  35  35  35  |	|  35  35  35  35  35  |
-POINTER idx   0   1   2   3   4   5     0   1   2   3   4   5
-
-2. TODO
+2. How to split an inner node with new record to be inserted?
+	Suppose we have the inner node to be split, called "bpnode", and all information about the key and pointer to be inserted (inserted_key_idx, inserted_key, inserted_pointer_idx, inserted_pointer).
+	Any inner node that can be split already contains #(RANK_INNER_NODE) pointers and #(RANK_INNER_NODE - 1) keys. And according to the bplus principles, we have inserted_key_idx + 1 == inserted_pointer_idx.
+	Before splitting, we need to integrate all existing keys and pointers with the inserted key and pointer, like we do when splitting a leaf node.
+	After integration of information, select the middle key as the one to be pushed up into the parent node.
