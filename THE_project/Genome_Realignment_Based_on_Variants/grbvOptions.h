@@ -27,6 +27,10 @@
 #define OPT_SET_SAMFILE 104
 #define OPT_SET_VCFFILE 105
 
+#define OPT_SET_SV_MIN_LEN 106
+
+static const int default_sv_min_len = 50;
+
 /*
  * Some simple operations against files.
  */
@@ -41,6 +45,8 @@
 #define OPT_COMPARESAM 302
 #define OPT_INTEGRATEVCFTOSAM 303
 
+#define OPT_THREADS 9999
+
 #define OPTION_CONFLICT 1
 
 typedef struct _define_Options {
@@ -53,12 +59,14 @@ typedef struct _define_Options {
   char *vcfFile;
   char *outputFile;
 
+  int sv_min_len;  // minimal length for a SV
+
   int countRec;
   int firstLines;    // also store the value of [firstline_number]
   int extractChrom;  // also store the value of [chrom_idx]
 
   int selectBadReads;  // also store the value of [MAPQ_threshold]
-  int compareSam;
+  int threads;         // also store the value of [NUM_threads]
 } Options;
 
 static inline void optCheck_conflict(Options *opts) {
@@ -85,7 +93,11 @@ static inline void setOutputFile(Options *opts, char *op_file) {
   opts->outputFile = op_file;
 }
 
+static inline int getSVminLen(Options *opts) { return opts->sv_min_len; }
+
 static inline int MAPQ_threshold(Options *opts) { return opts->selectBadReads; }
+
+static inline int opt_threads(Options *opts) { return opts->threads; }
 
 typedef struct _define_FileList {
   char **paths;

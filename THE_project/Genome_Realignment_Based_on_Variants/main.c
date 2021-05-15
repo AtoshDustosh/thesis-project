@@ -18,6 +18,7 @@
 #include "genomeVcf.h"
 #include "grbvOperations.h"
 #include "grbvOptions.h"
+#include "integrateVcfToSam.h"
 #include "simpleOperations.h"
 
 const char *optStr = "";
@@ -30,17 +31,21 @@ static struct option optInitArray[] = {
     {"samFile", required_argument, NULL, OPT_SET_SAMFILE},
     {"vcfFile", required_argument, NULL, OPT_SET_VCFFILE},
 
+    {"sv_min_len", required_argument, NULL, OPT_SET_SV_MIN_LEN},
+
     {"countRec", no_argument, NULL, OPT_COUNTREC},
     {"firstLines", required_argument, NULL, OPT_FIRSTLINES},
     {"extractChrom", required_argument, NULL, OPT_EXTRACTCHROM},
 
     {"selectBadReads", required_argument, NULL, OPT_SELECTBADREADS},
     {"integrateVcfToSam", no_argument, NULL, OPT_INTEGRATEVCFTOSAM},
+    {"threads", required_argument, NULL, OPT_THREADS},
     {0, 0, 0, 0},
 };
 
 static void Usage() {
   printf("Usage: grbv [commands] [arguments]\n");
+  printf("Run one task at a time.\n");
   printf("\n");
 
   printf("Commands:\n");
@@ -50,6 +55,7 @@ static void Usage() {
   printf("\tfastqFile [filepath]\tset fastq file\n");
   printf("\tsamFile [filepath]\tset sam file\n");
   printf("\tvcfFile [filepath]\tset vcf file\n");
+  printf("\tsv_min_len [length]\tset minimal length for a SV\n");
   printf("\n");
 
   printf(" -- Program infos\n");
@@ -80,6 +86,9 @@ static void Usage() {
       "file. This will perform realignment for all reads in the *.sam file "
       "with new created reference genome. It's actually one of the main "
       "purposes of the project. \n");
+  printf(
+      "\tthreads [NUM_threads]\tuse multi-threads methods to run the program. "
+      "This only works for integrateVcfToSam.\n");
 }
 
 static int _testSet_full() {
@@ -116,10 +125,13 @@ int main(int argc, char *argv[]) {
   options.vcfFile = NULL;
   options.outputFile = NULL;
 
+  options.sv_min_len = default_sv_min_len;
+
   options.countRec = 0;
   options.firstLines = 0;
 
   options.selectBadReads = 0;
+  options.threads = 1;
 
   int optRet = getopt_long(argc, argv, optStr, optInitArray, NULL);
   while (1) {
@@ -168,6 +180,11 @@ int main(int argc, char *argv[]) {
         // printGenomeVcf(gv);
         break;
       }
+      case OPT_SET_SV_MIN_LEN:{
+        printf("Minimal SV length set: %s\n", optarg);
+        options.sv_min_len = atoi(optarg);
+        break;
+      }
       case OPT_COUNTREC: {
         optCheck_conflict(&options);
         printf("Count records of files.\n");
@@ -203,9 +220,14 @@ int main(int argc, char *argv[]) {
         }
         break;
       }
+      case OPT_THREADS: {
+        options.threads = atoi(optarg);
+        break;
+      }
       case OPT_INTEGRATEVCFTOSAM: {
         optCheck_conflict(&options);
-        integrateVcfToSam_refactored(&options);
+        // integrateVcfToSam_refactored(&options);
+        integration(&options);
         break;
       }
       default:

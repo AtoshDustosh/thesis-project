@@ -1,0 +1,33 @@
+- command line examples:
+  art_illumina -p -sam -i data/test.fa -l 50 -f 20 -m 200 -s 10 -o data/test-paired_end
+  
+  bwa index data/test.fa
+
+  bwa mem -t 8 -A 1 -B -4 -O -6 -E -1 data/test.fa data/test-paired_end1.fq data/test-paired_end2.fq > data/test.sam
+
+  gcc *.c -o main -lhts
+
+  // add a command line to filter bad mapped reads
+  ./main --samFile data/test.sam --outputFile data/test-filtered.sam --selectBadReads MAP_THREASHOLD
+
+  samtools sort data/test-filtered.sam -o data/test-filtered.sam --output-fmt SAM
+
+  ./main --faFile data/test.fa --samFile data/test-filtered.sam --vcfFile data/test.vcf --outputFile data/grbvOut.sam --integrateVcfToSam
+
+- command lines for simple operations:
+  ./main --faFile test.fa --outputFile test-chrom.fa --extractChrom 1
+
+  ./main --faFile hs37d5.fa --outputFile hs37d5_21.fa --extractChrom 21
+
+- simulation (suppose you're under .../varsim):
+  ./varsim.py --vc_in_vcf data-files/21_5_10Mb.vcf.gz --sv_insert_seq data-files/insert_seq_21.txt \
+--sv_dgv data-files/GRCh37_hg19_supportingvariants_21.txt --filter \
+--reference data-files/hs37d5_21.fa --id simu --read_length 100 --vc_num_snp 500 --vc_num_ins 400 \
+--vc_num_del 400 --vc_num_mnp 50 --vc_num_complex 50 --sv_num_ins 500 \
+--sv_num_del 500 --sv_num_dup 300 --sv_num_inv 300 --sv_percent_novel 0.01 \
+--vc_percent_novel 0.01 --mean_fragment_size 350 --sd_fragment_size 50 \
+--vc_min_length_lim 0 --vc_max_length_lim 49 --sv_min_length_lim 50 \
+--sv_max_length_lim 100000 --nlanes 1 --total_coverage 2 \
+--java_max_mem 20g \
+--simulator_executable /bin/art_illumina --out_dir data-files/out_21 --log_dir log --work_dir work \
+--simulator art

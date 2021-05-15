@@ -1,18 +1,19 @@
 - command line examples:
-  art_illumina -p -sam -i data/test.fa -l 50 -f 20 -m 200 -s 10 -o data/test-paired_end
+  art_illumina -p -sam -i test.fa -l 50 -f 20 -m 200 -s 10 -o test-paired_end // or use varsim to get simulated data
   
-  bwa index data/test.fa
+  bwa index test.fa
 
-  bwa mem -t 8 -A 1 -B -4 -O -6 -E -1 data/test.fa data/test-paired_end1.fq data/test-paired_end2.fq > data/test.sam
+  bwa mem -t 8 -A 2 -B -4 -O 3 -E 1 test.fa test-paired_end1.fq test-paired_end2.fq > test.sam
 
-  gcc *.c -o main -lhts
+  // after compilation, copy the generated executable program to the directory of data files
+  gcc *.c -o main -lhts -lpthread
 
   // add a command line to filter bad mapped reads
-  ./main --samFile data/test.sam --outputFile data/test-filtered.sam --selectBadReads MAP_THREASHOLD
+  ./main --samFile test.sam --outputFile test-filtered.sam --selectBadReads MAP_THREASHOLD
 
-  samtools sort data/test-filtered.sam -o data/test-filtered.sam --output-fmt SAM
+  samtools sort test-filtered.sam -o test-filtered.sam --output-fmt SAM
 
-  ./main --faFile data/test.fa --samFile data/test-filtered.sam --vcfFile data/test.vcf --outputFile data/grbvOut.sam --integrateVcfToSam
+  ./main --faFile test.fa --samFile test-filtered.sam --vcfFile test.vcf --outputFile grbvOut.sam --thread 5 --integrateVcfToSam
 
 - command lines for simple operations:
   ./main --faFile test.fa --outputFile test-chrom.fa --extractChrom 1

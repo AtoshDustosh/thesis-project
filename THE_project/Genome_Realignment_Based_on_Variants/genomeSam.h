@@ -31,7 +31,6 @@ typedef struct _define_ChromSam {
 } ChromSam;
 
 typedef struct _define_GenomeSam {
-  // TODO optimize the structure
   uint32_t chromCnt;
   bam_hdr_t *hdr;
   ChromSam *css;
@@ -42,6 +41,16 @@ typedef struct _define_GenomeSamIterator {
   ChromSam *tmpCs;
   RecSam *tmpRs;
 } GenomeSamIterator;
+
+static inline uint32_t gsDataRecCnt(GenomeSam *gs) {
+  ChromSam *cs = gs->css;
+  uint32_t cnt_rec = 0;
+  while (cs != NULL) {
+    cnt_rec = cnt_rec + cs->recCnt;
+    cs = cs->next;
+  }
+  return cnt_rec;
+}
 
 static inline bam1_t *rsData(RecSam *rs) { return rs->rec; }
 
