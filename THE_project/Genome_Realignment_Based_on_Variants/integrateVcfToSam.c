@@ -94,14 +94,257 @@ static inline int count_integrated_allele(RecVcf_bplus *rv, int64_t startPos,
   return cnt_integrated_allele;
 }
 
-static inline int integrate_realign_output(Element_RecVcf *ervArray[],
-                                           int *ervCombi, int *combi_allele,
-                                           int length_combi, GenomeFa *gf,
-                                           GenomeSam *gs, GenomeVcf_bplus *gv,
-                                           RecSam *rs, samFile *file_output) {
-  // TODO Check selected variants and extract ref sequence. If there exists DEL,
-  // you might need to extract longer ref sequence.
-  return 0;
+static inline void integration_integrate(
+    Element_RecVcf *ervArray_lpart[], int ervCombi_lpart[],
+    int alleleCombi_lpart[], int length_combi_lpart,
+    Element_RecVcf *ervArray_rpart[], int ervCombi_rpart[],
+    int alleleCombi_rpart[], int length_combi_rpart, int64_t lbound_var,
+    int64_t rbound_var, int64_t lbound_M, int64_t rbound_M, RecSam *rec_rs,
+    GenomeFa *gf, GenomeSam *gs, GenomeVcf_bplus *gv, samFile *file_output) {
+  // Print information collected for this integration task
+  printf("lbound var: %" PRId64 ", rbound var: %" PRId64 "\n", lbound_var,
+         rbound_var);
+  printf("lbound_M: %" PRId64 ", rbound_M: %" PRId64 "\n", lbound_M, rbound_M);
+  printf("length combi lpart: %d, combi rpart: %d\n", length_combi_lpart,
+         length_combi_rpart);
+  // printf("ervArray (L): \n");
+  // for (int i = 0; i < length_combi_lpart; i++) {
+  //   genomeVcf_bplus_printRec(gv, ervArray_lpart[i]->rv);
+  // }
+  // printf("\n");
+  // printf("(rv, allele) selected (L): \n");
+  // for (int i = 0; i < length_combi_lpart; i++) {
+  //   printf("(%d,%d) ", ervCombi_lpart[i], alleleCombi_lpart[i]);
+  // }
+  // printf("\n");
+  // printf("ervArray (R): \n");
+  // for (int i = 0; i < length_combi_rpart; i++) {
+  //   genomeVcf_bplus_printRec(gv, ervArray_rpart[i]->rv);
+  // }
+  // printf("\n");
+  // printf("(rv, allele) selected (R): \n");
+  // for (int i = 0; i < length_combi_rpart; i++) {
+  //   printf("(%d,%d) ", ervCombi_rpart[i], alleleCombi_rpart[i]);
+  // }
+  // printf("\n");
+  // printf("*****************************************************\n");
+
+  // Integrate the right part
+  // TODO
+  // Integrate the left part
+  // TODO
+  return;
+}
+
+/**
+ * @brief  Find all variants that should be integrated into reference sequence
+ * * [lbound, rbound]. Pack them in the form of an ervArray.
+ */
+static inline void integration_generate_ervArray(
+    int64_t lbound, int64_t rbound, const char *rname, GenomeVcf_bplus *gv,
+    Element_RecVcf ***ret_ervArray, int *ret_cnt_integrated_variants) {
+  assert(lbound <= rbound);
+  // printf("generated ervArray lbound: %" PRId64 ", rbound: %" PRId64 "\n",
+  //        lbound, rbound);
+  // ------- get all variants' combination within the interval -----
+  // 1st loop - calculate number of vcf records that needs integration
+  int cnt_integrated_variants = 0;
+  RecVcf_bplus *rv_tmp = genomeVcf_bplus_getRecAfterPos(gv, rname, lbound);
+  RecVcf_bplus *first_rv = rv_tmp;
+  while (rv_tmp != NULL) {
+    if (count_integrated_allele(rv_tmp, lbound, rbound) > 0) {
+      cnt_integrated_variants++;
+    } else {
+      if (rv_pos(rv_tmp) > rbound) {
+        break;
+      }
+    }
+    rv_tmp = next_RecVcf_bplus(rv_tmp);
+  }
+  // 2nd loop - save pointers to vcf records that needs integration and
+  // calculate number of alleles of each vcf record that needs integration.
+  Element_RecVcf **ervArray = (Element_RecVcf **)calloc(
+      cnt_integrated_variants, sizeof(Element_RecVcf *));
+  rv_tmp = first_rv;
+  int idx_integrated_variants = 0;
+  while (rv_tmp != NULL) {
+    int cnt_integrated_allele = count_integrated_allele(rv_tmp, lbound, rbound);
+    if (cnt_integrated_allele > 0) {
+      // Find all alleles that needs integration on this vcf record
+      ervArray[idx_integrated_variants] =
+          (Element_RecVcf *)malloc(sizeof(Element_RecVcf));
+      ervArray[idx_integrated_variants]->rv = rv_tmp;
+      ervArray[idx_integrated_variants]->alleleIdx =
+          (int *)calloc(cnt_integrated_allele, sizeof(int));
+      ervArray[idx_integrated_variants]->alleleCnt = 0;
+
+      int tmp_idx_allele = 0;
+      for (int i = 0; i < rv_alleleCnt(rv_tmp); i++) {
+        if (ifCanIntegrateAllele(rv_tmp, i, lbound, rbound) == 1) {
+          ervArray[idx_integrated_variants]->alleleIdx[tmp_idx_allele] = i;
+          ervArray[idx_integrated_variants]->alleleCnt++;
+          tmp_idx_allele++;
+        }
+      }
+      idx_integrated_variants++;
+    } else {
+      if (rv_pos(rv_tmp) > rbound) {
+        break;
+      }
+    }
+    rv_tmp = next_RecVcf_bplus(rv_tmp);
+  }
+
+  // printf("rvArray: \n");
+  // for (int i = 0; i < cnt_integrated_variants; i++) {
+  //   genomeVcf_bplus_printRec(gv, ervArray[i]->rv);
+  //   printf("\tintegrated alleles' idxes: ");
+  //   for (int j = 0; j < ervArray[i]->alleleCnt; j++) {
+  //     printf("%d ", ervArray[i]->alleleIdx[j]);
+  //   }
+  //   printf("\n");
+  // }
+  *ret_ervArray = ervArray;
+  *ret_cnt_integrated_variants = cnt_integrated_variants;
+}
+
+static inline void integration_select_and_integrate(
+    Element_RecVcf *ervArray_lpart[], int length_ervArray_lpart,
+    Element_RecVcf *ervArray_rpart[], int length_ervArray_rpart,
+    int64_t lbound_var, int64_t rbound_var, int64_t lbound_M, int64_t rbound_M,
+    RecSam *rec_rs, GenomeFa *gf, GenomeSam *gs, GenomeVcf_bplus *gv,
+    samFile *file_output) {
+  if (length_ervArray_lpart == 0) {
+    // ------------------------ Process right part -----------------------
+    int *ervIdxes_rpart = (int *)calloc(length_ervArray_rpart, sizeof(int));
+    for (int l = 0; l < length_ervArray_rpart; l++) ervIdxes_rpart[l] = l;
+    for (int l = 1; l < length_ervArray_rpart + 1; l++) {
+      Combinations *cbs_rpart =
+          calculate_combinations(ervIdxes_rpart, length_ervArray_rpart, l);
+      // printf("erv combi rpart (size: %d) cnt: %d\n", l, cbs_rpart->cnt);
+      for (int m = 0; m < cbs_rpart->cnt; m++) {
+        // printf("erv combi rpart [%d]: ", m);
+        // for (int n = 0; n < cbs_rpart->cnt; n++) {
+        //   printf("%d ", cbs_rpart->combis[m][n]);
+        // }
+        // printf("\n");
+        Combinations_alleles *acbs_rpart = calculate_combinations_alleles(
+            ervArray_rpart, length_ervArray_rpart, cbs_rpart->combis[m],
+            cbs_rpart->length);
+        // printf("allele combi cnt rpart: %d\n", acbs_rpart->cnt);
+        // print_combinations_alleles(acbs_rpart);
+        for (int n = 0; n < acbs_rpart->cnt; n++) {
+          // ------------- Do realignment with left part unmodified ------------
+          integration_integrate(
+              NULL, NULL, NULL, 0, ervArray_rpart, acbs_rpart->combi_rv,
+              acbs_rpart->combis_allele[n], acbs_rpart->length, lbound_var,
+              rbound_var, lbound_M, rbound_M, rec_rs, gf, gs, gv, file_output);
+        }
+        for (int n = 0; n < acbs_rpart->cnt; n++) {
+          free(acbs_rpart->combis_allele[n]);
+        }
+        free(acbs_rpart->combis_allele);
+        destroy_combinations_alleles(acbs_rpart);
+      }
+      for (int m = 0; m < cbs_rpart->cnt; m++) {
+        free(cbs_rpart->combis[m]);
+      }
+      free(cbs_rpart->combis);
+      destroy_combinations(cbs_rpart);
+    }
+    free(ervIdxes_rpart);
+    return;
+  } else {
+    // --------------------------- Process left part ---------------------------
+    int *ervIdxes_lpart = (int *)calloc(length_ervArray_lpart, sizeof(int));
+    for (int i = 0; i < length_ervArray_lpart; i++) ervIdxes_lpart[i] = i;
+    for (int i = 1; i < length_ervArray_lpart + 1; i++) {
+      Combinations *cbs_lpart =
+          calculate_combinations(ervIdxes_lpart, length_ervArray_lpart, i);
+      // printf("erv combi lpart (size: %d) cnt: %d\n", i, cbs_lpart->cnt);
+      for (int j = 0; j < cbs_lpart->cnt; j++) {
+        // printf("erv combi lpart [%d]: ", j);
+        // for (int k = 0; k < cbs_lpart->length; k++) {
+        //   printf("%d ", cbs_lpart->combis[j][k]);
+        // }
+        // printf("\n");
+        Combinations_alleles *acbs_lpart = calculate_combinations_alleles(
+            ervArray_lpart, length_ervArray_lpart, cbs_lpart->combis[j],
+            cbs_lpart->length);
+        // printf("allele combi cnt lpart: %d\n", acbs_lpart->cnt);
+        // print_combinations_alleles(acbs_lpart);
+
+        for (int k = 0; k < acbs_lpart->cnt; k++) {
+          if (length_ervArray_rpart == 0) {
+            // ----------- Do realignment with right part unmodified -----------
+            integration_integrate(ervArray_lpart, acbs_lpart->combi_rv,
+                                  acbs_lpart->combis_allele[k],
+                                  acbs_lpart->length, NULL, NULL, NULL, 0,
+                                  lbound_var, rbound_var, lbound_M, rbound_M,
+                                  rec_rs, gf, gs, gv, file_output);
+          } else {
+            // ----------------------- Process right part ----------------------
+            int *ervIdxes_rpart =
+                (int *)calloc(length_ervArray_rpart, sizeof(int));
+            for (int l = 0; l < length_ervArray_rpart; l++)
+              ervIdxes_rpart[l] = l;
+            for (int l = 1; l < length_ervArray_rpart + 1; l++) {
+              Combinations *cbs_rpart = calculate_combinations(
+                  ervIdxes_rpart, length_ervArray_rpart, l);
+              // printf("erv combi rpart (size: %d) cnt: %d\n", l,
+              // cbs_rpart->cnt);
+              for (int m = 0; m < cbs_rpart->cnt; m++) {
+                // printf("erv combi rpart [%d]: ", m);
+                // for (int n = 0; n < cbs_rpart->cnt; n++) {
+                //   printf("%d ", cbs_rpart->combis[m][n]);
+                // }
+                // printf("\n");
+                Combinations_alleles *acbs_rpart =
+                    calculate_combinations_alleles(
+                        ervArray_rpart, length_ervArray_rpart,
+                        cbs_rpart->combis[m], cbs_rpart->length);
+                // printf("allele combi cnt rpart: %d\n", acbs_rpart->cnt);
+                // print_combinations_alleles(acbs_rpart);
+                for (int n = 0; n < acbs_rpart->cnt; n++) {
+                  // Do realignment
+                  integration_integrate(
+                      ervArray_lpart, acbs_lpart->combi_rv,
+                      acbs_lpart->combis_allele[k], acbs_lpart->length,
+                      ervArray_rpart, acbs_rpart->combi_rv,
+                      acbs_rpart->combis_allele[n], acbs_rpart->length,
+                      lbound_var, rbound_var, lbound_M, rbound_M, rec_rs, gf,
+                      gs, gv, file_output);
+                }
+                for (int n = 0; n < acbs_rpart->cnt; n++) {
+                  free(acbs_rpart->combis_allele[n]);
+                }
+                free(acbs_rpart->combis_allele);
+                destroy_combinations_alleles(acbs_rpart);
+              }
+              for (int m = 0; m < cbs_rpart->cnt; m++) {
+                free(cbs_rpart->combis[m]);
+              }
+              free(cbs_rpart->combis);
+              destroy_combinations(cbs_rpart);
+            }
+            free(ervIdxes_rpart);
+          }
+        }
+        for (int k = 0; k < acbs_lpart->cnt; k++) {
+          free(acbs_lpart->combis_allele[k]);
+        }
+        free(acbs_lpart->combis_allele);
+        destroy_combinations_alleles(acbs_lpart);
+      }
+      for (int j = 0; j < cbs_lpart->cnt; j++) {
+        free(cbs_lpart->combis[j]);
+      }
+      free(cbs_lpart->combis);
+      destroy_combinations(cbs_lpart);
+    }
+    free(ervIdxes_lpart);
+    return;
+  }
 }
 
 typedef struct _define_ThreadArgs {
@@ -178,15 +421,52 @@ void *integration_threads(void *args) {
     // ---------- get information of temporary sam record ------------
     printSamRecord_brief(gs, rsData(rs_tmp));
     const char *rname_read = rsDataRname(gs, rs_tmp);
-    const char *qname_read = rsDataQname(rs_tmp);
-    int64_t lbound_read = rsDataPos(rs_tmp);  // included
+    int64_t lbound_read = rsDataPos(rs_tmp);  // 1-based, included
     uint32_t length_read = rsDataSeqLength(rs_tmp);
-    char *seq_read = rsDataSeq(rs_tmp);
+    int64_t rbound_read = lbound_read;  // 1-based, included
 
-    int64_t rbound_read = lbound_read + length_read - 1;
+    // ------------- find the longest 'M' area in cigar --------------
+    int64_t tmp_lbound = 0;
+    int64_t lbound_M = 0;  // 1-based, included
+    uint32_t cnt_cigar = rs_cigar_cnt(rs_tmp);
+    uint32_t length_M_area = 0;
+    for (int i = 0; i < cnt_cigar; i++) {
+      uint32_t tmp_length = rs_cigar_oplen(rs_tmp, i);
+      char cigar_opChar = rs_cigar_opChar(rs_tmp, i);
+      if (cigar_opChar == 'M') {
+        if (tmp_length >= length_M_area) {
+          length_M_area = tmp_length;
+          lbound_M = tmp_lbound;
+        }
+      }
+      if (cigar_opChar == 'D') {
+        rbound_read += tmp_length;
+        tmp_lbound += tmp_length;
+      } else if (cigar_opChar == 'I') {
+        // rbound_read will not move on the reference in such case
+      } else if (cigar_opChar == 'P' || cigar_opChar == 'N') {
+        length_M_area = 0;
+        break;
+        // Ignore records containing 'P' and 'N'
+      } else {  // For cigarOp 'MX=SH', move lbound_M on the reference
+        rbound_read += tmp_length;
+        tmp_lbound += tmp_length;
+      }
+    }
+    int64_t rbound_M = lbound_M + length_M_area - 1;  // 1-based, included
+    // Add offset based on the start position of read
+    lbound_M += lbound_read - 1;
+    rbound_M += lbound_read - 1;
+    // printf("lbound read: %" PRId64 ", rbound read: %" PRId64 "\n",
+    // lbound_read,
+    //        rbound_read);
+    // printf("length M area: %" PRIu32 ", lbound cigar M: % " PRId64
+    //        ", rbound cigar M: %" PRId64 "\n",
+    //        length_M_area, lbound_M, rbound_M);
 
-    // ---------- ignore those unmapped reads in this program --------
-    if (rname_read == NULL) {
+    // ----------- ignore reads as following in this program ---------
+    // empty rname, empty cigar, or no M_area
+    if (rname_read == NULL || length_M_area == 0) {
       rs_tmp = gsItNextRec(gsIt);
       if (rs_tmp == NULL) {
         cs_tmp = gsItNextChrom(gsIt);
@@ -196,8 +476,8 @@ void *integration_threads(void *args) {
     }
 
     // -------- get boundaries of area for selecting variants --------
-    int64_t lbound_variant = 0;
-    int64_t rbound_variant = rbound_read;
+    int64_t lbound_variant = 0;            // 1-based, included
+    int64_t rbound_variant = rbound_read;  // 1-based, included
     switch (opt_integration_strategy(args_thread->opts)) {
       case _OPT_INTEGRATION_SNPONLY: {
         lbound_variant = lbound_read - sv_min_len;
@@ -214,109 +494,43 @@ void *integration_threads(void *args) {
       }
     }
     if (lbound_variant <= 0) lbound_variant = 1;
-    // printf("lbound: %" PRId64 ", rbound: %" PRId64 "\n", lbound_variant,
-    //        rbound_variant);
+    // printf("lbound variant: %" PRId64 ", rbound variant: %" PRId64 "\n",
+    //        lbound_variant, rbound_variant);
 
-    // ------- get all variants' combination within the interval -----
-    // 1st loop - calculate number of vcf records that needs integration
-    int cnt_integrated_variants = 0;
-    RecVcf_bplus *rv_tmp =
-        genomeVcf_bplus_getRecAfterPos(gv, rname_read, lbound_variant);
-    RecVcf_bplus *first_rv = rv_tmp;
-    while (rv_tmp != NULL) {
-      if (count_integrated_allele(rv_tmp, lbound_variant, rbound_variant) > 0) {
-        cnt_integrated_variants++;
-      } else {
-        if (rv_pos(rv_tmp) > rbound_variant) {
-          break;
-        }
-      }
-      rv_tmp = next_RecVcf_bplus(rv_tmp);
-    }
+    // Split the area into 2 parts
+    // ** lbound_var **1** lbound_M M..M rbound_M **2*** rbound_var **
 
-    // 2nd loop - save pointers to vcf records that needs integration and
-    // calculate number of alleles of each vcf record that needs integration.
-    Element_RecVcf **ervArray = (Element_RecVcf **)calloc(
-        cnt_integrated_variants, sizeof(Element_RecVcf *));
-    rv_tmp = first_rv;
-    int idx_integrated_variants = 0;
-    while (rv_tmp != NULL) {
-      int cnt_integrated_allele =
-          count_integrated_allele(rv_tmp, lbound_variant, rbound_variant);
-      if (cnt_integrated_allele > 0) {
-        // Find all alleles that needs integration on this vcf record
-        ervArray[idx_integrated_variants] =
-            (Element_RecVcf *)malloc(sizeof(Element_RecVcf));
-        ervArray[idx_integrated_variants]->rv = rv_tmp;
-        ervArray[idx_integrated_variants]->alleleIdx =
-            (int *)calloc(cnt_integrated_allele, sizeof(int));
-        ervArray[idx_integrated_variants]->alleleCnt = 0;
+    Element_RecVcf **ervArray_lpart = NULL;
+    Element_RecVcf **ervArray_rpart = NULL;
+    int cnt_integrated_variants_lpart = 0;
+    int cnt_integrated_variants_rpart = 0;
+    // printf("L part generated ervArray - ");
+    integration_generate_ervArray(lbound_variant, lbound_M, rname_read, gv,
+                                  &ervArray_lpart,
+                                  &cnt_integrated_variants_lpart);
+    // printf("R part generated ervArray - ");
+    integration_generate_ervArray(rbound_M, rbound_variant, rname_read, gv,
+                                  &ervArray_rpart,
+                                  &cnt_integrated_variants_rpart);
 
-        int tmp_idx_allele = 0;
-        for (int i = 0; i < rv_alleleCnt(rv_tmp); i++) {
-          if (ifCanIntegrateAllele(rv_tmp, i, lbound_variant, rbound_variant) ==
-              1) {
-            ervArray[idx_integrated_variants]->alleleIdx[tmp_idx_allele] = i;
-            ervArray[idx_integrated_variants]->alleleCnt++;
-            tmp_idx_allele++;
-          }
-        }
-        idx_integrated_variants++;
-      } else {
-        if (rv_pos(rv_tmp) > rbound_variant) {
-          break;
-        }
-      }
-      rv_tmp = next_RecVcf_bplus(rv_tmp);
-    }
-
-    // printf("rvArray: \n");
-    // for (int i = 0; i < cnt_integrated_variants; i++) {
-    //   genomeVcf_bplus_printRec(gv, ervArray[i]->rv);
-    //   printf("\tintegrated alleles' idxes: ");
-    //   for (int j = 0; j < ervArray[i]->alleleCnt; j++) {
-    //     printf("%d ", ervArray[i]->alleleIdx[j]);
-    //   }
-    //   printf("\n");
-    // }
-
-    // -------------------- perform integration ----------------------
-    int *ervIdxes = (int *)calloc(cnt_integrated_variants, sizeof(int));
-    for (int i = 0; i < cnt_integrated_variants; i++) ervIdxes[i] = i;
-    int cnt_new_recsam = 0;
-    for (int i = 1; i < cnt_integrated_variants + 1; i++) {
-      Combinations *cbs =
-          calculate_combinations(ervIdxes, cnt_integrated_variants, i);
-      // printf("erv combi(size: %d) cnt: %d\n", i, cbs->cnt);
-      for (int j = 0; j < cbs->cnt; j++) {
-        // printf("erv combi[%d]: ", j);
-        // for (int k = 0; k < cbs->length; k++) {
-        //   printf("%d ", cbs->combis[j][k]);
-        // }
-        // printf("\n");
-        Combinations_alleles *acbs = calculate_combinations_alleles(
-            ervArray, cnt_integrated_variants, cbs->combis[j], cbs->length);
-        // printf("allele combi cnt: %d\n", acbs->cnt);
-        // print_combinations_alleles(acbs);
-        for (int k = 0; k < acbs->cnt; k++) {
-          cnt_new_recsam += integrate_realign_output(
-              ervArray, acbs->combi_rv, acbs->combis_allele[k], acbs->length,
-              gf, gs, gv, rs_tmp, file_output);
-        }
-        destroy_combinations_alleles(acbs);
-      }
-      destroy_combinations(cbs);
-    }
+    // ---------------- select alleles and integrate -----------------
+    integration_select_and_integrate(
+        ervArray_lpart, cnt_integrated_variants_lpart, ervArray_rpart,
+        cnt_integrated_variants_rpart, lbound_variant, rbound_variant, lbound_M,
+        rbound_M, rs_tmp, gf, gs, gv, file_output);
 
     // ----------------------- free memories -------------------------
-    free(seq_read);
-    free(ervIdxes);
-    for (int i = 0; i < cnt_integrated_variants; i++) {
-      free(ervArray[i]->alleleIdx);
-      free(ervArray[i]);
+    for (int i = 0; i < cnt_integrated_variants_lpart; i++) {
+      free(ervArray_lpart[i]->alleleIdx);
+      free(ervArray_lpart[i]);
     }
-    free(ervArray);
-    printf("*****************************************************\n");
+    free(ervArray_lpart);
+    for (int i = 0; i < cnt_integrated_variants_rpart; i++) {
+      free(ervArray_rpart[i]->alleleIdx);
+      free(ervArray_rpart[i]);
+    }
+    free(ervArray_rpart);
+    // printf("*****************************************************\n");
 
     // --------------------- keep on iterating -----------------------
     rs_tmp = gsItNextRec(gsIt);

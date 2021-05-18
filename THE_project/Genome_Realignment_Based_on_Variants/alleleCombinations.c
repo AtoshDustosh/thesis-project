@@ -24,9 +24,6 @@ void print_combinations(Combinations *cbs) {
 }
 
 void destroy_combinations(Combinations *cbs) {
-  for (int i = 0; i < cbs->cnt; i++) {
-    free(cbs->combis[i]);
-  }
   free(cbs);
 }
 
@@ -65,10 +62,6 @@ void print_combinations_alleles(Combinations_alleles *acbs) {
 }
 
 void destroy_combinations_alleles(Combinations_alleles *acbs) {
-  for (int i = 0; i < acbs->cnt; i++) {
-    free(acbs->combis_allele[i]);
-  }
-  free(acbs->combi_rv);
   free(acbs);
 }
 

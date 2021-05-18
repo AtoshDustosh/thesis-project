@@ -13,7 +13,7 @@
 
   samtools sort test-filtered.sam -o test-filtered.sam --output-fmt SAM
 
-  ./main --faFile test.fa --samFile test-filtered.sam --vcfFile test.vcf --outputFile grbvOut.sam --thread 5 --integrateVcfToSam
+  ./main --faFile data/test.fa --samFile data/test.sam --vcfFile data/test.vcf --integrateVcfToSam 1
 
 - command lines for simple operations:
   ./main --faFile test.fa --outputFile test-chrom.fa --extractChrom 1

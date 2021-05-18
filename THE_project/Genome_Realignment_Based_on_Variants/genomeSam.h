@@ -7,6 +7,7 @@
 #include <htslib/sam.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 
 #include "debug.h"
@@ -72,6 +73,37 @@ static inline uint32_t rsDataSeqLength(RecSam *rs) {
 }
 
 static inline uint8_t rsDataMapQ(RecSam *rs) { return rs->rec->core.qual; }
+
+static inline uint32_t rs_cigar_cnt(RecSam *rs) {
+  return rs->rec->core.n_cigar;
+}
+
+static inline uint32_t rs_cigar_op(RecSam *rs, int i) {
+  if (i < rs->rec->core.n_cigar) {
+    return bam_get_cigar(rs->rec)[i];
+  } else {
+    fprintf(stderr, "Error: array out of bound when accessing cigar opt.\n");
+    assert(false);
+  }
+}
+
+static inline uint32_t rs_cigar_oplen(RecSam *rs, int i) {
+  if (i < rs->rec->core.n_cigar) {
+    return bam_cigar_oplen(bam_get_cigar(rs->rec)[i]);
+  } else {
+    fprintf(stderr, "Error: array out of bound when accessing cigar opt.\n");
+    assert(false);
+  }
+}
+
+static inline char rs_cigar_opChar(RecSam *rs, int i) {
+  if (i < rs->rec->core.n_cigar) {
+    return bam_cigar_opchr(bam_get_cigar(rs->rec)[i]);
+  } else {
+    fprintf(stderr, "Error: array out of bound when accessing cigar opt.\n");
+    assert(false);
+  }
+}
 
 /**
  * @brief  Get the base sequence of the sam record. Note that the successfully

@@ -1,5 +1,2 @@
-@SQ	SN:chr1	LN:159
-@SQ	SN:chr2	LN:330
-@SQ	SN:chr3	LN:222
-@SQ	SN:chr4	LN:242
-@PG	ID:bwa	PN:bwa	VN:0.7.17-r1188	CL:bwa mem test.fa test-data_paried_end1.fq test-data_paried_end2.fq
+@SQ	SN:21	LN:48129895
+@PG	ID:bwa	PN:bwa	VN:0.7.17-r1188	CL:bwa mem -t 8 -A 2 -B -4 -O 3 -E 1 hs37d5_21.fa lane0.read1.fq lane0.read2.fq

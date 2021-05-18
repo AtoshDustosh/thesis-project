@@ -236,10 +236,11 @@ static int _test_sswAlignment(const char *tseq, const char *qseq) {
 void _testSet_alignment() {
   // default parameters for genome sequence alignment
   static int32_t match = 2, mismatch = -4;
-  static int32_t gapOpen = 3, gapExtension = 1;
+  static int32_t gapOpen = -3, gapExtension = 1;
   alignInitialize(match, mismatch, gapOpen, gapExtension);
 
   // test cases
+  printf("testing alignment ...\n");
   static const char *tseq = "AAAAAAAAACGTACGTACGTAAAAACCCCCGTGTGA";
   static const char *qseq = "TTTTACGTACGTACCCCCGTAAA";
 

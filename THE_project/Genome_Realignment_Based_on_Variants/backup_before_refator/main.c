@@ -20,6 +20,8 @@
 #include "grbvOptions.h"
 #include "simpleOperations.h"
 
+#include "debug.h"
+
 const char *optStr = "";
 int loptArg = 0;
 static struct option optInitArray[] = {

@@ -14,13 +14,13 @@
         "--verbose",
 
         "--faFile",
-        "data/test.fa",
-        "--fastqFile",
-        "data/test.fastq",
+        "data/hs37d5_21.fa",
+        // "--fastqFile",
+        // "data/test.fastq",
         "--samFile",
-        "data/test.sam",
+        "data/simu.filtered.sam",
         "--vcfFile",
-        "data/test.vcf",
+        "data/merged.sorted.vcf",
 
         // "--outputFile",
         // "data/grbvOut.sam",

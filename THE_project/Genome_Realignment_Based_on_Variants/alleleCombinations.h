@@ -14,7 +14,7 @@
 typedef struct _define_Element_RecVcf {
   RecVcf_bplus *rv;
   /*
-   * * "alleleIdx" and "alleleCnt" are used to mark which alleles should be
+   * * * "alleleIdx" and "alleleCnt" are used to mark which alleles should be
    * integrated and how many of them should be integrated on this vcf record.
    */
   int *alleleIdx;
@@ -24,9 +24,8 @@ typedef struct _define_Element_RecVcf {
 /**
  * @brief  A structure for basic calculation of combinations.
  * Note that memory for arrays within this structure is assigned dynamically
- * outside the initialization method. When you need to destroy this object, use
- * destroy_combinations() to free it. Note that this will also free the arrays
- * used to initialize this object.
+ * outside the initialization method. When you need to destroy this object, free
+ * the arrays inside manually with caution.
  */
 typedef struct _define_Combinations {
   int **combis;  // combinations
