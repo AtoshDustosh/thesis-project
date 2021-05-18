@@ -11,7 +11,7 @@
 
 #include "alignment.h"
 #include "auxiliaryMethods.h"
-#include "combinationsOfVars.h"
+#include "alleleCombinations.h"
 #include "debug.h"
 #include "genomeFa.h"
 #include "genomeSam.h"

@@ -32,3 +32,7 @@
 --java_max_mem 20g \
 --simulator_executable /bin/art_illumina --out_dir data-files/out_21 --log_dir log --work_dir work \
 --simulator art
+
+- formal commandlines (copy executable to the data files' directory):
+
+  ./main --samFile simu.filtered.sam --faFile hs37d5_21.fa --vcfFile merged.sorted.vcf --thread 5 --integrateVcfToSam 3

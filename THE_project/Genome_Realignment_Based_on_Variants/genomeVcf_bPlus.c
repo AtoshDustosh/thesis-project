@@ -5,8 +5,9 @@
  ************************************/
 
 struct RecVcf_bplus {
-  bcf1_t *data;        // Key is the record's POS
-  RecVcf_bplus *next;  // Pointer to the next record that have the same POS
+  bcf1_t *data;          // Key is the record's POS
+  VcfBPlusNode *bpnode;  // Bpnode where this record is kept
+  RecVcf_bplus *next;    // Pointer to the next record that have the same POS
 };
 
 struct VcfBPlusNode {
@@ -181,6 +182,12 @@ void vcfbplus_node_locate(VcfBPlusKey requested_key, VcfBPlusNode *localRoot,
  */
 void vcfbplus_tree_insertRec(RecVcf_bplus *rv, VcfBPlusTree *bptree);
 
+/**
+ * @brief  Synchronize all records' fields in genomeVcf (update pointers and
+ * validate their connections).
+ */
+void genomeVcf_bplus_synchronize(GenomeVcf_bplus *gv);
+
 /************************************
  *         Basic Structures
  ************************************/
@@ -195,13 +202,47 @@ void vcfbplus_tree_insertRec(RecVcf_bplus *rv, VcfBPlusTree *bptree);
  */
 RecVcf_bplus *init_RecVcf_bplus(bcf1_t *data, RecVcf_bplus *next) {
   RecVcf_bplus *rv = (RecVcf_bplus *)malloc(sizeof(RecVcf_bplus));
+  rv->bpnode = NULL;
   rv->data = bcf_dup(data);
   bcf_unpack(rv->data, BCF_UN_ALL);
   rv->next = next;
   return rv;
 }
 
-inline RecVcf_bplus *next_RecVcf_bplus(RecVcf_bplus *rv) { return rv->next; }
+RecVcf_bplus *next_RecVcf_bplus(RecVcf_bplus *rv) {
+  if (rv->next != NULL) {
+    // There exists records with the same POS
+    return rv->next;
+  } else {
+    // Find next record on bpnodes
+    VcfBPlusNode *bpnode = rv->bpnode;
+    if (bpnode == NULL) {
+      fprintf(stderr,
+              "Error: need to synchronize genomeVcf before iteration.\n");
+      exit(EXIT_FAILURE);
+    } else {
+      int ret_pointerIdx = 0;
+      vcfbplus_node_locate(rv_pos(rv), bpnode, &ret_pointerIdx);
+      ret_pointerIdx = ret_pointerIdx + 1;  // Go on to the next record
+      if (ret_pointerIdx < bpnode->cnt_key) {
+        // Find next record on this bpnode
+        return (RecVcf_bplus *)bpnode->pointers[ret_pointerIdx];
+      } else {
+        // If the next record is not on this bpnode
+        bpnode = bpnode->right;
+        if (bpnode == NULL) {
+          // If this bpnode is the last bpnode
+          return NULL;
+        } else {
+          // According to principles of bplus tree, the next bpnode must be
+          // unempty if it exists.
+          assert(bpnode->pointers[0] != NULL);
+          return (RecVcf_bplus *)bpnode->pointers[0];
+        }
+      }
+    }
+  }
+}
 
 /**
  * @brief  Destroy a vcf record object. This method will not handle the
@@ -844,8 +885,9 @@ void genomeVcf_bplus_removeRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv) {
   exit(EXIT_FAILURE);
 }
 
-RecVcf_bplus *genomeVcf_bplus_getRec(GenomeVcf_bplus *gv, const char *chromName,
-                                     int64_t pos) {
+RecVcf_bplus *genomeVcf_bplus_getRecAfterPos(GenomeVcf_bplus *gv,
+                                             const char *chromName,
+                                             int64_t pos) {
   assert(pos >= 1);
   static ChromVcf_bplus *lastUsed_chromVcf;
   if (lastUsed_chromVcf == NULL ||
@@ -875,11 +917,38 @@ RecVcf_bplus *genomeVcf_bplus_getRec(GenomeVcf_bplus *gv, const char *chromName,
 
   vcfbplus_node_locate(pos, bpnode, &ret_pointerIdx);
 
-  RecVcf_bplus *rv = (RecVcf_bplus *)bpnode->pointers[ret_pointerIdx];
-  if (rv_pos(rv) == pos) {
-    return rv;
-  } else {
-    return NULL;
+  if (ret_pointerIdx >= bpnode->cnt_key) {
+    // Relocate in the next bpnode
+    bpnode = bpnode->right;
+    if (bpnode == NULL) {
+      return NULL;
+    } else {
+      assert(bpnode->pointers[0] != NULL);
+    }
+    vcfbplus_node_locate(pos, bpnode, &ret_pointerIdx);
+  }
+  return (RecVcf_bplus *)bpnode->pointers[ret_pointerIdx];
+}
+
+void genomeVcf_bplus_synchronize(GenomeVcf_bplus *gv) {
+  ChromVcf_bplus *cv = gv->chroms;
+  while (cv != NULL) {
+    VcfBPlusNode *node = cv->tree->first;  // start from the first node
+    // Synchronize all nodes in the chromosome
+    while (node != NULL) {
+      assert(node->isLeaf == true);
+      // Synchronize all arrays in the node
+      for (int i = 0; i < node->cnt_key; i++) {
+        RecVcf_bplus *rv = (RecVcf_bplus *)node->pointers[i];
+        // Synchronize all records in the element (linked-list)
+        while (rv != NULL) {
+          rv->bpnode = node;
+          rv = rv->next;
+        }
+      }
+      node = node->right;
+    }
+    cv = cv->next;
   }
 }
 
@@ -908,19 +977,28 @@ GenomeVcf_bplus *genomeVcf_bplus_loadFile(char *filePath, int rank_inner_node,
     bcf_unpack(tmpRec, BCF_UN_ALL);
 
     RecVcf_bplus *rv = init_RecVcf_bplus(tmpRec, NULL);
+    bcf_destroy1(tmpRec);
+
+    // Ignore those variants with tags or with empty ALT fields
+    if (rv_alleleCnt(rv) == 1) {
+      continue;
+    } else {
+      const char *vcf_ALT = rv_allele(rv, 1);
+      if (vcf_ALT[0] == '<') {
+        continue;
+      }
+    }
 
     genomeVcf_bplus_insertRec(gv, rv);
 
     // Debug lines: used for checking the correctness of the bplus tree
-    // genomeVcf_bplus_traverse(gv);
-    // printf("\n");
     // vcfbplus_tree_print(gv->chroms->tree);
 
     // genomeVcf_bplus_printRec(gv, rv);
-
-    bcf_destroy1(tmpRec);
     loadedCnt++;
   }
+
+  genomeVcf_bplus_synchronize(gv);
 
   bcf_hdr_destroy(hdr);
   return gv;
@@ -968,19 +1046,25 @@ inline int rv_alleleCnt(RecVcf_bplus *rv) {
 
 inline int rv_alleleCoverLength(RecVcf_bplus *rv, int alleleIdx) {
   assert(rv->data != NULL);
-  // TODO This implementation overlooked special SVs with tags like <INV>.
   assert(
       (alleleIdx < rv->data->n_allele) ||
-      (fprintf(
-           stderr,
-           "Error: array out of boundary for rvDataAlleleCoverLength(...)\n") <
+      (fprintf(stderr,
+               "Error: array out of boundary for rv_alleleCoverLength(...)\n") <
        0));
-  int len_ref = strlen(rv->data->d.allele[0]);
-  int len_allele = strlen(rv->data->d.allele[alleleIdx]);
-  if (len_allele == len_ref)
+  // Variants using TAGs ignored
+  assert((rv_allele(rv, alleleIdx)[0] != '<') ||
+         (fprintf(stderr,
+                  "Error: variants with tags should be ignored when "
+                  "loading.\n") < 0));
+  int len_ref = strlen(rv_allele(rv, 0));
+  int len_allele = strlen(rv_allele(rv, alleleIdx));
+  if (len_ref == 1) {  // Insertion
     return 1;
-  else
+  } else if (len_allele == 1) {  // Deletion
     return len_ref;
+  } else {  // Other cases (MNP, etc.)
+    return len_ref;
+  }
 }
 
 inline const char *rv_allele(RecVcf_bplus *rv, int alleleIdx) {

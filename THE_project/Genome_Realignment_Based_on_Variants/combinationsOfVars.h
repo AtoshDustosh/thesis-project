@@ -69,19 +69,17 @@ void destroy_AlleleCombinations(AlleleCombinations *acbs);
 Combinations *combinations(int array[], int arraySize, int combiSize);
 
 /**
- * * @brief  Permutate selected vcf records and output all combinations of their
+ * @brief  Permutate selected vcf records and output all combinations of their
  * alleles into the data structure  "AlleleCombinations". For vcf records with
  * multiple alleles, only 1 allele within the same vcf record can be selected.
  * Some vcf records may have long alleles and these alleles may cover the
  * following alleles. In such cases, if a long allele is selected, the alleles
  * covered by that long allele should not be selected. We call these alleles as
  * incompatible.
- * @note
  * @param  *ervArray[]: array of ElementRecVcf object
  * @param  ervCnt: length of ervArray / count of vcf records
  * @param  *rvCombi: combination of selected vcf records
  * @param  combiSize: size of combination / number of selected vcf records
- * @retval
  */
 AlleleCombinations *alleleCombinations(ElementRecVcf *ervArray[], int ervCnt,
                                        int *rvCombi, int combiSize);

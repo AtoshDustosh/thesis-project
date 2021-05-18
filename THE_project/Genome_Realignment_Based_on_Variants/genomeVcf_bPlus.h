@@ -116,10 +116,12 @@ void genomeVcf_bplus_printRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv);
  ************************************/
 
 /**
- * @brief  Functions as an iterator for all vcf records that have the same POS.
- * @retval pointer to the next RecVcf_bplus object that contains the same POS
+ * @brief  Functions as an iterator for all vcf records.
+ * @retval pointer to the next RecVcf_bplus object. If there exits records that
+ * have the same POS, return these records. Otherwise, return records that have
+ * next bigger POS.
  */
-extern RecVcf_bplus *next_RecVcf_bplus(RecVcf_bplus *rv);
+RecVcf_bplus *next_RecVcf_bplus(RecVcf_bplus *rv);
 
 /**
  * @brief  Initialize a GenomeVcf_bplus object with specified arguments for
@@ -145,17 +147,26 @@ void genomeVcf_bplus_traverse(GenomeVcf_bplus *gv);
 /************************************
  * Methods for manipulating GenomeVcf
  ************************************/
+
+/**
+ * @brief  Insert a record into genomeVcf.
+ */
 void genomeVcf_bplus_insertRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv);
 
+/**
+ * @brief  Unimplemented
+ */
 void genomeVcf_bplus_removeRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv);
 
 /**
  * @brief  Get records from genomeVcf object with input POS and chrom name.
- * @retval pointer to a vcf object with POS. Use "next_RecVcf_bplus" to get its
- * next record with the same POS.
+ * @retval pointer to a vcf object with POS or the next bigger POS if there
+ * exists no same records as input POS. Use "next_RecVcf_bplus" to get its next
+ * record with the same POS or the next bigger POS.
  */
-RecVcf_bplus *genomeVcf_bplus_getRec(GenomeVcf_bplus *gv, const char *chromName,
-                                     int64_t pos);
+RecVcf_bplus *genomeVcf_bplus_getRecAfterPos(GenomeVcf_bplus *gv,
+                                             const char *chromName,
+                                             int64_t pos);
 
 GenomeVcf_bplus *genomeVcf_bplus_loadFile(char *filePath, int rank_inner_node,
                                           int rank_leaf_node);

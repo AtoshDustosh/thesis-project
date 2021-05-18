@@ -6,7 +6,7 @@
 
 int main(int argc, char *argv[]) {
   clock_t time_start = clock();
-  GenomeVcf_bplus *gv = genomeVcf_bplus_loadFile("merged.sorted.vcf", 5, 4);
+  GenomeVcf_bplus *gv = genomeVcf_bplus_loadFile("merged.sorted.vcf", 5, 9);
   clock_t time_end = clock();
 
   printf("performance statistics - record cnt: %d, time: %fs\n", gv_cnt_rec(gv),
@@ -14,14 +14,17 @@ int main(int argc, char *argv[]) {
 
   // genomeVcf_bplus_traverse(gv);
 
-  int64_t query_pos = 9588140;
+  // 47801942
+  // 47800000
+  int64_t query_pos = 47801944;
   const char *query_chromName = "21";
-  RecVcf_bplus *rv = genomeVcf_bplus_getRec(gv, query_chromName, query_pos);
+  RecVcf_bplus *rv =
+      genomeVcf_bplus_getRecAfterPos(gv, query_chromName, query_pos);
   if (rv == NULL) {
-    printf("... did not find requested record with pos %" PRId64 "\n",
+    printf("... did not find requested record after pos %" PRId64 "\n",
            query_pos);
   } else {
-    printf("... find records:\n");
+    printf("... find records after %" PRId64 ":\n", query_pos);
   }
   while (rv != NULL) {
     genomeVcf_bplus_printRec(gv, rv);

@@ -1,6 +1,5 @@
 #include "dataReader.h"
 
-
 int vcf_scan_and_print(htsFile *inputFile, Options *opts) {
   bcf_hdr_t *header = bcf_hdr_read(inputFile);
   bcf1_t *record = bcf_init1();
@@ -34,12 +33,54 @@ int vcf_scan_and_print(htsFile *inputFile, Options *opts) {
     //   char *name;
     // } StructTest;
     bcf_unpack(record, BCF_UN_ALL);
-    printVcfRecord_brief(header, record);
-    // StructTest *st = (StructTest *)malloc(sizeof(StructTest));
-    // st->name = strdup(bcf_seqname_safe(header, record));
-    // printf("chrom name: %s\n", st->name);
-    // free(st->name);
-    // free(st);
+    // printVcfRecord_brief(header, record);
+
+    if(record->n_allele == 1){
+      continue;
+    }else{
+      if(record->d.allele[1][0] == '<'){
+        // ignore 
+        printf("ignored %s\n", record->d.allele[1]);
+        continue;
+      }
+    }
+
+    char *dst_str1 = NULL;
+    int ndst = 0;
+    bcf_get_info_string(header, record, "VARIANT_OVERALL_TYPE", &dst_str1,
+                        &ndst);
+    fprintf(stderr, "VARIANT_OVERALL_TYPE(%d): %s |\t", ret, dst_str1);
+    free(dst_str1);
+
+    char *dst_str2 = (char *)calloc(10, sizeof(char));
+    ret = bcf_get_info_string(header, record, "SVTYPE", &dst_str2, &ndst);
+    fprintf(stderr, "SVTYPE(%d): %s |\t", ndst, dst_str2);
+    free(dst_str2);
+
+    int32_t *dst_int32 = (int32_t *)calloc(10, sizeof(int32_t));
+    ret = bcf_get_info_int32(header, record, "SVLEN", &dst_int32, &ndst);
+    fprintf(stderr, "SVLEN(%d): ", ndst);
+    for (int i = 0; i < ndst; i++) {
+      if (dst_int32[i] == 0) {
+        break;
+      } else {
+        fprintf(stderr, "%" PRId32 ",", dst_int32[i]);
+      }
+    }
+    printf("|");
+    printf("\n");
+    fprintf(stderr, "%s\t%" PRId64 "\t%s\t",
+            bcf_seqname_safe(header, record), record->pos + 1, record->d.id);
+    // if (record->n_allele == 1) {
+    //   fprintf(stderr, ".");
+    // } else {
+    //   for (int i = 1; i < record->n_allele; i++) {
+    //     fprintf(stderr, "%s(%d),", record->d.allele[i],
+    //             bcf_get_variant_type(record, i));
+    //   }
+    // }
+    fprintf(stderr, "(ignore)");
+    fprintf(stderr, "\t%f\t\n", record->qual);
   }
   printf("\n");
   end = clock();

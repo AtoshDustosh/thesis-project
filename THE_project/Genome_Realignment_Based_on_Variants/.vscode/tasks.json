@@ -9,7 +9,8 @@
         "*.c",
         "-o",
         "${fileDirname}/main",
-        "-lhts"
+        "-lhts",
+        "-lpthread",
       ],
       "options": {
         "cwd": "${workspaceFolder}"

@@ -13,14 +13,14 @@
       "args": [
         "--verbose",
 
-        // "--faFile",
-        // "data/test.fa",
-        // "--fastqFile",
-        // "data/test.fastq",
-        // "--samFile",
-        // "data/test.sam",
-        // "--vcfFile",
-        // "data/test.vcf",
+        "--faFile",
+        "data/test.fa",
+        "--fastqFile",
+        "data/test.fastq",
+        "--samFile",
+        "data/test.sam",
+        "--vcfFile",
+        "data/test.vcf",
 
         // "--outputFile",
         // "data/grbvOut.sam",
@@ -28,7 +28,8 @@
         // test grbv operations
         // "--selectBadReads",
         // "20",
-        // "--integrateVcfToSam",
+        "--integrateVcfToSam",
+        "1",
 
         // test simple operations
         // "--countRec",

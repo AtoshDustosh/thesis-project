@@ -1,0 +1,5 @@
+@SQ	SN:chr1	LN:159
+@SQ	SN:chr2	LN:330
+@SQ	SN:chr3	LN:222
+@SQ	SN:chr4	LN:242
+@PG	ID:bwa	PN:bwa	VN:0.7.17-r1188	CL:bwa mem test.fa test-data_paried_end1.fq test-data_paried_end2.fq

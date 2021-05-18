@@ -446,8 +446,8 @@ void printSamRecord_brief(GenomeSam *gs, bam1_t *record) {
   printf("0x%" PRIx16 "\t", record->core.flag);
   // rname
   printf("%s\t", sam_hdr_tid2name(hdr, record->core.tid));
-  // pos
-  printf("%" PRId64 "\t", record->core.pos);
+  // pos: 1-based
+  printf("%" PRId64 "\t", record->core.pos + 1);
   // mapq
   printf("%" PRIu8 "\t", record->core.qual);
   // cigar

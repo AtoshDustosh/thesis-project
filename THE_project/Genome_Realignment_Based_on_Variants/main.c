@@ -32,13 +32,14 @@ static struct option optInitArray[] = {
     {"vcfFile", required_argument, NULL, OPT_SET_VCFFILE},
 
     {"sv_min_len", required_argument, NULL, OPT_SET_SV_MIN_LEN},
+    {"sv_max_len", required_argument, NULL, OPT_SET_SV_MAX_LEN},
 
     {"countRec", no_argument, NULL, OPT_COUNTREC},
     {"firstLines", required_argument, NULL, OPT_FIRSTLINES},
     {"extractChrom", required_argument, NULL, OPT_EXTRACTCHROM},
 
     {"selectBadReads", required_argument, NULL, OPT_SELECTBADREADS},
-    {"integrateVcfToSam", no_argument, NULL, OPT_INTEGRATEVCFTOSAM},
+    {"integrateVcfToSam", required_argument, NULL, OPT_INTEGRATEVCFTOSAM},
     {"threads", required_argument, NULL, OPT_THREADS},
     {0, 0, 0, 0},
 };
@@ -56,6 +57,7 @@ static void Usage() {
   printf("\tsamFile [filepath]\tset sam file\n");
   printf("\tvcfFile [filepath]\tset vcf file\n");
   printf("\tsv_min_len [length]\tset minimal length for a SV\n");
+  printf("\tsv_max_len [length]\tset maximal length for a SV\n");
   printf("\n");
 
   printf(" -- Program infos\n");
@@ -82,10 +84,14 @@ static void Usage() {
       "MAPQ_threshold from previously set sam file and then output them into "
       "the previously set output file\n");
   printf(
-      "\tintegrateVcfToSam\tintegrate variants from *.vcf file with *.sam "
-      "file. This will perform realignment for all reads in the *.sam file "
-      "with new created reference genome. It's actually one of the main "
-      "purposes of the project. \n");
+      "\tintegrateVcfToSam [integration_strategy]\tintegrate variants from "
+      "*.vcf file with *.sam file. This will perform realignment for all reads "
+      "in the *.sam file with new created reference genome. It's actually one "
+      "of the main purposes of the project. \n");
+  printf(
+      "\t\t\t[integration_strategy]: [%d] SNP only; [%d] SV only; [%d] SNP and "
+      "SV\n",
+      _OPT_INTEGRATION_SNPONLY, _OPT_INTEGRATION_SVONLY, _OPT_INTEGRATION_ALL);
   printf(
       "\tthreads [NUM_threads]\tuse multi-threads methods to run the program. "
       "This only works for integrateVcfToSam.\n");
@@ -126,6 +132,7 @@ int main(int argc, char *argv[]) {
   options.outputFile = NULL;
 
   options.sv_min_len = default_sv_min_len;
+  options.sv_max_len = default_sv_max_len;
 
   options.countRec = 0;
   options.firstLines = 0;
@@ -180,9 +187,14 @@ int main(int argc, char *argv[]) {
         // printGenomeVcf(gv);
         break;
       }
-      case OPT_SET_SV_MIN_LEN:{
-        printf("Minimal SV length set: %s\n", optarg);
+      case OPT_SET_SV_MIN_LEN: {
+        printf("Minimal SV length set as: %s\n", optarg);
         options.sv_min_len = atoi(optarg);
+        break;
+      }
+      case OPT_SET_SV_MAX_LEN: {
+        printf("Maximal SV length set as: %s\n", optarg);
+        options.sv_max_len = atoi(optarg);
         break;
       }
       case OPT_COUNTREC: {
@@ -226,6 +238,26 @@ int main(int argc, char *argv[]) {
       }
       case OPT_INTEGRATEVCFTOSAM: {
         optCheck_conflict(&options);
+        printf("Selected strategy for integration: ");
+        options.integration = atoi(optarg);
+        switch (options.integration) {
+          case _OPT_INTEGRATION_SNPONLY: {
+            printf("SNP only\n");
+            break;
+          }
+          case _OPT_INTEGRATION_SVONLY: {
+            printf("SV only\n");
+            break;
+          }
+          case _OPT_INTEGRATION_ALL: {
+            printf("all\n");
+            break;
+          }
+          default: {
+            fprintf(stderr, "Error: no such strategy for integration.\n");
+            exit(EXIT_FAILURE);
+          }
+        }
         // integrateVcfToSam_refactored(&options);
         integration(&options);
         break;
