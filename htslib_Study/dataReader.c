@@ -33,44 +33,45 @@ int vcf_scan_and_print(htsFile *inputFile, Options *opts) {
     //   char *name;
     // } StructTest;
     bcf_unpack(record, BCF_UN_ALL);
-    // printVcfRecord_brief(header, record);
 
-    if(record->n_allele == 1){
-      continue;
-    }else{
-      if(record->d.allele[1][0] == '<'){
-        // ignore 
-        printf("ignored %s\n", record->d.allele[1]);
-        continue;
-      }
-    }
+    printVcfRecord_brief(header, record);
 
-    char *dst_str1 = NULL;
-    int ndst = 0;
-    bcf_get_info_string(header, record, "VARIANT_OVERALL_TYPE", &dst_str1,
-                        &ndst);
-    fprintf(stderr, "VARIANT_OVERALL_TYPE(%d): %s |\t", ret, dst_str1);
-    free(dst_str1);
+    // if(record->n_allele == 1){
+    //   continue;
+    // }else{
+    //   if(record->d.allele[1][0] == '<'){
+    //     // ignore
+    //     printf("ignored %s\n", record->d.allele[1]);
+    //     continue;
+    //   }
+    // }
 
-    char *dst_str2 = (char *)calloc(10, sizeof(char));
-    ret = bcf_get_info_string(header, record, "SVTYPE", &dst_str2, &ndst);
-    fprintf(stderr, "SVTYPE(%d): %s |\t", ndst, dst_str2);
-    free(dst_str2);
+    // char *dst_str1 = NULL;
+    // int ndst = 0;
+    // bcf_get_info_string(header, record, "VARIANT_OVERALL_TYPE", &dst_str1,
+    //                     &ndst);
+    // fprintf(stderr, "VARIANT_OVERALL_TYPE(%d): %s |\t", ret, dst_str1);
+    // free(dst_str1);
 
-    int32_t *dst_int32 = (int32_t *)calloc(10, sizeof(int32_t));
-    ret = bcf_get_info_int32(header, record, "SVLEN", &dst_int32, &ndst);
-    fprintf(stderr, "SVLEN(%d): ", ndst);
-    for (int i = 0; i < ndst; i++) {
-      if (dst_int32[i] == 0) {
-        break;
-      } else {
-        fprintf(stderr, "%" PRId32 ",", dst_int32[i]);
-      }
-    }
-    printf("|");
-    printf("\n");
-    fprintf(stderr, "%s\t%" PRId64 "\t%s\t",
-            bcf_seqname_safe(header, record), record->pos + 1, record->d.id);
+    // char *dst_str2 = (char *)calloc(10, sizeof(char));
+    // ret = bcf_get_info_string(header, record, "SVTYPE", &dst_str2, &ndst);
+    // fprintf(stderr, "SVTYPE(%d): %s |\t", ndst, dst_str2);
+    // free(dst_str2);
+
+    // int32_t *dst_int32 = (int32_t *)calloc(10, sizeof(int32_t));
+    // ret = bcf_get_info_int32(header, record, "SVLEN", &dst_int32, &ndst);
+    // fprintf(stderr, "SVLEN(%d): ", ndst);
+    // for (int i = 0; i < ndst; i++) {
+    //   if (dst_int32[i] == 0) {
+    //     break;
+    //   } else {
+    //     fprintf(stderr, "%" PRId32 ",", dst_int32[i]);
+    //   }
+    // }
+    // printf("|");
+    // printf("\n");
+    // fprintf(stderr, "%s\t%" PRId64 "\t%s\t",
+    //         bcf_seqname_safe(header, record), record->pos + 1, record->d.id);
     // if (record->n_allele == 1) {
     //   fprintf(stderr, ".");
     // } else {
@@ -79,8 +80,8 @@ int vcf_scan_and_print(htsFile *inputFile, Options *opts) {
     //             bcf_get_variant_type(record, i));
     //   }
     // }
-    fprintf(stderr, "(ignore)");
-    fprintf(stderr, "\t%f\t\n", record->qual);
+    // fprintf(stderr, "(ignore)");
+    // fprintf(stderr, "\t%f\t\n", record->qual);
   }
   printf("\n");
   end = clock();
@@ -117,6 +118,16 @@ int sam_scan_and_print(htsFile *inputFile, Options *opts) {
   printSamHeader(header);
   while (ret = sam_read1(inputFile, header, record) >= 0) {
     printSamRecord_brief(header, record);
+
+    // sam_format_aux1
+    char *aux_data = "abcdefg";
+    char aux_type = 'Z';
+    char *aux_tag = "XV";
+    bam_aux_append(record, aux_tag, aux_type, strlen(aux_data) + 1, aux_data);
+
+    printf("modified: ");
+    printSamRecord_brief(header, record);
+    printf(".......................\n");
   }
   printf("\n");
   end = clock();

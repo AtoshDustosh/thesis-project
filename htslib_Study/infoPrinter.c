@@ -187,5 +187,9 @@ void printSamRecord_brief(bam_hdr_t *hdr, bam1_t *record) {
   for (int i = 0; i < record->core.l_qseq; i++) {
     printf("%c", bam_get_qual(record)[i] + 33);
   }
+  printf("\t");
+  // "XV" aux field
+  printf("XV:%s", bam_aux_get(record, "XV"));
+  printf("\t");
   printf("\n");
 }

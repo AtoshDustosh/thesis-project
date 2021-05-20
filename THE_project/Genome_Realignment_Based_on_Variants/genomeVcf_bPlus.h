@@ -76,6 +76,11 @@ extern int gv_cnt_rec(GenomeVcf_bplus *gv);
 extern bcf1_t *rv_object(RecVcf_bplus *rv);
 
 /**
+ * @brief  Get the string of ID.
+ */
+extern const char *rv_ID(RecVcf_bplus *rv);
+
+/**
  * @brief  Get the 1-based position of the variant.
  */
 extern int64_t rv_pos(RecVcf_bplus *rv);

@@ -17,6 +17,7 @@
     "vcf.h": "c",
     "integratevcftosam.h": "c",
     "combinationsofvars.h": "c",
-    "allelecombinations.h": "c"
+    "allelecombinations.h": "c",
+    "random": "c"
   }
 }

@@ -27,11 +27,20 @@
 #define OPT_SET_SAMFILE 104
 #define OPT_SET_VCFFILE 105
 
+/*
+ * Set basic parameters.
+ */
+
 #define OPT_SET_SV_MIN_LEN 106
 #define OPT_SET_SV_MAX_LEN 107
 
+#define OPT_SET_MATCH 108
+#define OPT_SET_MISMATCH 109
+#define OPT_SET_GAPOPEN 110
+#define OPT_SET_GAPEXTENSION 111
+
 static const int default_sv_min_len = 50;
-static const int default_sv_max_len = 10000;
+static const int default_sv_max_len = 400;
 
 /*
  * Some simple operations against files.
@@ -67,6 +76,11 @@ typedef struct _define_Options {
 
   int sv_min_len;  // minimal length for a SV
   int sv_max_len;  // maximal length for a SV
+
+  int match;
+  int mismatch;
+  int gapOpen;
+  int gapExtension;
 
   int countRec;
   int firstLines;    // also store the value of [firstline_number]
@@ -104,6 +118,10 @@ static inline void setOutputFile(Options *opts, char *op_file) {
 
 static inline int getSVminLen(Options *opts) { return opts->sv_min_len; }
 static inline int getSVmaxLen(Options *opts) { return opts->sv_max_len; }
+static inline int getMatch(Options *opts) { return opts->match; }
+static inline int getMismatch(Options *opts) { return opts->mismatch; }
+static inline int getGapopen(Options *opts) { return opts->gapOpen; }
+static inline int getGapextension(Options *opts) { return opts->gapExtension; }
 
 static inline int MAPQ_threshold(Options *opts) { return opts->selectBadReads; }
 

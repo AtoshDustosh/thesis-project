@@ -11,25 +11,32 @@
       "request": "launch",
       "program": "${fileDirname}/main",
       "args": [
-        "--verbose",
+        // "--verbose",
 
         "--faFile",
+        // "data/test.fa",
         "data/hs37d5_21.fa",
         // "--fastqFile",
         // "data/test.fastq",
         "--samFile",
+        // "data/test.sam",
         "data/simu.filtered.sam",
         "--vcfFile",
+        // "data/test.vcf",
         "data/merged.sorted.vcf",
 
-        // "--outputFile",
-        // "data/grbvOut.sam",
+        "--outputFile",
+        "data/grbvOut.sam",
 
         // test grbv operations
         // "--selectBadReads",
         // "20",
+
+        "--thread",
+        "4",
+
         "--integrateVcfToSam",
-        "1",
+        "3",
 
         // test simple operations
         // "--countRec",

@@ -14,6 +14,24 @@
 void _testSet_auxiliaryMethods();
 
 /**
+ * @brief  Reverse a string.
+ * @param  *original: original string
+ * @param  length: length of the original string
+ * @retval reversed string or NULL if failed. Note that the successfully returned string must be freed later manually. 
+ */
+char* revStr(const char *original, const int length);
+
+/**
+ * @brief  Extract a substring of a string.
+ * @param  *original: original string
+ * @param  begin: 0-based, included. Beginning position for extraction
+ * @param  end: 0-based, included. Ending position for extraction
+ * @retval substring or NULL if failed. Note that the successfully returned
+ * string must be freed later manually.
+ */
+char *subStr(const char *original, const int begin, const int end);
+
+/**
  * @brief Insert a string into the specific position of another string.
  *
  * @param original string to insert into
@@ -27,8 +45,8 @@ void _testSet_auxiliaryMethods();
  * strcat() from C library may be a better alternative.
  * Still, there are some situations where the input is invalid. For example,
  * (orignal, inserted, insertPos) = ("0123", "5", 5). This method does not allow
- * @return char* inserted string. Note that the successfully returned string
- * must be freed later manually.
+ * @retval inserted string or NULL if faield. Note that the successfully
+ * returned string must be freed later manually.
  */
 char *insertStr(const char *original, const char *inserted,
                 const int insertPos);

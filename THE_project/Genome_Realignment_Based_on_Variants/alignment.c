@@ -9,6 +9,10 @@ static int8_t nt_table[256];
 // Scoring matrix
 static int8_t scoreMat[25];
 
+static int ksw2_bandWidth = KSW2_DEFAULT_BANDWIDTH;
+static int ksw2_zdrop = KSW2_DEFAULT_ZDROP;
+static int ksw2_flag = KSW2_DEFAULT_FLAG;
+
 static int score_match = SCORE_DEFAULT_MATCH;
 static int score_mismatch = SCORE_DEFAULT_MISMATCH;
 static int score_gapOpen = SCORE_DEFAULT_GAPOPEN;
@@ -51,9 +55,14 @@ void alignInitialize(int match, int mismatch, int gapOpen, int gapExtension) {
   nt_table['T'] = nt_table['t'] = 3;
 }
 
+void alignInitialize_ksw2(int bandWidth, int zdrop, int flag) {
+  ksw2_bandWidth = bandWidth;
+  ksw2_zdrop = zdrop;
+  ksw2_flag = flag;
+}
+
 void align_ksw2(const char *tseq, const int tlen, const char *qseq,
-                const int qlen, int bandWidth, int zdrop, int flag,
-                AlignResult *ar) {
+                const int qlen, AlignResult *ar) {
   // printf("target seq(%d): %s\n", tlen, tseq);
   // printf("query seq(%d): %s\n", qlen, qseq);
   if (ar == NULL) {
@@ -75,34 +84,31 @@ void align_ksw2(const char *tseq, const int tlen, const char *qseq,
 
   // Align
   // ksw_extz(km, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
-  //          score_gapExtension, bandWidth, zdrop, 0, &ez);
+  //          score_gapExtension, ksw2_bandWidth, ksw2_zdrop, 0, &ez);
   ksw_extz2_sse(km, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
-                score_gapExtension, bandWidth, zdrop, flag, 0, &ez);
-  // ez->score = ksw_gg2_sse(km, qlen, (uint8_t*)qseq, tlen, (uint8_t*)tseq, m,
-  // mat, q, e, w, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
+                score_gapExtension, ksw2_bandWidth, ksw2_zdrop, ksw2_flag, 0,
+                &ez);
+  // This one gets different result with other methods. Don't use this
+  // ez.score = ksw_gg2_sse(km, qlen, (uint8_t *)qseq, tlen, (uint8_t *)tseq, 5,
+  //                        scoreMat, score_gapOpen, score_gapExtension,
+  //                        ksw2_bandWidth,
+  //                        &(ez.m_cigar), &(ez.n_cigar), &(ez.cigar));
   // ez.score = ksw_gg2_sse(km, qlen, numQseq, tlen, numTseq, 5, scoreMat,
-  //                        score_gapOpen, score_gapExtension, bandWidth,
-  //                        &ez.m_cigar, &ez.n_cigar, &ez.cigar);
+  //                        score_gapOpen, score_gapExtension, ksw2_bandWidth,
+  //                        &(ez.m_cigar), &(ez.n_cigar), &(ez.cigar));
 
-  // Create CIGAR string
-  static char globalCigar[256];
-  memset(globalCigar, 0, sizeof(globalCigar));
-  int cigar_cnt = ksw_extz_cigarCnt(&ez);
-  for (int i = 0; i < cigar_cnt; ++i) {
-    char cigar_i[10];
-    int cigarLen = ksw_extz_cigarLen(&ez, i);
-    char cigarOp = ksw_extz_cigarOp(&ez, i);
+  // Create CIGAR in alignment result
+  ar->cnt_cigar = ksw_extz_cigarCnt(&ez);
+  ar->cigarLen = (uint32_t *)calloc(ar->cnt_cigar, sizeof(uint32_t));
+  ar->cigarOp = (char *)calloc(ar->cnt_cigar, sizeof(char));
+  for (int i = 0; i < ar->cnt_cigar; i++) {
     // Copy global cigar operations
-    // There is no itoa() under Linux. Use sprintf instead.
-    sprintf(cigar_i, "%d%c", cigarLen, cigarOp);
-    strcat(globalCigar, cigar_i);
+    ar->cigarLen[i] = ksw_extz_cigarLen(&ez, i);
+    ar->cigarOp[i] = ksw_extz_cigarOp(&ez, i);
   }
-  char *cigar = (char *)calloc(strlen(globalCigar) + 1, sizeof(char));
-  strcpy(cigar, globalCigar);
 
   // Assign results (global alignment)
   ar->pos = 0;
-  ar->cigar = cigar;
   ar->mapq = ez.score;
   ar->ref_begin = 0;
   ar->ref_end = tlen - 1;
@@ -139,56 +145,41 @@ void align_ssw(const char *tseq, const int tlen, const char *qseq,
   s_align *result = ssw_align(profile, numRef, tlen, score_gapOpen,
                               score_gapExtension, 1, 0, 0, maskLen);
 
-  // Create CIGAR string
-  char localCigar[256];
-  memset(localCigar, 0, sizeof(localCigar));
-  if (result->read_begin1 != 0) {  // There exists insertions at the beginning
-    sprintf(localCigar, "%" PRId32 "I", result->read_begin1);
-    result->read_begin1 = 0;
-  }
-  for (int i = 0; i < result->cigarLen; i++) {
-    char cigar_i[10];
-    uint32_t cigarLen = cigar_int_to_len(result->cigar[i]);
-    char cigarOp = cigar_int_to_op(result->cigar[i]);
-    sprintf(cigar_i, "%" PRIu32 "%c", cigarLen, cigarOp);
-    strcat(localCigar, cigar_i);
+  // Create CIGAR in alignment result
+  if (result->read_begin1 != 0) {  // There exists insetions at the beginning
+    ar->cnt_cigar++;
   }
   if (result->read_end1 + 1 != qlen) {  // There exists insertions at the end
-    char insertion[10];
-    sprintf(insertion, "%dI", qlen - result->read_end1 - 1);
-    strcat(localCigar, insertion);
+    ar->cnt_cigar++;
+  }
+  int idx_ar_cigar = 0;
+  ar->cnt_cigar += result->cigarLen;
+  ar->cigarLen = (uint32_t *)calloc(ar->cnt_cigar, sizeof(uint32_t));
+  ar->cigarOp = (char *)calloc(ar->cnt_cigar, sizeof(char));
+  if (result->read_begin1 != 0) {
+    ar->cigarLen[0] = result->read_begin1;
+    ar->cigarOp[0] = 'I';
+    result->read_begin1 = 0;
+    idx_ar_cigar++;
+  }
+  if (result->read_end1 + 1 != qlen) {
+    ar->cigarLen[ar->cnt_cigar - 1] = qlen - result->read_end1 - 1;
+    ar->cigarOp[ar->cnt_cigar - 1] = 'I';
     result->read_end1 = qlen - 1;
   }
-
-  char *cigar = (char *)calloc(strlen(localCigar) + 1, sizeof(char));
-  strcpy(cigar, localCigar);
+  for (int i = 0; i < result->cigarLen; i++) {
+    ar->cigarLen[idx_ar_cigar] = cigar_int_to_len(result->cigar[i]);
+    ar->cigarOp[idx_ar_cigar] = cigar_int_to_op(result->cigar[i]);
+    idx_ar_cigar++;
+  }
 
   // Assign results (local alignment)
   ar->pos = result->ref_begin1;
   ar->mapq = result->score1;
-  ar->cigar = cigar;
   ar->ref_begin = result->ref_begin1;
   ar->ref_end = result->ref_end1;
   ar->read_begin = result->read_begin1;
   ar->read_end = result->read_end1;
-
-  // printf("ref:\t%s\n", tseq);
-  // printf("read:\t%s\n", qseq);
-  // fprintf(stdout,
-  //         "optimal_alignment_score: %d\tsub-optimal_alignment_score: %d\t",
-  //         result->score1, result->score2);
-  // if (result->ref_begin1 + 1)
-  //   fprintf(stdout, "target_begin: %d\t", result->ref_begin1 + 1);
-  // fprintf(stdout, "target_end: %d\t", result->ref_end1 + 1);
-  // if (result->read_begin1 + 1)
-  //   fprintf(stdout, "query_begin: %d\t", result->read_begin1 + 1);
-  // fprintf(stdout, "query_end: %d\n", result->read_end1 + 1);
-  // for (int i = 0; i < result->cigarLen; i++) {
-  //   uint32_t cigarLen = cigar_int_to_len(result->cigar[i]);
-  //   char cigarOp = cigar_int_to_op(result->cigar[i]);
-  //   printf("%u%c", cigarLen, cigarOp);
-  // }
-  // printf("\n");
 
   init_destroy(profile);
   align_destroy(result);
@@ -214,21 +205,20 @@ static int _test_ksw2Alignment(const char *tseq, const char *qseq) {
   AlignResult *ar = init_AlignResult();
   const int tlen = strlen(tseq);
   const int qlen = strlen(qseq);
-  align_ksw2(tseq, tlen, qseq, qlen, KSW2_DEFAULT_BANDWIDTH, KSW2_DEFAULT_ZDROP,
-             KSW2_DEFAULT_FLAG, ar);
+  align_ksw2(tseq, tlen, qseq, qlen, ar);
   print_AlignResult(ar);
   destroy_AlignResult(ar);
   return 1;
 }
 
 static int _test_sswAlignment(const char *tseq, const char *qseq) {
-  printf(" - ssw align\n");
-  printf("tseq: %s\nqseq: %s\n", tseq, qseq);
+  // printf(" - ssw align\n");
+  // printf("tseq: %s\nqseq: %s\n", tseq, qseq);
   AlignResult *ar = init_AlignResult();
   const int tlen = strlen(tseq);
   const int qlen = strlen(qseq);
   align_ssw(tseq, tlen, qseq, qlen, ar);
-  print_AlignResult(ar);
+  // print_AlignResult(ar);
   destroy_AlignResult(ar);
   return 1;
 }
@@ -238,10 +228,12 @@ void _testSet_alignment() {
   static int32_t match = 2, mismatch = -4;
   static int32_t gapOpen = -3, gapExtension = 1;
   alignInitialize(match, mismatch, gapOpen, gapExtension);
+  alignInitialize_ksw2(KSW2_DEFAULT_BANDWIDTH, KSW2_DEFAULT_ZDROP,
+                       KSW2_DEFAULT_FLAG);
 
   // test cases
-  printf("testing alignment ...\n");
-  static const char *tseq = "AAAAAAAAACGTACGTACGTAAAAACCCCCGTGTGA";
+  // printf("testing alignment ...\n");
+  static const char *tseq = "AAAAAAAAACGTACGTACGTAAAAACCCCCGTAAACCCCC";
   static const char *qseq = "TTTTACGTACGTACCCCCGTAAA";
 
   assert(_test_ksw2Alignment(tseq, qseq));

@@ -14,7 +14,7 @@
 typedef struct _define_Element_RecVcf {
   RecVcf_bplus *rv;
   /*
-   * * * "alleleIdx" and "alleleCnt" are used to mark which alleles should be
+   * "alleleIdx" and "alleleCnt" are used to mark which alleles should be
    * integrated and how many of them should be integrated on this vcf record.
    */
   int *alleleIdx;

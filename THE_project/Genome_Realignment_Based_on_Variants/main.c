@@ -33,6 +33,10 @@ static struct option optInitArray[] = {
 
     {"sv_min_len", required_argument, NULL, OPT_SET_SV_MIN_LEN},
     {"sv_max_len", required_argument, NULL, OPT_SET_SV_MAX_LEN},
+    {"match", required_argument, NULL, OPT_SET_MATCH},
+    {"mismatch", required_argument, NULL, OPT_SET_MISMATCH},
+    {"gapOpen", required_argument, NULL, OPT_SET_GAPOPEN},
+    {"gapExtension", required_argument, NULL, OPT_SET_GAPEXTENSION},
 
     {"countRec", no_argument, NULL, OPT_COUNTREC},
     {"firstLines", required_argument, NULL, OPT_FIRSTLINES},
@@ -56,8 +60,17 @@ static void Usage() {
   printf("\tfastqFile [filepath]\tset fastq file\n");
   printf("\tsamFile [filepath]\tset sam file\n");
   printf("\tvcfFile [filepath]\tset vcf file\n");
-  printf("\tsv_min_len [length]\tset minimal length for a SV\n");
-  printf("\tsv_max_len [length]\tset maximal length for a SV\n");
+  printf(
+      "\tsv_min_len [length]\tset minimal length for a SV. Designed for "
+      "integration.\n");
+  printf(
+      "\tsv_max_len [length]\tset maximal length for a SV. Designed for "
+      "integration. Do not set this parameter too big. That may cause the "
+      "program running for decades! (combinations of too many variants generated) Recommended value: 300\n");
+  printf("\tmatch [score]\tset score for match\n");
+  printf("\tmismatch [score]\tset score for mismatch\n");
+  printf("\tgapOpen [score]\tset score for gapOpen\n");
+  printf("\tgapExtension [score]\tset score for gapExtension\n");
   printf("\n");
 
   printf(" -- Program infos\n");
@@ -133,6 +146,10 @@ int main(int argc, char *argv[]) {
 
   options.sv_min_len = default_sv_min_len;
   options.sv_max_len = default_sv_max_len;
+  options.match = SCORE_DEFAULT_MATCH;
+  options.mismatch = SCORE_DEFAULT_MISMATCH;
+  options.gapOpen = SCORE_DEFAULT_GAPOPEN;
+  options.gapExtension = SCORE_DEFAULT_GAPEXTENSION;
 
   options.countRec = 0;
   options.firstLines = 0;
@@ -195,6 +212,26 @@ int main(int argc, char *argv[]) {
       case OPT_SET_SV_MAX_LEN: {
         printf("Maximal SV length set as: %s\n", optarg);
         options.sv_max_len = atoi(optarg);
+        break;
+      }
+      case OPT_SET_MATCH: {
+        printf("score for match: %s\n", optarg);
+        options.match = atoi(optarg);
+        break;
+      }
+      case OPT_SET_MISMATCH: {
+        printf("score for mismatch: %s\n", optarg);
+        options.mismatch = atoi(optarg);
+        break;
+      }
+      case OPT_SET_GAPOPEN: {
+        printf("score for gapOpen: %s\n", optarg);
+        options.gapOpen = atoi(optarg);
+        break;
+      }
+      case OPT_SET_GAPEXTENSION: {
+        printf("score for gapExtension: %s\n", optarg);
+        options.gapExtension = atoi(optarg);
         break;
       }
       case OPT_COUNTREC: {

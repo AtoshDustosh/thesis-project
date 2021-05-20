@@ -18,4 +18,8 @@
 
 #include <time.h>
 
+static inline float time_convert_clock2second(clock_t start, clock_t end) {
+  return (float)(end - start) / CLOCKS_PER_SEC;
+}
+
 #endif

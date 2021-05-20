@@ -231,6 +231,7 @@ static inline void integrateVarAndRealign_refactored(
       len_allele_ref -= refStartPos + idx_oldRefSeq - alleleStartPos;
       fixPosStart += len_allele_ref;
     }
+    // Copy bases between this allele and last integrated allele on old ref seq
     while (alleleStartPos > refStartPos + idx_oldRefSeq) {
       buf[idx_newRefSeq++] = oldRefSeq[idx_oldRefSeq++];
     }
@@ -565,20 +566,20 @@ void selectBadReads(Options *opts) {
   hts_close(samFile);
 }
 
-static inline void check_param_integrateVcfToSam(Options *opts){
-  if(getSamFile(opts) == NULL){
+static inline void check_param_integrateVcfToSam(Options *opts) {
+  if (getSamFile(opts) == NULL) {
     fprintf("Error: lack input *.sam file. \n");
     exit(EXIT_FAILURE);
   }
-  if(getVcfFile(opts) == NULL){
+  if (getVcfFile(opts) == NULL) {
     fprintf("Error: lack iput *.vcf file. \n");
     exit(EXIT_FAILURE);
   }
-  if(getFaFile(opts) == NULL){
+  if (getFaFile(opts) == NULL) {
     fprintf("Error: lack input *.fa file. \n");
     exit(EXIT_FAILURE);
   }
-  if(getOutputFile(opts) == NULL){
+  if (getOutputFile(opts) == NULL) {
     fprinf("Error: output file undesignateed. \n");
     exit(EXIT_FAILURE);
   }
@@ -617,9 +618,9 @@ void integrateVcfToSam(Options *opts) {
   GenomeVcfIterator *gvIt = init_GenomeVcfIterator(gv);
   ChromVcf *tmpCv = NULL;
   RecVcf *tmpRv = NULL;
-  
+
   // Iterate all sam records and process them one by one.
-  while(tmpRs != NULL){
+  while (tmpRs != NULL) {
     // ------------- get information of temporary sam record ------------
     const char *readRname = rsDataRname(gs, tmpRs);
     const char *readQname = bam_get_qname(rsData(tmpRs));
@@ -635,9 +636,9 @@ void integrateVcfToSam(Options *opts) {
       }
       continue;
     }
-    
+
     // TODO finish your design before implementation
-    
+
     // ----------------------- keep on iterating --------------------
     tmpRs = gsItNextRec(gsIt);
     if (tmpRs == NULL) {
@@ -645,7 +646,6 @@ void integrateVcfToSam(Options *opts) {
       tmpRs = gsItNextRec(gsIt);
     }
   }
-
 
   // Free structures
   destroy_GenomeSamIterator(gsIt);

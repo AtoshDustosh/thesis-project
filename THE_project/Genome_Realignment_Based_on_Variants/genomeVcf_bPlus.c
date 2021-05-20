@@ -1028,6 +1028,10 @@ inline bcf1_t *rv_object(RecVcf_bplus *rv) {
   return rv->data;
 }
 
+const char *rv_ID(RecVcf_bplus *rv){
+  return rv->data->d.id;
+}
+
 inline int64_t rv_pos(RecVcf_bplus *rv) {
   assert(rv->data != NULL);
   return rv->data->pos + 1;
