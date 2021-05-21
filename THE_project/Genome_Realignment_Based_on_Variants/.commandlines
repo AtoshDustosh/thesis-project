@@ -1,38 +1,85 @@
-- command line examples:
-  art_illumina -p -sam -i test.fa -l 50 -f 20 -m 200 -s 10 -o test-paired_end // or use varsim to get simulated data
-  
-  bwa index test.fa
+// ---------------------- command line examples ----------------------
 
-  bwa mem -t 8 -A 2 -B -4 -O 3 -E 1 test.fa test-paired_end1.fq test-paired_end2.fq > test.sam
+Note:
+  If you find the commandlines too redundant, maybe a shell script will work well.
 
-  // after compilation, copy the generated executable program to the directory of data files
+Supposed directory structure:
+  ../varsim:
+    /varsim/data-files  (contains *.vcf *.fa *.txt and other files)
+    /varsim/data-files/out_21  (contains simulated data)
+
+Compilation:
+  // "cd ..." into the source code directory where main.c is in
+
+  // Compile
   gcc *.c -o main -lhts -lpthread
 
-  // add a command line to filter bad mapped reads
-  ./main --samFile test.sam --outputFile test-filtered.sam --selectBadReads MAP_THREASHOLD
+Simulation of data:
+  // Copy main program to ../varsim/data-files
 
-  samtools sort test-filtered.sam -o test-filtered.sam --output-fmt SAM
-
-  ./main --faFile data/test.fa --samFile data/test.sam --vcfFile data/test.vcf --integrateVcfToSam 1
-
-- command lines for simple operations:
-  ./main --faFile test.fa --outputFile test-chrom.fa --extractChrom 1
-
+  // Extract part of the reference genome. At first this is designed for testing. But later I realized the program might run endlessly if you use all chroms at a time. So it's recommended to process them separately, and the same for variants.
   ./main --faFile hs37d5.fa --outputFile hs37d5_21.fa --extractChrom 21
 
-- simulation (suppose you're under .../varsim):
-  ./varsim.py --vc_in_vcf data-files/21_5_10Mb.vcf.gz --sv_insert_seq data-files/insert_seq_21.txt \
+  // Simulation (suppose you're under .../varsim):
+  ./varsim.py --vc_in_vcf data-files/21_5_10Mb.vcf --sv_insert_seq data-files/insert_seq_21.txt \
 --sv_dgv data-files/GRCh37_hg19_supportingvariants_21.txt --filter \
---reference data-files/hs37d5_21.fa --id simu --read_length 100 --vc_num_snp 500 --vc_num_ins 400 \
---vc_num_del 400 --vc_num_mnp 50 --vc_num_complex 50 --sv_num_ins 500 \
+--reference data-files/hs37d5_21.fa --id simu --read_length 100 --vc_num_snp 1500 --vc_num_ins 1400 \
+--vc_num_del 1400 --vc_num_mnp 500 --vc_num_complex 500 --sv_num_ins 500 \
 --sv_num_del 500 --sv_num_dup 300 --sv_num_inv 300 --sv_percent_novel 0.01 \
 --vc_percent_novel 0.01 --mean_fragment_size 350 --sd_fragment_size 50 \
 --vc_min_length_lim 0 --vc_max_length_lim 49 --sv_min_length_lim 50 \
---sv_max_length_lim 100000 --nlanes 1 --total_coverage 2 \
+--sv_max_length_lim 50000 --nlanes 1 --total_coverage 2 \
 --java_max_mem 20g \
 --simulator_executable /bin/art_illumina --out_dir data-files/out_21 --log_dir log --work_dir work \
 --simulator art
 
-- formal commandlines (copy executable to the data files' directory):
+  // "cd ..." into the directory where generated files are
+  cd data-files/out_21
+  
+  // Copy the reference file to the directory
 
-  ./main --samFile simu.filtered.sam --faFile hs37d5_21.fa --vcfFile merged.sorted.vcf --thread 5 --integrateVcfToSam 3
+  // Index the reference genome file for bwa
+  bwa index hs37d5_21.fa
+
+  // Use bwa mem to generate alignment results
+  bwa mem -t 8 hs37d5_21.fa lane0.read1.fq.gz lane0.read2.fq.gz > simu.sam
+
+  // Use this program to filter sam records with MAPQ <= 30
+  ./main --samFile simu.sam --outputFile simu.filtered.sam --selectBadReads 30
+
+  // Use samtools to sort the sam records
+  samtools sort simu.filtered.sam -O SAM -o simu.filtered.sorted.sam
+
+  // "cd ..." to the directory where vcf file that is used for generating simulated data is.
+
+  // Extract the original header of the vcf file
+  bcftools view -h 21_5_10Mb.vcf > 21_5_10Mb.vcf.header
+
+  // Copy the generated header file to the directory of simulated data
+
+  // Use "bcftools sort" to check contig. Add "##<contig=ID ...>" manually if bcftools tells you it is not defined ... I didn't find other practical solutions
+  bcftools sort simu.truth.vcf
+
+  // Convert the format of files
+  bcftools convert -Oz 21_5_10Mb.vcf.header -o 21_5_10Mb.vcf.header.gz
+  bcftools convert -Oz simu.truth.vcf -o simu.truth.vcf.gz
+
+  // Index converted files
+  bcftools index 21_5_10Mb.vcf.header.gz
+  bcftools index simu.truth.vcf.gz
+
+  // Merge simulated data with extracted header
+  bcftools merge 21_5_10Mb.vcf.header.gz simu.truth.vcf.gz -Ov -o merged.vcf
+
+  // Sort the merged files
+  bcftools sort merged.vcf -Ov -o merged.sorted.vcf
+
+Test:
+  (Either copy main to directory of simulated data or copy simulated data to directory of main)
+  (The following commandlines suppose copying main to directory of simulated data)
+
+  // Perform integration
+  ./main --faFile hs37d5_21.fa --samFile simu.filtered.sorted.sam --vcfFile merged.sorted.vcf --sv_min_len 50 --sv_max_len 300 --match 1 --mismatch 4 --gapOpen 6 --gapExtension 1 --threads 4 --integrateVcfToSam 1
+
+Other commandlines for generating simulated data:
+  art_illumina -p -sam -i test.fa -l 50 -f 20 -m 200 -s 10 -o test-paired_end // or use varsim to get simulated data

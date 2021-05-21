@@ -18,6 +18,19 @@
     "integratevcftosam.h": "c",
     "combinationsofvars.h": "c",
     "allelecombinations.h": "c",
-    "random": "c"
+    "random": "c",
+    "fstream": "cpp",
+    "istream": "cpp",
+    "memory": "cpp",
+    "new": "cpp",
+    "ostream": "cpp",
+    "sstream": "cpp",
+    "exception": "c",
+    "*.tcc": "c",
+    "functional": "c",
+    "streambuf": "c",
+    "numeric": "c",
+    "system_error": "c",
+    "faidx.h": "c"
   }
 }

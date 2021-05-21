@@ -66,7 +66,8 @@ static void Usage() {
   printf(
       "\tsv_max_len [length]\tset maximal length for a SV. Designed for "
       "integration. Do not set this parameter too big. That may cause the "
-      "program running for decades! (combinations of too many variants generated) Recommended value: 300\n");
+      "program running for decades! (combinations of too many variants "
+      "generated) Recommended value: 300\n");
   printf("\tmatch [score]\tset score for match\n");
   printf("\tmismatch [score]\tset score for mismatch\n");
   printf("\tgapOpen [score]\tset score for gapOpen\n");
@@ -93,6 +94,9 @@ static void Usage() {
 
   printf(" -- GRBV operations\n");
   printf(
+      "\tthreads [NUM_threads]\tuse multi-threads methods to run the program. "
+      "This only works for integrateVcfToSam.\n");
+  printf(
       "\tselectBadReads [MAPQ_threshold]\tselect reads with MAPQ lower than "
       "MAPQ_threshold from previously set sam file and then output them into "
       "the previously set output file\n");
@@ -105,9 +109,6 @@ static void Usage() {
       "\t\t\t[integration_strategy]: [%d] SNP only; [%d] SV only; [%d] SNP and "
       "SV\n",
       _OPT_INTEGRATION_SNPONLY, _OPT_INTEGRATION_SVONLY, _OPT_INTEGRATION_ALL);
-  printf(
-      "\tthreads [NUM_threads]\tuse multi-threads methods to run the program. "
-      "This only works for integrateVcfToSam.\n");
 }
 
 static int _testSet_full() {

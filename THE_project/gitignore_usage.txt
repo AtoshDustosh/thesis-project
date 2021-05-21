@@ -1,0 +1,3 @@
+			$ find * -size +50M | cat >> .gitignore
+
+Detail: find files larger than 50MB under all directories and their sub-directories. Put these files' paths into ".gitignore" to make git ignore them when committing.

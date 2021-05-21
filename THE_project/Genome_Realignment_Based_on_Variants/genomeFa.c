@@ -1,12 +1,133 @@
 #include "genomeFa.h"
 
-ChromFa *init_ChromFa() {
+/**
+ * @brief  A linked list with no empty header. Designed for initializing
+ * memories before loading reference genome.
+ */
+typedef struct ProfileFa ProfileFa;
+
+struct ProfileFa {
+  char *info;       // info field of the chromosome
+  uint32_t length;  // length of the chromosome / cnt of bases
+  ProfileFa *next;  // next chromosome's profile, if exists
+};
+
+static ProfileFa *init_ProfileFa(const char *filePath) {
+  FILE *fp = fopen(filePath, "r");
+  if (fp == NULL) {
+    fprintf(stderr, "Error: empty file pointer. \n");
+    exit(EXIT_FAILURE);
+  }
+  
+  uint32_t pos_bp = 1;  // 1-based position within chromosome
+  
+  char buf_info[MAX_INFO_LENGTH]; // buffer for info line of the file
+  int idx_buf_info = 0; // index for buf_info
+
+  bool isBpLine = false;
+  
+  char tmpCh;
+  while((tmpCh = fgetc(fp)) != EOF){
+    // TODO Extract the profile
+  }
+
+  fclose(fp);
+  return NULL;
+}
+
+/*********************************************************************
+ *                     Auxiliary Functions
+ ********************************************************************/
+
+/**
+ * @brief  (helper function) Code the bpBuf array (a string with A,C,G,T) into a
+ * uint64_t integer. Should not be called by the user. The calculation's
+ * purpose: "ACGT" -> (0b) 001 010 011 100 000 000 ...... 000 0. Note that bases
+ * start from the left and there may be some "0"s left out not filled. The bpBuf
+ * string must contain no more than BP_PER_UINT64 chars (bases).
+ */
+static uint64_t codeBpBuf(char *bpBuf) {
+  uint64_t codedBp = 0x0;
+  int i = 0;
+  while (i != BP_PER_UINT64 && *bpBuf != '\0') {
+    /*
+     * The following calculation's purpose:
+     * "ACGT" -> (0b) 001 010 011 100 000 000 ...... 000 0
+     * The bpBuf string must contain no more than BP_PER_UINT64 chars (bases).
+     */
+    codedBp =
+        codedBp | (((uint64_t)baseOfChar(*bpBuf))
+                   << (sizeof(uint64_t) * 8) - BASE_CODE_LENGTH * (i + 1));
+    bpBuf++;
+    i++;
+  }
+  return codedBp;
+}
+
+/*********************************************************************
+ *                     Structure Declarations
+ ********************************************************************/
+
+// This is actually a linked-list with an empty header
+struct ChromFa {
+  uint64_t *codedBases;  // binary coded bases using uint64_t array
+  uint32_t length;       // length of chrom / number of bases (uncoded)
+  char *info;            // info of chrom
+  char *name;
+  struct ChromFa *next;
+};
+
+struct GenomeFa {
+  uint16_t chromCnt;
+  ChromFa *chroms;
+};
+
+/**
+ * @brief Initialize a ChromFa object and return the pointer to it. The
+ * successfully returned object must be destroyed later using destroy_ChromFa()
+ */
+static ChromFa *init_ChromFa() {
   ChromFa *cf = (ChromFa *)calloc(1, sizeof(ChromFa));
   if (cf == NULL) {
     fprintf(stderr, "Error: no enough memory for a new chrom.\n");
     exit(EXIT_FAILURE);
   }
   return cf;
+}
+
+/**
+ * @brief Destroy a ChromFa object. Should not be called by the user.
+ */
+static void destroy_ChromFa(ChromFa *cf) {
+  if (cf == NULL) {
+    fprintf(stderr,
+            "Error: null pointer occurred when destroying a ChromFa object\n");
+    exit(EXIT_FAILURE);
+  }
+  free(cf->codedBases);
+  free(cf->info);
+  free(cf->name);
+  free(cf);
+}
+
+/**
+ * @brief Add a ChromFa object into the GenomeFa object (linked to the end of
+ * the linked-list with an empty header).
+ */
+static void addChromToGenome(ChromFa *cf, GenomeFa *gf) {
+  if (cf == NULL || gf == NULL) {
+    fprintf(stderr, "Error: null pointer occurred for ChromFa or GenomeFa\n");
+    exit(EXIT_FAILURE);
+  }
+  ChromFa *tmpCf = gf->chroms;
+  while (tmpCf != NULL) {
+    if (tmpCf->next == NULL) {
+      tmpCf->next = cf;
+      gf->chromCnt++;
+      return;
+    }
+    tmpCf = tmpCf->next;
+  }
 }
 
 GenomeFa *init_GenomeFa() {
@@ -25,18 +146,6 @@ GenomeFa *init_GenomeFa() {
   return gf;
 }
 
-void destroy_ChromFa(ChromFa *cf) {
-  if (cf == NULL) {
-    fprintf(stderr,
-            "Error: null pointer occurred when destroying a ChromFa object\n");
-    exit(EXIT_FAILURE);
-  }
-  free(cf->codedBases);
-  free(cf->info);
-  free(cf->name);
-  free(cf);
-}
-
 void destroy_GenomeFa(GenomeFa *gf) {
   if (gf == NULL) {
     fprintf(stderr,
@@ -51,6 +160,10 @@ void destroy_GenomeFa(GenomeFa *gf) {
   }
   free(gf);
 }
+
+/*********************************************************************
+ *                           Data Extraction
+ ********************************************************************/
 
 ChromFa *getChromFromGenomeFabyInfo(const char *info, GenomeFa *gf) {
   if (gf == NULL) {
@@ -100,24 +213,6 @@ ChromFa *getChromFromGenomeFabyIndex(uint32_t idx, GenomeFa *gf) {
   return tmpCf;
 }
 
-uint64_t codeBpBuf(char *bpBuf) {
-  uint64_t codedBp = 0x0;
-  int i = 0;
-  while (i != BP_PER_UINT64 && *bpBuf != '\0') {
-    /*
-     * The following calculation's purpose:
-     * "ACGT" -> (0b) 001 010 011 100 000 000 ...... 000 0
-     * The bpBuf string must contain no more than BP_PER_UINT64 chars (bases).
-     */
-    codedBp =
-        codedBp | (((uint64_t)baseOfChar(*bpBuf))
-                   << (sizeof(uint64_t) * 8) - BASE_CODE_LENGTH * (i + 1));
-    bpBuf++;
-    i++;
-  }
-  return codedBp;
-}
-
 Base getBase(ChromFa *cf, uint32_t pos) {
   // Spent some time for this. Bug occurred. Bug located. Bug fixed ...
   uint32_t arrayLength = (cf->length - 1) / BP_PER_UINT64 + 1;
@@ -161,20 +256,13 @@ char *getSeqFromChromFa(int64_t start, int64_t end, ChromFa *cf) {
   return seq;
 }
 
-void addChromToGenome(ChromFa *cf, GenomeFa *gf) {
-  if (cf == NULL || gf == NULL) {
-    fprintf(stderr, "Error: null pointer occurred for ChromFa or GenomeFa\n");
-    exit(EXIT_FAILURE);
-  }
-  ChromFa *tmpCf = gf->chroms;
-  while (tmpCf != NULL) {
-    if (tmpCf->next == NULL) {
-      tmpCf->next = cf;
-      gf->chromCnt++;
-      return;
-    }
-    tmpCf = tmpCf->next;
-  }
+/*********************************************************************
+ *                      Data Loading and Writing
+ ********************************************************************/
+
+GenomeFa *genomeFa_loadFile(char *filePath) {
+  // TODO
+  return NULL;
 }
 
 void loadGenomeFaFromFile(GenomeFa *gf, const char *filePath) {

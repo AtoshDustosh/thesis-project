@@ -6,7 +6,7 @@
 ```
 /**
  * @brief [what this function does]
- * @note [some instruction and explanation]
+ * @note [some instruction and explanation. Mainly personal blahs]
  * @param arg1
  * @param arg2
  * ...
@@ -49,7 +49,7 @@ RetType funcTest(ArgType1 arg1, ArgType2 arg2, ...) {
 
 ## 3. 编译运行的规范
 
-编译指令：gcc *.c -o main -lhts
+编译指令：gcc *.c -o main -lhts -lpthread
 
 程序使用：./main \<command\> \[arguments\]
 
