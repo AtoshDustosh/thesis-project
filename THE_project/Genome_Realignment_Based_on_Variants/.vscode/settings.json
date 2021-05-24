@@ -31,6 +31,9 @@
     "streambuf": "c",
     "numeric": "c",
     "system_error": "c",
-    "faidx.h": "c"
+    "faidx.h": "c",
+    "grbvoptions.h": "c",
+    "pthread.h": "c",
+    "hashtable.h": "c"
   }
 }

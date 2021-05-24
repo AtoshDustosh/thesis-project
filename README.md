@@ -17,6 +17,8 @@ Required libraries and tools:
 - for data process, samtools & bcftools
 - for simulation: varsim, art_illumina
 
+---
+
 ## Data Load & In-memory Index
 
 ### Reference Genome (\*.fa/fna/fasta)
@@ -68,7 +70,9 @@ Required libraries and tools:
 - edlib from GitHub. (c++, incompatible with this project)
 - Complete-Striped-Smith-Waterman from GitHub. (tried, but doesn't satisfy the requirements of the project)
 
-## Integration of Variants
+---
+
+## Integration of Variants (mapped reads)
 
 Suppose you need to process a sam record
 <font color=#1E90FF>
@@ -133,7 +137,7 @@ But this is only one instance corresponding to one combination of variants. And 
 
 Actually if there are N variants that intersect with the interval, we need to filter and process cases of more than this number:
 
-$$ \sum_{i=1}^N{ C_N^i } $$
+$ \sum_{i=1}^N{ C_N^i } $
 
 ### Strategy of Integration
 
@@ -161,7 +165,7 @@ Then merge the alignment result of part1 and part2, together with the M_area.
 
 ### Output
 
-Results of realignment and integrated variants will be output as another sam record.
+Results of realignment (both CIGAR and updated POS) and integrated variants will be output as another sam record.
 
 Integrated variants will be output using optional fields of according to SAM format.
 
@@ -178,10 +182,122 @@ Integrated variants will be output using optional fields of according to SAM for
       As whitespaces and semicolons are not allowed in the ID of a vcf
       record, we use whitespace and semicolon to separate information. 
 
+---
+
+## Integration and Kmer Generation (unmapped reads)
+
+### Input & Output
+
+Reference Genome will be partitioned first according to input data, which follows a format like: [id_chrom,pos_start,pos_end] no whitespace or tab allowed
+    
+    [1,123211242,123214242]
+    [1,123224242,123227242]
+    [1,123247242,123249242]
+    [5,444249242,444249242]
+
+The program will load these intervals on the reference genome and then extract all variants WITHIN the interval. 
+
+Kmers from the original ref sequence will be output first and kmers after integration with variants will be output later. 
+
+And kmers containing bases 'N', 'M' or 'R' will be ignored.
+
+The format of output file follows: [pos,string_kmer] no whitespace or tab allowed
+
+    # [id_chrom,pos_start,pos_end]  (this is the comment line)
+    [123212421, ACGTATATACCCAATGA]
+    [241241321, GGACCAGGTATATAACA]
+    [532431111, AGCTAGATGATCGATGC]
+
+The program will try to fiter duplicated kmers from the same interval, but doesn't promise of identity of every kmer. And the program will not consider filtering duplicated kmers among different intervals.
+
+### Description of Process
+
+#### Extraction of Kmers from Original Sequence
+
+Suppose length of kmers is 6.
+
+                |<------------- interval -------------->|
+    seq:  AAAAA AAAAAAAAACCCCCCCCCCCCCGGGGGGGGGGGGGTTTTTT TTTTTT
+    kmers:
+                AAAAAA
+                 AAAAAA
+                   ... ... ... ... ... ... ... ... ... 
+                                                  TTTTTT
+                                                   TTTTTT
+
+Positions of kmers keep their positions on the original sequence
+
+#### Extraction of Kmers after Integration
+
+Suppose length of kmers is 6.
+
+                |<------------- interval -------------->|
+    seq:  AAAAA AAAAAAAAACCCCCCCCCCCCCGGGGGGGGGGGGGTTTTTT TTTTTT
+    variants:   |    |   |   |  |      |      |   |
+                <---->   |   |  <------>      ^   |
+                  DEL   SNP SNP    DEL       INS SNP
+    kmers after integration:
+                |    |   |   |  |      |      |   |
+          AAAAA ------A   ...            GGGGG|..
+           AAAA ------AA   ...         [kmers in INS]
+            AAA ------AAA   ...             ..|GGGGG
+             AA ------AAAA   ...
+              A ------AAAAA   ...
+##### Special cases
+
+###### Long DEL
+
+There may exist some long DEL in the interval, and in such cases, it is very likely we need to expand the reference sequences to the right. Not by (kmerLength - 1), but some other calculated value. And for simplification in implementation, we just make the expanded rbound_ref = rbound_interval + kmerLength - 1 + length_DEL_REF (length of the long DEL's REF field).
+
+When expanding, we need to be careful not making the rbound_ref out of the chromosome's boundary.
+
+Suppose length of kmers is 5.
+
+                                                "expanded"
+                     |<--- |<----interval---->| -- ->|------------>|
+    ref seq: AAAACCCCAAGCC CCCCC CGGGGGGGGGGGTT TT TTTTTTTAAAAAAACCCCCCCCGGGGGGG
+    variant:                     |<-----DEL----->|     |
+    kmers             AGCC C     |               |     |
+                       ... ...   |               |     |
+                           CCCCC |               |     |
+                             ... |               |     |
+                              CC |               | TTT |
+                               C |               | TTTT 
+
+###### Intervals at both ends
+
+For example, when length of kmers is 22.
+
+    chromosome:
+      NNNNNNN ... NNNNNNNN ... ... NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN ... NNNNNN
+    intervals:
+         |<--interval1-->|                              |<--interval2-->|
+      ----1st kmer----
+       ----2nd kmer----
+
+Directly expand (kmerLength - 1) towards both sides may result in an out of boundary error. And in such cases, we need to check the expanded boundaries of the reference sequence.
+
+                         
+##### Calculation of positions for kmers
+
+- Positions of kmers near a DEL
+
+  Keep the position of the kmer's input char as its position
+
+- Positions of kmers near a INS
+
+  From the pos where INS is, every kmer that intersect with the inserted sequence will have a ascending offset on the position.
+
+- Positions of kmers near a SNP
+
+  Same as the position on the original sequence
+
+---
+
 ## Usage 
 
-    Usage: grbv [commands] [arguments]
-    Run one task at a time.
+    Usage: ./main [commands] [arguments]
+    Run one task at a time. Some commands conflict with each other.
 
     Commands:
     -- Set files. Do this first!
@@ -224,5 +340,5 @@ Integrated variants will be output using optional fields of according to SAM for
                                                     *.sam file with new created 
                                                     reference genome. It's actually 
                                                     the main purpose of the project. 
-          [integration_strategy]: [1] SNP only; [2] SV only; [3] SNP and SV
+                  [integration_strategy]: [1] SNP only; [2] SV only; [3] SNP and SV
 

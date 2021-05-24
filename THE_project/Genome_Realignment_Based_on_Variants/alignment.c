@@ -200,13 +200,13 @@ void align_ssw(const char *tseq, const int tlen, const char *qseq,
 /****************************************************************/
 
 static int _test_ksw2Alignment(const char *tseq, const char *qseq) {
-  printf(" - ksw2 align\n");
-  printf("tseq: %s\nqseq: %s\n", tseq, qseq);
+  // printf(" - ksw2 align\n");
+  // printf("tseq: %s\nqseq: %s\n", tseq, qseq);
   AlignResult *ar = init_AlignResult();
   const int tlen = strlen(tseq);
   const int qlen = strlen(qseq);
   align_ksw2(tseq, tlen, qseq, qlen, ar);
-  print_AlignResult(ar);
+  // print_AlignResult(ar);
   destroy_AlignResult(ar);
   return 1;
 }

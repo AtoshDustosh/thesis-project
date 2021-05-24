@@ -11,34 +11,6 @@ static int integration_sv_min_len = 0;  // minimal length for a SV
 static int integration_sv_max_len = 0;  // maximal length for a SV
 static int integration_strategy = 0;
 
-void check_files(Options *opts) {
-  if (getSamFile(opts) == NULL) {
-    fprintf(stderr,
-            "Error: arguments incomplete for variants integration - lak input "
-            "files *.sam/bam\n");
-    exit(EXIT_FAILURE);
-  }
-  if (getVcfFile(opts) == NULL) {
-    fprintf(stderr,
-            "Error: arguments incomplete for variants integration - lak input "
-            "files *.vcf/bcf\n");
-    exit(EXIT_FAILURE);
-  }
-  if (getFaFile(opts) == NULL) {
-    fprintf(stderr,
-            "Error: arguments incomplete for variants integration - lak input "
-            "files *.fa/fna/fasta\n");
-    exit(EXIT_FAILURE);
-  }
-  if (getOutputFile(opts) == NULL) {
-    fprintf(stderr,
-            "Warning: output file not set. Set as default output file: "
-            "%s\n",
-            default_outputFile);
-    setOutputFile(opts, default_outputFile);
-  }
-}
-
 static inline int ifCanIntegrateAllele(RecVcf_bplus *rv, int alleleIdx,
                                        int startPos, int endPos) {
   // Ignore REF allele
@@ -946,8 +918,8 @@ void *integration_threads(void *args) {
   sprintf(path_outputFile, "%s.thread%" PRId64 "",
           getOutputFile(args_thread->opts), args_thread->id);
 
-  // printf("output file name for thread (%" PRId64 "): %s\n", args_thread->id,
-  //        path_outputFile);
+  printf("output file name for thread (%" PRId64 "): %s\n", args_thread->id,
+         path_outputFile);
 
   samFile *file_output = NULL;
   file_output = sam_open(path_outputFile, "w");
@@ -1121,8 +1093,36 @@ void *integration_threads(void *args) {
   return (void *)(args_thread->id);
 }
 
+void check_files_integration(Options *opts) {
+  if (getSamFile(opts) == NULL) {
+    fprintf(stderr,
+            "Error: arguments incomplete for variants integration - lak input "
+            "files *.sam/bam\n");
+    exit(EXIT_FAILURE);
+  }
+  if (getVcfFile(opts) == NULL) {
+    fprintf(stderr,
+            "Error: arguments incomplete for variants integration - lak input "
+            "files *.vcf/bcf\n");
+    exit(EXIT_FAILURE);
+  }
+  if (getFaFile(opts) == NULL) {
+    fprintf(stderr,
+            "Error: arguments incomplete for variants integration - lak input "
+            "files *.fa/fna/fasta\n");
+    exit(EXIT_FAILURE);
+  }
+  if (getOutputFile(opts) == NULL) {
+    fprintf(stderr,
+            "Warning: output file not set. Set as default output file: "
+            "%s\n",
+            default_outputFile);
+    setOutputFile(opts, default_outputFile);
+  }
+}
+
 void integration(Options *opts) {
-  check_files(opts);
+  check_files_integration(opts);
 
   // Init alignment parameters
   alignInitialize(getMatch(opts), getMismatch(opts), getGapopen(opts),
@@ -1138,8 +1138,7 @@ void integration(Options *opts) {
   clock_t time_end = 0;
   // Init structures (data storage and access)
   time_start = clock();
-  GenomeFa *gf = init_GenomeFa();
-  loadGenomeFaFromFile(gf, getFaFile(opts));
+  GenomeFa *gf = genomeFa_loadFile(getFaFile(opts));
   time_end = clock();
   printf("... %s loaded. time: %fs\n", getFaFile(opts),
          time_convert_clock2second(time_start, time_end));

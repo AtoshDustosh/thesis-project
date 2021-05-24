@@ -4,10 +4,10 @@
 #pragma once
 
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 
 #include "debug.h"
 #include "genomeFaMacros.h"
@@ -39,8 +39,18 @@ GenomeFa *init_GenomeFa();
 void destroy_GenomeFa(GenomeFa *gf);
 
 /*********************************************************************
- *                           Data Extraction
+ *                           Data Accessor
  ********************************************************************/
+
+/**
+ * @brief  Get length of the chromosome.
+ */
+extern uint32_t chromFa_length(ChromFa *cf);
+
+/**
+ * @brief  Get name of the chromosome.
+ */
+extern const char *chromFa_name(ChromFa *cf);
 
 /**
  * @brief  Get the chrom according to given info of that chromosome.
@@ -61,10 +71,9 @@ ChromFa *getChromFromGenomeFabyName(const char *name, GenomeFa *gf);
  * @brief Get the chrom according to given index of that chromosome in the
  * GenomeFa object.
  *
- * @param idx 0-based index of the ChromFa object in the GenomeFa object. Note
+ * @param idx 1-based index of the ChromFa object in the GenomeFa object. Note
  * that chrom 0 is the header chrom in GenomeFa object, and chrom 1, 2, ... are
- * the actual chroms containing bases. (so it is more like a 1-based index for
- * user)
+ * the actual chroms containing bases.
  * @retval ChromFa* pointer to the ChromFa object matching the given info; NULL
  * if not found
  */
@@ -88,15 +97,17 @@ Base getBase(ChromFa *cf, uint32_t pos);
  */
 char *getSeqFromChromFa(int64_t start, int64_t end, ChromFa *cf);
 
+/**
+ * @brief  Transit local position on a chromsome into the absolute position on the whole genome. For example, the current absolute position equals to the offset of current chromosome plus the ending position of its last chromosome.
+ * @param  id_chrom: 1-based index for chromsomes.
+ * @param  pos: 1-based position on current chromosome.
+ * @retval absolute position on the whole genome
+ */
+int64_t genomeFa_absolutePos(uint32_t id_chrom, int64_t pos, GenomeFa *gf);
+
 /*********************************************************************
  *                      Data Loading and Writing
  ********************************************************************/
-
-/**
- * @brief Load genome data into a GenomeFa object from designated file. Note
- * that the *.fa/*.fna file must match specifications.
- */
-void loadGenomeFaFromFile(GenomeFa *gf, const char *filePath);
 
 /**
  * @brief  Load genome data into a GenomeFa object from designated file.
@@ -107,16 +118,6 @@ GenomeFa *genomeFa_loadFile(char *filePath);
  * @brief Write genome data into a designated file.
  */
 void writeGenomeFaIntoFile(GenomeFa *gf, const char *filePath);
-
-// ********************************
-// Functions for Data Manipulating
-// ********************************
-
-/**
- * @brief  Parse the info line from *.fa/*.fna file and fill in ChromFa.
- * @retval 0 for success; 1 for failure.
- */
-static int parseFaInfo(ChromFa *cf, char *infoBuf);
 
 /**********************************
  * Debugging Methods for GenomeFa

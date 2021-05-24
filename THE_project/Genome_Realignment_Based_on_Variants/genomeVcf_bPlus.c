@@ -889,6 +889,11 @@ RecVcf_bplus *genomeVcf_bplus_getRecAfterPos(GenomeVcf_bplus *gv,
                                              const char *chromName,
                                              int64_t pos) {
   assert(pos >= 1);
+  // Locate the chromosome of vcf records
+  // The following codes used "static" to accelerate the process. But in a
+  // multi-thread program, I'm afraid that this may result in bugs. Because I
+  // didn't add a thread-lock here. So we used the simple impelmention.
+  /*
   static ChromVcf_bplus *lastUsed_chromVcf;
   if (lastUsed_chromVcf == NULL ||
       strcmp(lastUsed_chromVcf->name, chromName) != 0) {
@@ -907,6 +912,21 @@ RecVcf_bplus *genomeVcf_bplus_getRecAfterPos(GenomeVcf_bplus *gv,
   }
   // Locate and find record(s)
   VcfBPlusTree *bptree = lastUsed_chromVcf->tree;
+  */
+
+  ChromVcf_bplus *cf = gv->chroms;
+  while (cf != NULL) {
+    if (strcmp(cf->name, chromName) == 0) {
+      break;
+    } else {
+      cf = cf->next;
+    }
+  }
+  if (cf == NULL) {
+    return NULL;
+  }
+  VcfBPlusTree *bptree = cf->tree;
+
   VcfBPlusNode *bpnode = bptree->root;
 
   int ret_pointerIdx = -1;
@@ -1028,9 +1048,7 @@ inline bcf1_t *rv_object(RecVcf_bplus *rv) {
   return rv->data;
 }
 
-const char *rv_ID(RecVcf_bplus *rv){
-  return rv->data->d.id;
-}
+const char *rv_ID(RecVcf_bplus *rv) { return rv->data->d.id; }
 
 inline int64_t rv_pos(RecVcf_bplus *rv) {
   assert(rv->data != NULL);

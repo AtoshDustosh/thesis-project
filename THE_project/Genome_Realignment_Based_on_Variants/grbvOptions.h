@@ -26,21 +26,24 @@
 #define OPT_SET_FASTQFILE 103
 #define OPT_SET_SAMFILE 104
 #define OPT_SET_VCFFILE 105
+#define OPT_SET_AUXFILE 106
+
+static char *default_outputFile = "defaultOutput.txt";
 
 /*
  * Set basic parameters.
  */
 
-#define OPT_SET_SV_MIN_LEN 106
-#define OPT_SET_SV_MAX_LEN 107
+#define OPT_SET_SV_MIN_LEN 107
+#define OPT_SET_SV_MAX_LEN 108
 
-#define OPT_SET_MATCH 108
-#define OPT_SET_MISMATCH 109
-#define OPT_SET_GAPOPEN 110
-#define OPT_SET_GAPEXTENSION 111
+#define OPT_SET_MATCH 109
+#define OPT_SET_MISMATCH 110
+#define OPT_SET_GAPOPEN 111
+#define OPT_SET_GAPEXTENSION 112
 
 static const int default_sv_min_len = 50;
-static const int default_sv_max_len = 400;
+static const int default_sv_max_len = 300;
 
 /*
  * Some simple operations against files.
@@ -60,7 +63,11 @@ static const int default_sv_max_len = 400;
 #define _OPT_INTEGRATION_SVONLY 2
 #define _OPT_INTEGRATION_ALL 3
 
-#define OPT_THREADS 9999
+#define OPT_THREADS 401
+
+#define OPT_KMERGENERATION 501
+
+static const int default_kmerLength = 22;
 
 #define OPTION_CONFLICT 1
 
@@ -73,6 +80,7 @@ typedef struct _define_Options {
   char *samFile;
   char *vcfFile;
   char *outputFile;
+  char *auxFile;
 
   int sv_min_len;  // minimal length for a SV
   int sv_max_len;  // maximal length for a SV
@@ -83,13 +91,15 @@ typedef struct _define_Options {
   int gapExtension;
 
   int countRec;
-  int firstLines;    // also store the value of [firstline_number]
-  int extractChrom;  // also store the value of [chrom_idx]
+  int firstLines;    // also store value of [firstline_number]
+  int extractChrom;  // also store value of [chrom_idx]
 
-  int selectBadReads;  // also store the value of [MAPQ_threshold]
-  int threads;         // also store the value of [NUM_threads]
+  int selectBadReads;  // also store value of [MAPQ_threshold]
+  int threads;         // also store value of [NUM_threads]
 
-  int integration;  // also store the selection of [integration_strategy]
+  int integration;  // also store selection of [integration_strategy]
+
+  int kmerGeneration;  // also store value of [length_kmer]
 } Options;
 
 static inline void optCheck_conflict(Options *opts) {
@@ -112,6 +122,8 @@ static inline char *getFastqFile(Options *opts) { return opts->fastqFile; }
 static inline char *getSamFile(Options *opts) { return opts->samFile; }
 static inline char *getVcfFile(Options *opts) { return opts->vcfFile; }
 static inline char *getOutputFile(Options *opts) { return opts->outputFile; }
+static inline char *getAuxFile(Options *opts) { return opts->auxFile; }
+
 static inline void setOutputFile(Options *opts, char *op_file) {
   opts->outputFile = op_file;
 }
@@ -129,6 +141,13 @@ static inline int opt_threads(Options *opts) { return opts->threads; }
 
 static inline int opt_integration_strategy(Options *opts) {
   return opts->integration;
+}
+
+static inline int opt_get_kmerLength(Options *opts) {
+  return opts->kmerGeneration;
+}
+static inline void opt_set_kmerLength(int kmerLength, Options *opts) {
+  opts->kmerGeneration = kmerLength;
 }
 
 typedef struct _define_FileList {

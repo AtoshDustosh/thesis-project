@@ -1,0 +1,12 @@
+kmer对应的位置的问题
+
+insertion
+	插入的起始位点往后，每个kmer都加一个偏移
+
+deletion
+	删除的起始位点往后，kmer的pos为原来的参考基因组上的pos
+
+snp
+	不存在问题
+
+所以我就直接用那两个FILE指针读文件，遍历找kmer

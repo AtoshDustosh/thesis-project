@@ -19,6 +19,7 @@
 #include "grbvOperations.h"
 #include "grbvOptions.h"
 #include "integrateVcfToSam.h"
+#include "kmerGeneration.h"
 #include "simpleOperations.h"
 
 const char *optStr = "";
@@ -30,6 +31,7 @@ static struct option optInitArray[] = {
     {"fastqFile", required_argument, NULL, OPT_SET_FASTQFILE},
     {"samFile", required_argument, NULL, OPT_SET_SAMFILE},
     {"vcfFile", required_argument, NULL, OPT_SET_VCFFILE},
+    {"auxFile", required_argument, NULL, OPT_SET_AUXFILE},
 
     {"sv_min_len", required_argument, NULL, OPT_SET_SV_MIN_LEN},
     {"sv_max_len", required_argument, NULL, OPT_SET_SV_MAX_LEN},
@@ -45,6 +47,8 @@ static struct option optInitArray[] = {
     {"selectBadReads", required_argument, NULL, OPT_SELECTBADREADS},
     {"integrateVcfToSam", required_argument, NULL, OPT_INTEGRATEVCFTOSAM},
     {"threads", required_argument, NULL, OPT_THREADS},
+
+    {"kmerGeneration", required_argument, NULL, OPT_KMERGENERATION},
     {0, 0, 0, 0},
 };
 
@@ -55,19 +59,25 @@ static void Usage() {
 
   printf("Commands:\n");
   printf(" -- Set files. Do this first!\n");
-  printf("\toutputFile [filepath]\tset output file\n");
+  printf("\toutputFile [filepath]\tset output file. Default: %s\n",
+         default_outputFile);
   printf("\tfaFile [filepath]\tset reference genome file\n");
   printf("\tfastqFile [filepath]\tset fastq file\n");
   printf("\tsamFile [filepath]\tset sam file\n");
   printf("\tvcfFile [filepath]\tset vcf file\n");
   printf(
+      "\tauxFile [filepath]\tset auxiliary data file. Some options  require "
+      "additional input files: kmerGeneration\n");
+  printf(
       "\tsv_min_len [length]\tset minimal length for a SV. Designed for "
-      "integration.\n");
+      "integration. Default: %d\n",
+      default_sv_min_len);
   printf(
       "\tsv_max_len [length]\tset maximal length for a SV. Designed for "
       "integration. Do not set this parameter too big. That may cause the "
       "program running for decades! (combinations of too many variants "
-      "generated) Recommended value: 300\n");
+      "generated) Default: %d\n",
+      default_sv_max_len);
   printf("\tmatch [score]\tset score for match\n");
   printf("\tmismatch [score]\tset score for mismatch\n");
   printf("\tgapOpen [score]\tset score for gapOpen\n");
@@ -109,12 +119,19 @@ static void Usage() {
       "\t\t\t[integration_strategy]: [%d] SNP only; [%d] SV only; [%d] SNP and "
       "SV\n",
       _OPT_INTEGRATION_SNPONLY, _OPT_INTEGRATION_SVONLY, _OPT_INTEGRATION_ALL);
+  printf(
+      "\tkmerGeneration [length_kmer]\tRequested function: extract kmers from "
+      "specified intervals on reference genome. And integrate variants during "
+      "generation of kmers. Result will be output into specified file.\n");
+  printf("\n");
 }
 
 static int _testSet_full() {
-  // TODO debug session ...
+  // ... debug sector
   _testSet_auxiliaryMethods();
   printf("... auxiliary methods test passed. \n");
+  // _testSet_hashTable();
+  // printf("... hash table test passed. \n");
   _testSet_genomeFa();
   printf("... genomeFa test passed. \n");
   _testSet_genomeSam();
@@ -125,11 +142,12 @@ static int _testSet_full() {
   printf("... alignment test passed. \n");
   _testSet_grbvOperations();
   printf("... grbvOperation test passed. \n");
+  _testSet_generateKmers();
+  printf("... generateKmers test passed. \n");
   printf("... all test passed :)\n");
   printf("\n");
   // printf("press \"Enter\" to continue. \n");
   // getchar();
-  // ... debug session
   return 1;
 }
 
@@ -144,6 +162,7 @@ int main(int argc, char *argv[]) {
   options.samFile = NULL;
   options.vcfFile = NULL;
   options.outputFile = NULL;
+  options.auxFile = NULL;
 
   options.sv_min_len = default_sv_min_len;
   options.sv_max_len = default_sv_max_len;
@@ -157,6 +176,8 @@ int main(int argc, char *argv[]) {
 
   options.selectBadReads = 0;
   options.threads = 1;
+
+  options.kmerGeneration = 0;
 
   int optRet = getopt_long(argc, argv, optStr, optInitArray, NULL);
   while (1) {
@@ -203,6 +224,11 @@ int main(int argc, char *argv[]) {
         // loadGenomeVcfFromFile(gv, optarg);
         // printf("... genome data (%s) loaded successfully. \n", optarg);
         // printGenomeVcf(gv);
+        break;
+      }
+      case OPT_SET_AUXFILE:{
+        printf("Auxiliary data file: %s\n", optarg);
+        options.auxFile = optarg;
         break;
       }
       case OPT_SET_SV_MIN_LEN: {
@@ -298,6 +324,12 @@ int main(int argc, char *argv[]) {
         }
         // integrateVcfToSam_refactored(&options);
         integration(&options);
+        break;
+      }
+      case OPT_KMERGENERATION: {
+        optCheck_conflict(&options);
+        printf("Specified length for generated kmer: %s\n", optarg);
+        generateKmers(&options);
         break;
       }
       default:

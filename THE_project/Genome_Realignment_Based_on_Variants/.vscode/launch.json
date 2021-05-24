@@ -14,31 +14,37 @@
         // "--verbose",
 
         "--faFile",
-        // "data/test.fa",
-        "data/hs37d5_21.fa",
+        "data/test.fa",
+        // "data/hs37d5_21.fa",
         // "--fastqFile",
         // "data/test.fastq",
-        "--samFile",
+        // "--samFile",
         // "data/test.sam",
-        "data/simu.filtered.sam",
+        // "data/simu.filtered.sam",
         "--vcfFile",
-        // "data/test.vcf",
-        "data/merged.sorted.vcf",
+        "data/test.vcf",
+        // "data/merged.sorted.vcf",
+        "--auxFile",
+        "data/kmerIntervals.aux",
 
-        "--outputFile",
-        "data/grbvOut.sam",
+        // "--outputFile",
+        // "data/grbvOut.sam",
 
         // test grbv operations
         // "--selectBadReads",
         // "20",
 
-        "--thread",
-        "4",
+        // "--thread",
+        // "4",
 
-        "--integrateVcfToSam",
-        "3",
+        // "--integrateVcfToSam",
+        // "3",
 
-        // test simple operations
+        // test other opterations
+        
+        "--kmerGeneration",
+        "23",
+
         // "--countRec",
         // "--firstLines 30",
       ],

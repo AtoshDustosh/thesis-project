@@ -18,9 +18,6 @@
 #include "genomeVcf_bPlus.h"
 #include "grbvOptions.h"
 
-
-static char* default_outputFile = "defaultOutput.txt";
-
 /**
  * @brief  Final version of integrating vcf records into sam records.
  */

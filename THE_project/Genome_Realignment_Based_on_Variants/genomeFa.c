@@ -1,7 +1,11 @@
 #include "genomeFa.h"
 
+/*********************************************************************
+ *                Auxiliary Structures and Functions
+ ********************************************************************/
+
 /**
- * @brief  A linked list with no empty header. Designed for initializing
+ * @brief  A linked list without empty header. Designed for initializing
  * memories before loading reference genome.
  */
 typedef struct ProfileFa ProfileFa;
@@ -12,32 +16,95 @@ struct ProfileFa {
   ProfileFa *next;  // next chromosome's profile, if exists
 };
 
-static ProfileFa *init_ProfileFa(const char *filePath) {
+/**
+ * @brief  Initialize profiles from an input reference genome file and return
+ * * pointer to a linked list of ProfileFas without empty header.
+ */
+ProfileFa *init_ProfileFa(const char *filePath);
+void print_ProfileFa(ProfileFa *profile);
+
+/**
+ * @brief  Destroy an object of ProfileFa and return pointer to the profile of
+ * next chromosome.
+ */
+ProfileFa *destroy_Profile(ProfileFa *profile);
+
+ProfileFa *init_ProfileFa(const char *filePath) {
   FILE *fp = fopen(filePath, "r");
   if (fp == NULL) {
     fprintf(stderr, "Error: empty file pointer. \n");
     exit(EXIT_FAILURE);
   }
-  
+
+  ProfileFa *profile = (ProfileFa *)calloc(1, sizeof(ProfileFa));
+  ProfileFa *tmp_profile = profile;
+  ProfileFa *new_profile = NULL;
+
   uint32_t pos_bp = 1;  // 1-based position within chromosome
-  
-  char buf_info[MAX_INFO_LENGTH]; // buffer for info line of the file
-  int idx_buf_info = 0; // index for buf_info
+
+  char buf_info[MAX_INFO_LENGTH];  // buffer for info line of the file
+  int idx_buf_info = 0;            // index for buf_info
 
   bool isBpLine = false;
-  
+
   char tmpCh;
-  while((tmpCh = fgetc(fp)) != EOF){
-    // TODO Extract the profile
+  while ((tmpCh = fgetc(fp)) != EOF) {
+    if (tmpCh == '>') {
+      if (pos_bp != 1) {
+        new_profile->length = pos_bp - 1;
+        tmp_profile->next = new_profile;
+        tmp_profile = new_profile;
+      }
+      isBpLine = false;
+      idx_buf_info = 0;
+      pos_bp = 1;
+      buf_info[idx_buf_info++] = tmpCh;
+      continue;
+    }
+    // Extract the profile
+    if (isBpLine == false) {  // Extract info line
+      if (tmpCh == '\n') {    // Reach the end of info line
+        buf_info[idx_buf_info] = '\0';
+        new_profile = (ProfileFa *)calloc(1, sizeof(ProfileFa));
+        new_profile->info = strdup(buf_info);
+        isBpLine = true;
+      } else {  // Buffer character received from info line
+        buf_info[idx_buf_info++] = tmpCh;
+      }
+    } else {  // Extract bases
+      if (tmpCh == '\n') {
+        continue;
+      } else {
+        pos_bp++;
+      }
+    }
+  }
+  if (pos_bp != 1) {
+    new_profile->length = pos_bp - 1;
+    tmp_profile->next = new_profile;
+    tmp_profile = new_profile;
   }
 
   fclose(fp);
-  return NULL;
+
+  return destroy_Profile(profile);
 }
 
-/*********************************************************************
- *                     Auxiliary Functions
- ********************************************************************/
+void print_ProfileFa(ProfileFa *profile) {
+  ProfileFa *tmp_profile = profile;
+  while (tmp_profile != NULL) {
+    printf("info: %s, length: %" PRIu32 "\n", tmp_profile->info,
+           tmp_profile->length);
+    tmp_profile = tmp_profile->next;
+  }
+}
+
+ProfileFa *destroy_Profile(ProfileFa *profile) {
+  ProfileFa *next = profile->next;
+  free(profile->info);
+  free(profile);
+  return next;
+}
 
 /**
  * @brief  (helper function) Code the bpBuf array (a string with A,C,G,T) into a
@@ -92,6 +159,38 @@ static ChromFa *init_ChromFa() {
     fprintf(stderr, "Error: no enough memory for a new chrom.\n");
     exit(EXIT_FAILURE);
   }
+  return cf;
+}
+
+static ChromFa *init_ChromFa_info_length(const char *info,
+                                         const uint32_t length) {
+  ChromFa *cf = (ChromFa *)calloc(1, sizeof(ChromFa));
+  if (cf == NULL) {
+    fprintf(stderr, "Error: no enough memory for a new chrom.\n");
+    exit(EXIT_FAILURE);
+  }
+  uint32_t length_info = strlen(info);
+  cf->info = strdup(info);
+  cf->length = length;
+  cf->codedBases =
+      (uint64_t *)calloc((length - 1) / BP_PER_UINT64 + 1, sizeof(uint64_t));
+
+  // Find "name" of the chromosome (">name other")
+  if (info[0] != '>') {
+    fprintf(stderr, "Error: info line of chromosome invalid - %s\n", info);
+    exit(EXIT_FAILURE);
+  }
+  char buf_name[MAX_INFO_LENGTH];
+  memset(buf_name, 0, MAX_INFO_LENGTH);
+  for (int i = 0; i < length_info; i++) {
+    char tmp_char = info[i + 1];
+    if (tmp_char == ' ' || tmp_char == '\t') {
+      break;
+    } else {
+      buf_name[i] = tmp_char;
+    }
+  }
+  cf->name = strdup(buf_name);
   return cf;
 }
 
@@ -162,8 +261,12 @@ void destroy_GenomeFa(GenomeFa *gf) {
 }
 
 /*********************************************************************
- *                           Data Extraction
+ *                           Data Accessor
  ********************************************************************/
+
+inline uint32_t chromFa_length(ChromFa *cf) { return cf->length; }
+
+inline const char *chromFa_name(ChromFa *cf) { return cf->name; }
 
 ChromFa *getChromFromGenomeFabyInfo(const char *info, GenomeFa *gf) {
   if (gf == NULL) {
@@ -256,152 +359,103 @@ char *getSeqFromChromFa(int64_t start, int64_t end, ChromFa *cf) {
   return seq;
 }
 
+int64_t genomeFa_absolutePos(uint32_t id_chrom, int64_t pos, GenomeFa *gf) {
+  // TODO check and debug
+  int64_t pos_abs = pos;
+  ChromFa *tmp_cf = gf->chroms;
+  uint32_t tmp_id_chrom = 0;
+  while (tmp_cf != NULL) {
+    if (tmp_id_chrom == id_chrom) {
+      break;
+    } else {
+      pos_abs = pos_abs + tmp_cf->length;
+      tmp_cf = tmp_cf->next;
+      tmp_id_chrom++;
+    }
+  }
+  return pos_abs;
+}
+
 /*********************************************************************
  *                      Data Loading and Writing
  ********************************************************************/
 
 GenomeFa *genomeFa_loadFile(char *filePath) {
-  // TODO
-  return NULL;
-}
+  GenomeFa *gf = init_GenomeFa();
+  // Initialie profiles of all chromosomes
 
-void loadGenomeFaFromFile(GenomeFa *gf, const char *filePath) {
+  ProfileFa *profile = init_ProfileFa(filePath);
+  // print_ProfileFa(profile);
+
+  // Add chromosomes according to profiles of them and destroy profiles
+  ProfileFa *tmp_profile = profile;
+  while (tmp_profile != NULL) {
+    ChromFa *tmp_cf =
+        init_ChromFa_info_length(tmp_profile->info, tmp_profile->length);
+    addChromToGenome(tmp_cf, gf);
+    tmp_profile = destroy_Profile(tmp_profile);
+  }
+
+  char buf_bases[BP_PER_UINT64 + 1];
+  int idx_buf_bases = 0;
+
+  bool isBpLine = false;
+  uint32_t pos_bp = 1;  // 1-based position of bases within chrom
+
+  ChromFa *current_cf = gf->chroms;  // Temporary under processing chrom
+
   FILE *fp = fopen(filePath, "r");
   if (fp == NULL) {
-    fprintf(stderr, "Error: empty file pointer. \n");
-    exit(EXIT_FAILURE);
-  }
-  if (gf == NULL) {
-    fprintf(stderr, "Error: null pointer for GenomeFa\n");
+    fprintf(stderr, "Error: failed to open file - %s\n", filePath);
     exit(EXIT_FAILURE);
   }
 
-  char bpBuf[BP_PER_UINT64 + 1];  // buffer for bases in *.fa file
-  char infoBuf[MAX_INFO_LENGTH];  // buffer for info line in *.fa file
-  int bpBufIdx = 0;
-  int infoBufIdx = 0;
-  int bpPosWithinChrom =
-      1;  // 1-base position of bases within chrom. The index of coded bases
-          // element index in the ChromFa object needs to be calculated
-  int isBpLine = 0;  // if the current line contains the bases
-  int ifIgnore = 0;  // selectively ignore chroms whose info lines do not match
-                     // the specifications
-  ChromFa *currentCf = NULL;  // current chrom to be loaded from file. This can
-                              // accelerate the program by cutting off repeative
-                              // steps of getting the ChromFa object
-  uint32_t currentCfloadedCnt = 0;
-
-  char tmpCh;
-  while ((tmpCh = fgetc(fp)) != EOF) {
-    // use some little tricks to set the value of isBpLine and initialize the
-    // GenomeFa object for following base-coding process
-    if (tmpCh == '>') {     // reach the start of the info line
-      if (bpBufIdx != 0) {  // flush the uncoded bases in the bpBuf. This is
-                            // executed when the bpBuf is not filled up but the
-                            // chromosome has already reached its end.
-        bpBuf[bpBufIdx] = '\0';
-        // printf("currentCf array idx: %ld\n",
-        //        (bpPosWithinChrom - 1) / BP_PER_UINT64);
-        // printf("bpPos: %d\n", bpPosWithinChrom);
-        // printf("\tbpBuf: %s\n", bpBuf);
-        // printf("\tcoded: 0x%" PRIx64 "\n", codeBpBuf(bpBuf));
-        currentCf->codedBases[(bpPosWithinChrom - 1) / BP_PER_UINT64] =
-            codeBpBuf(bpBuf);
-        bpBufIdx = 0;
+  char tmp_char;
+  while ((tmp_char = fgetc(fp)) != EOF) {
+    if (tmp_char == '>') {
+      if (idx_buf_bases != 0) {
+        buf_bases[idx_buf_bases] = '\0';
+        current_cf->codedBases[(pos_bp - 1) / BP_PER_UINT64] =
+            codeBpBuf(buf_bases);
+        idx_buf_bases = 0;
       }
-      isBpLine = 0;
-      infoBufIdx = 0;
-      infoBuf[infoBufIdx++] = tmpCh;
-      ifIgnore = 0;
+      isBpLine = false;
       continue;
     }
-    if (ifIgnore == 1) {
-      continue;
-    }
-    if (isBpLine == 0) {
-      if (tmpCh == '\n') {           // reach the end of the info line
-        infoBuf[infoBufIdx] = '\0';  // pad the end of a string
-        // pass the info string to the helper function for process
-        // if (newInfoForGenomeFa(gf, infoBuf) == 0) {
-        //   // fprintf(
-        //   //     stderr,
-        //   //     "Error: failed to modify GenomeFa according to info line.
-        //   \n");
-        //   // exit(EXIT_FAILURE);
-        //   // if the format does not match the specifications, ignore it
-        //   fprintf(stderr, "chrom ignored: \"%s\"\n", infoBuf);
-        //   ifIgnore = 1;
-        //   continue;
-        // }
-        ChromFa *tmpCf = init_ChromFa();
-        if (parseFaInfo(tmpCf, infoBuf)) {
-          fprintf(stderr,
-                  "Warning: chrom info line invalid. Ignore chrom: \"%s\"\n",
-                  infoBuf);
-          ifIgnore = 1;
-        }
-        addChromToGenome(tmpCf, gf);
-        if ((currentCf = getChromFromGenomeFabyInfo(infoBuf, gf)) == NULL) {
-          fprintf(stderr, "Error: failed to add the chrom with info \'%s\'\n",
-                  infoBuf);
-          exit(EXIT_FAILURE);
-        }
-        isBpLine = 1;
-        currentCfloadedCnt = 0;
-        bpPosWithinChrom =
-            1;  // forgetting about this will result in an error when malloc()
-                // memory for a new ChromFa (I don't know why)
-        continue;
-      } else {  // extract info line from *.fa file and put into infoBuf
-        infoBuf[infoBufIdx++] = tmpCh;
+    if (isBpLine == false) {
+      if (tmp_char == '\n') {  // reach the end of info line
+        current_cf = current_cf->next;
+        isBpLine = true;
+        pos_bp = 1;
+      } else {  // Ignore the info line characters
         continue;
       }
-    }  // end of (isBpLine == 0)
-
-    // code the bases into binary integers and store them into the
-    // designated data structure properly.
-    if (isBpLine == 1) {
-      if (tmpCh == '\n') {
+    } else {  // Code bases into 64-bit integers and store them into chromsomes
+      if (tmp_char == '\n') {  // Ignore the line shifters
         continue;
       } else {
-        bpBuf[bpBufIdx++] = tmpCh;
-        currentCfloadedCnt++;
-        if (currentCfloadedCnt > currentCf->length) {
-          fprintf(stderr,
-                  "Error: info field of chrom incompatitable with number of "
-                  "bases - \"%s\"\n",
-                  currentCf->info);
-          exit(EXIT_FAILURE);
+        buf_bases[idx_buf_bases++] = tmp_char;
+        if (idx_buf_bases == BP_PER_UINT64) {  // when the buf_bases is full
+          buf_bases[idx_buf_bases] = '\0';
+          current_cf->codedBases[(pos_bp - 1) / BP_PER_UINT64] =
+              codeBpBuf(buf_bases);
+          idx_buf_bases = 0;
         }
-        if (bpBufIdx == BP_PER_UINT64) {  // when the bpBuf is full
-          bpBuf[bpBufIdx] = '\0';
-          // printf("currentCf array idx: %ld\n",
-          //        (bpPosWithinChrom - 1) / BP_PER_UINT64);
-          // printf("bpPos: %d\n", bpPosWithinChrom);
-          // printf("\tbpBuf: %s\n", bpBuf);
-          // printf("\tcoded: 0x%" PRIx64 "\n", codeBpBuf(bpBuf));
-          currentCf->codedBases[(bpPosWithinChrom - 1) / BP_PER_UINT64] =
-              codeBpBuf(bpBuf);
-          bpBufIdx = 0;
-        }
-        bpPosWithinChrom++;
+        pos_bp++;
       }
-    }  // end of (isBpLine == 1)
+    }
   }
-  // flush the uncoded bases in the bpBuf. This is executed when the bpBuf is
-  // not filled up but the chromosome has already reached its end.
-  if (bpBufIdx != 0) {
-    bpBuf[bpBufIdx] = '\0';
-    // printf("currentCf array idx: %ld\n",
-    //        (bpPosWithinChrom - 1) / BP_PER_UINT64);
-    // printf("bpPos: %d\n", bpPosWithinChrom);
-    // printf("\tbpBuf: %s\n", bpBuf);
-    // printf("\tcoded: 0x%" PRIx64 "\n", codeBpBuf(bpBuf));
-    currentCf->codedBases[(bpPosWithinChrom - 1) / BP_PER_UINT64] =
-        codeBpBuf(bpBuf);
-    bpBufIdx = 0;
+  // If the file doesn't have an empty line at the end, flush the buf_bases
+  if (idx_buf_bases != 0) {
+    buf_bases[idx_buf_bases] = '\0';
+    current_cf->codedBases[(pos_bp - 1) / BP_PER_UINT64] = codeBpBuf(buf_bases);
+    idx_buf_bases = 0;
   }
+
   fclose(fp);
+
+  // printGenomeFa(gf);
+  return gf;
 }
 
 void writeGenomeFaIntoFile(GenomeFa *gf, const char *filePath) {
@@ -425,74 +479,6 @@ void writeGenomeFaIntoFile(GenomeFa *gf, const char *filePath) {
     tmpCf = tmpCf->next;
   }
   fclose(fp);
-}
-
-static int parseFaInfo(ChromFa *cf, char *infoBuf) {
-  /*
-   * This method uses a very useful C library method strstr(). It searches the
-   * start position of a sub-string within a string. See more details on the
-   * internet.
-   */
-  if (cf == NULL) {
-    assert(fprintf(stderr,
-                   "Error: null pointer occurred for a ChromFa object. \n"));
-    exit(EXIT_FAILURE);
-  }
-  // CAUSION: this "+1" is necessary because of the '\0' at the end of a string.
-  uint32_t infoLen = strlen(infoBuf) + 1;
-  cf->info = (char *)calloc(infoLen, sizeof(char));
-  strcpy(cf->info, infoBuf);
-
-  // find tag ">" (chromName is right after it)
-  const char *nameTag = ">";
-  char *nameStart = strstr(cf->info, nameTag);
-  if (nameStart == NULL) {
-    return 1;
-  } else {
-    for (int i = 0; i < strlen(nameTag); i++) {
-      nameStart++;
-    }
-    // printf("%s\n", nameStart);
-    char buf[100];  // Hope all name contains no more than 100 char.
-    for (int i = 0; i < 100; i++) {
-      if (*nameStart != ' ') {
-        buf[i] = *nameStart;
-        nameStart++;
-      } else {
-        buf[i] = '\0';
-        break;
-      }
-    }
-    cf->name = (char *)calloc(strlen(buf), sizeof(char));
-    strcpy(cf->name, buf);
-  }
-
-  // find tag "LN:"
-  const char *LNtag = "  LN:";
-  char *LNstart = strstr(cf->info, LNtag);
-  if (LNstart == NULL) {
-    return 1;
-  } else {
-    for (int i = 0; i < strlen(LNtag); i++) {
-      LNstart++;
-    }
-    // printf("%s\n", LNstart);
-    char buf[20];  // There hardly exists "LN" larger than 10^20
-    for (int i = 0; i < 20; i++) {
-      if ('0' <= *LNstart && *LNstart <= '9') {
-        buf[i] = *LNstart;
-        LNstart++;
-      } else {
-        buf[i] = '\0';
-        break;
-      }
-    }
-    uint32_t length = atoi(buf);
-    cf->length = length;
-    cf->codedBases =
-        (uint64_t *)calloc((length - 1) / BP_PER_UINT64 + 1, sizeof(uint64_t));
-  }
-  return 0;
 }
 
 /****************************************************************/
@@ -635,9 +621,7 @@ static void _test_CodingBases_Plus() {
       "CGTACGTAAGGGTTTAACCAAGTAACAAAAAAAAAAACCCCCGGATTTTAAAAAAAACGTACGTACGTACGT"
       "ACGTAAAAAAGGGAAATTTAACAAAAAAAAGAGAATTACCCCCAATAAAAAAAAATTTTTTTTTTTTT"};
   const uint32_t testCnt = sizeof(chromName) / sizeof(char *);
-  GenomeFa *gf = init_GenomeFa();
-
-  loadGenomeFaFromFile(gf, "data/test.fa");
+  GenomeFa *gf = genomeFa_loadFile("data/test.fa");
 
   for (int i = 0; i < testCnt; i++) {
     ChromFa *cf = getChromFromGenomeFabyName(chromName[i], gf);
@@ -651,22 +635,6 @@ static void _test_CodingBases_Plus() {
   destroy_GenomeFa(gf);
 }
 
-static void _test_InfoParser() {
-  char *testInfo =
-      ">chr21  AC:CM000683.2  gi:568336003  LN:46709983  rl:Chromosome  "
-      "M5:974dc7aec0b755b19f031418fdedf293  AS:GRCh38  hm:multiple";
-  ChromFa *cf = init_ChromFa();
-
-  parseFaInfo(cf, testInfo);
-
-  assert(cf->info == NULL || strcmp(cf->info, testInfo) == 0);
-  assert(strcmp(cf->name, "chr21") == 0);
-  assert(cf->length = 46709983);
-  assert(cf->next == NULL);
-
-  destroy_ChromFa(cf);
-}
-
 static void _test_SeqExtractor() {
   const uint64_t testStart[] = {1, 53, 71};
   const uint64_t testEnd[] = {34, 85, 71};
@@ -674,9 +642,7 @@ static void _test_SeqExtractor() {
                            "TAGACACCCCCACGTACGTACGTACGTACGTCC", "T"};
   const char *testName[] = {"chr1", "chr1", "chr1"};
   const uint32_t testCnt = sizeof(testStart) / sizeof(uint64_t);
-  GenomeFa *gf = init_GenomeFa();
-
-  loadGenomeFaFromFile(gf, "data/test.fa");
+  GenomeFa *gf = genomeFa_loadFile("data/test.fa");
 
   for (int i = 0; i < testCnt; i++) {
     ChromFa *tmpCf = getChromFromGenomeFabyName(testName[i], gf);
@@ -691,9 +657,9 @@ static void _test_SeqExtractor() {
 }
 
 static void _test_Loader() {
-  GenomeFa *gf = init_GenomeFa();
+  GenomeFa *gf = genomeFa_loadFile("data/example.fa");
 
-  loadGenomeFaFromFile(gf, "data/example.fa");
+  // printGenomeFa(gf);
 
   uint32_t testFaCfs_length[] = {151, 203, 152, 142};
   char *testFaCfs_info[] = {
@@ -741,9 +707,7 @@ static void _test_Loader() {
 }
 
 static void _test_Writer() {
-  GenomeFa *gf = init_GenomeFa();
-
-  loadGenomeFaFromFile(gf, "data/test.fa");
+  GenomeFa *gf = genomeFa_loadFile("data/test.fa");
 
   // printGenomeFa(gf);
 
@@ -752,18 +716,27 @@ static void _test_Writer() {
   destroy_GenomeFa(gf);
 }
 
+static void _test_Loader_refactored() {
+  GenomeFa *gf = genomeFa_loadFile("data/example.fa");
+
+  // printGenomeFa(gf);
+
+  destroy_GenomeFa(gf);
+}
+
 void _testSet_genomeFa() {
   _test_StructureLinks();
   _test_CodingBases();
   _test_CodingBases_Plus();
-  _test_InfoParser();
   _test_SeqExtractor();
   _test_Loader();
   _test_Writer();
+  _test_Loader_refactored();
 }
 
 void printGenomeFa(GenomeFa *gf) {
   printf("number of chroms: %d\n", gf->chromCnt);
+  // Ignore the empty header of the linked list
   ChromFa *tmpCf = gf->chroms->next;
   while (tmpCf != NULL) {
     printf("info: %s\n", tmpCf->info);
