@@ -211,9 +211,12 @@ int main(int argc, char *argv[]) {
         options.samFile = optarg;
         // Should not create gs here.
         // GenomeSam *gs = init_GenomeSam();
+        // clock_t time_start = clock();
         // loadGenomeSamFromFile(gs, optarg);
-        // printf("... genome data (%s) loaded successfully. \n", optarg);
-        // printGenomeSam(gs);
+        // clock_t time_end = clock();
+        // printf("... genome data (%s) loaded successfully. Time: %fs\n", optarg,
+        //        time_convert_clock2second(time_start, time_end));
+        // printGenomeSam_brief(gs);
         // destroy_GenomeSam(gs);
         break;
       }
@@ -226,7 +229,7 @@ int main(int argc, char *argv[]) {
         // printGenomeVcf(gv);
         break;
       }
-      case OPT_SET_AUXFILE:{
+      case OPT_SET_AUXFILE: {
         printf("Auxiliary data file: %s\n", optarg);
         options.auxFile = optarg;
         break;

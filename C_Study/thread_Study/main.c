@@ -5,8 +5,8 @@
 #include "thread_study.h"
 
 int main(int argc, char *argv[]) {
-  int cnt_threads = 10;
-  int64_t cnt_iteration = 2010010010;
+  int cnt_threads = 5;
+  int64_t cnt_iteration = 500;
 
   clock_t time_start = clock();
   int64_t tmp_iteration = 0;

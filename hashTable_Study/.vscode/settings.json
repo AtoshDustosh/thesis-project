@@ -1,7 +1,0 @@
-{
-  "files.associations": {
-    "kmerhashtable.h": "c",
-    "string.h": "c",
-    "sstream": "c"
-  }
-}

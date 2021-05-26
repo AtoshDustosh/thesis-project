@@ -164,29 +164,59 @@ void addChromToGenomeSam(ChromSam *cs, GenomeSam *gs) {
 }
 
 void addRecToChromSam(RecSam *rs, ChromSam *cs) {
-  RecSam *tmpRec = cs->rss->next;
-  RecSam *lastRec = cs->rss;
-
-  if (tmpRec == NULL) {
-    lastRec->next = rs;
+  // Use static variables to accelerate the program
+  static RecSam *lastAddedRec;
+  static ChromSam *lastUsedChrom;
+  if (lastAddedRec == NULL || lastUsedChrom == NULL) {  // No records added yet
+    // RecSams are organized as a linked-list with an empty header
+    assert(cs->rss->next == NULL);
+    cs->rss->next = rs;
     cs->recCnt++;
+    lastAddedRec = rs;
+    lastUsedChrom = cs;
     return;
-  }
-  while (tmpRec != NULL) {
-    if (getRecSam_pos(tmpRec) <= getRecSam_pos(rs)) {
-      lastRec = tmpRec;
-      tmpRec = tmpRec->next;
-    } else {  // when pos(rs) < pos(tmpRec), insert rs between
-              // "...,lastRec,tmpRec,..."
+  } else {  // If some records have been added, to this chrom or oher chroms
+    if (lastUsedChrom == cs) {  // used chroms are the same
+      if (rsDataPos(rs) > rsDataPos(lastAddedRec)) {
+        lastAddedRec->next = rs;
+        cs->recCnt++;
+        lastAddedRec = rs;
+        return;
+      }
+    }
+    // Another chrom
+    // Search from the first record in the chrom
+    RecSam *tmpRec = cs->rss->next;
+    RecSam *lastRec = cs->rss;
+
+    if (tmpRec == NULL) {
       lastRec->next = rs;
-      rs->next = tmpRec;
       cs->recCnt++;
+      lastAddedRec = rs;
+      lastUsedChrom = cs;
       return;
     }
+    while (tmpRec != NULL) {
+      if (rsDataPos(tmpRec) <= rsDataPos(rs)) {
+        lastRec = tmpRec;
+        tmpRec = tmpRec->next;
+      } else {  // when pos(rs) < pos(tmpRec), insert rs between
+                // "...,lastRec,tmpRec,..."
+        lastRec->next = rs;
+        rs->next = tmpRec;
+        cs->recCnt++;
+        lastAddedRec = rs;
+        lastUsedChrom = cs;
+        return;
+      }
+    }
+    // If always pos(tmpRec) <= pos(rs), add rs to the end of the chrom
+    lastRec->next = rs;
+    cs->recCnt++;
+    lastAddedRec = rs;
+    lastUsedChrom = cs;
+    return;
   }
-  // if always pos(tmpRec) <= pos(rs), add rs to the end
-  lastRec->next = rs;
-  cs->recCnt++;
 }
 
 ChromSam *getChromFromGenomeSam(char *chromName, GenomeSam *gs) {
@@ -256,7 +286,7 @@ void loadGenomeSamFromFile(GenomeSam *gs, char *filePath) {
   ChromSam *lastUsedChrom = NULL;
   uint32_t loadedCnt = 0;
   while (sam_read1(fp, hdr, rec) >= 0) {
-    // printSamRecord_brief(hdr, rec);
+    // printSamRecord_brief(gs, rec);
     loadedCnt++;
     RecSam *newRs = init_RecSam();
     newRs->rec = bam_dup1(rec);
@@ -280,6 +310,8 @@ void loadGenomeSamFromFile(GenomeSam *gs, char *filePath) {
       }
       addRecToChromSam(newRs, lastUsedChrom);
     }
+
+    // printGenomeSam(gs);
   }
 
   bam_destroy1(rec);
@@ -298,7 +330,7 @@ void writeGenomeSamIntoFile(GenomeSam *gs, char *filePath) {
   RecSam *tmpRs = gsItNextRec(gsIt);
 
   // write file headers and macros
-  if(sam_hdr_write(fp, gsDataHdr(gs)) < 0){
+  if (sam_hdr_write(fp, gsDataHdr(gs)) < 0) {
     fprintf(stderr, "Error: failed to write sam file header. \n");
     exit(EXIT_FAILURE);
   }
@@ -515,5 +547,15 @@ void printChromSam(GenomeSam *gs, ChromSam *cs) {
   while (rs != NULL) {
     printSamRecord_brief(gs, rsData(rs));
     rs = rs->next;
+  }
+}
+
+void printGenomeSam_brief(GenomeSam *gs) {
+  if (gs == NULL) return;
+  printSamHeader(gs->hdr);
+  ChromSam *tmpCs = gs->css;
+  while (tmpCs != NULL) {
+    printf("chrom: %s, recCnt: % " PRIu32 "\n", tmpCs->name, tmpCs->recCnt);
+    tmpCs = tmpCs->next;
   }
 }

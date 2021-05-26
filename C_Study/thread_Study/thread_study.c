@@ -27,16 +27,19 @@ void *thread_iterate(void *thread_data) {
   }
   clock_t time_end = clock();
 
-  float time_taken = (float)(time_end - time_start) / CLOCKS_PER_SEC;
-  // printf("time start: %lu, time end: %lu\n", time_start, time_end);
-  printf("time taken: %fs for thread (%" PRId64 ")\n", time_taken, data->id);
-
   // Lock
   if (pthread_mutex_lock(&mutex_statistics) != 0) {
     perror("pthread_mutex_lock");
     exit(EXIT_FAILURE);
   }
+
+  float time_taken = (float)(time_end - time_start) / CLOCKS_PER_SEC;
+  // printf("time start: %lu, time end: %lu\n", time_start, time_end);
   data->statistics->time_taken += time_taken;
+  printf("time taken: %fs for thread (%" PRId64 ")\n", time_taken, data->id);
+  printf("total time after threads(%" PRId64 "): %lfs\n", data->id,
+         data->statistics->time_taken);
+
   // Unlock
   if (pthread_mutex_unlock(&mutex_statistics) != 0) {
     perror("pthread_mutex_unlock");

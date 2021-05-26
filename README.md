@@ -11,7 +11,7 @@
 - compile:
 <font color=#006400 size=4>.../THE_project/Genome_Realignment_Based_on_Variants $</font> gcc \*.c -o main -lhts -lpthread
 
-Required libraries and tools:
+Required additional libraries and tools:
 
 - for compilation, htslib
 - for data process, samtools & bcftools

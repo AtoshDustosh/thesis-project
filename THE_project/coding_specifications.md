@@ -1,8 +1,8 @@
 # Coding Specifications
 
 
-## 1. 注释的规范(类似JavaDoc)
-计划注释的使用格式
+## 1. Comments (JavaDoc style)
+
 ```
 /**
  * @brief [what this function does]
@@ -18,13 +18,14 @@ int func(int arg1, char *arg2, MyStruct *arg3, ...){
    * some static or local variables, and the reasons of why coding
    * the function like this. 
    */
+  // ---------------------- procedure 1 -----------------------------
   [procedure 1]
-  // partrition the code for better reading and designing
+  // ---------------------- procedure 2 -----------------------------
   [procedure 2]
   return value;
 }
 ```
-## 2. 代码的规范(Google风格)
+## 2. Codes (Google style)
 ```
 RetType funcTest(ArgType1 arg1, ArgType2 arg2, ...) {
   LocalVarType1 var1;
@@ -33,6 +34,7 @@ RetType funcTest(ArgType1 arg1, ArgType2 arg2, ...) {
   // ...
   
   for(int i = 0; i < argX; i++) {
+    LocalVarType4 tmp_Var;
     // ...
     if( ... ) {
       // ...
@@ -47,10 +49,8 @@ RetType funcTest(ArgType1 arg1, ArgType2 arg2, ...) {
 }
 ```
 
-## 3. 编译运行的规范
-
-编译指令：gcc *.c -o main -lhts -lpthread
-
-程序使用：./main \<command\> \[arguments\]
-
-Usage可以直接通过命令行"./main"显示
+## 3. Naming Rules
+```
+1. type_operation
+2. typeOperation
+```

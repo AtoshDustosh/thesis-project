@@ -295,4 +295,6 @@ void printGenomeSam(GenomeSam *gs);
 
 void printChromSam(GenomeSam *gs, ChromSam *cs);
 
+void printGenomeSam_brief(GenomeSam *gs);
+
 #endif
