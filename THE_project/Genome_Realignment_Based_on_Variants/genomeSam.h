@@ -6,8 +6,8 @@
 #include <htslib/hts.h>
 #include <htslib/sam.h>
 #include <inttypes.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "debug.h"
@@ -198,13 +198,13 @@ static inline bam_hdr_t *gsDataHdr(GenomeSam *gs) { return gs->hdr; }
  * Methods for manipulating GenomeVcf
  ************************************/
 
-static RecSam *init_RecSam();
+RecSam *init_RecSam();
 
-static void destroy_RecSam(RecSam *rs);
+void destroy_RecSam(RecSam *rs);
 
-static ChromSam *init_ChromSam();
+ChromSam *init_ChromSam();
 
-static void destroy_ChromSam(ChromSam *cs);
+void destroy_ChromSam(ChromSam *cs);
 
 /**
  * @brief  Create and initialize a GenomeSam object.
@@ -248,18 +248,6 @@ ChromSam *getChromFromGenomeSam(char *chromName, GenomeSam *gs);
  * @param  idx: 0-based index/id for the sam record.
  */
 RecSam *getRecFromChromSam(uint32_t idx, ChromSam *cs);
-
-// TODO get methods for fields of a sam record
-/**
- * @brief  Get the position field of the sam record
- */
-#define getRecSam_pos(rs) rs->rec->core.pos
-
-/**
- * @brief  Return a copy of chrom name got from RecSam object.
- * @retval chrom name. The returned string must be freed manually later.
- */
-char *getRecSam_chNam(RecSam *rs, GenomeSam *gs);
 
 /*******************
  * Methods for users

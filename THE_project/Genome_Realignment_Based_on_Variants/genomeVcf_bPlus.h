@@ -154,12 +154,13 @@ void genomeVcf_bplus_traverse(GenomeVcf_bplus *gv);
  ************************************/
 
 /**
- * @brief  Insert a record into genomeVcf.
+ * @brief  Insert a record into genomeVcf. Note that this operation doesn't
+ * support multi-thread programs.
  */
 void genomeVcf_bplus_insertRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv);
 
 /**
- * @brief  Unimplemented
+ * @brief  Unimplemented (unecessary ...)
  */
 void genomeVcf_bplus_removeRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv);
 

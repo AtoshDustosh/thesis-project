@@ -1,4 +1,24 @@
 #include "genomeSam.h"
+/**
+ * @brief  Return a copy of chrom name got from RecSam object.
+ * @retval chrom name. The returned string must be freed manually later.
+ */
+static char *getRecSam_chNam(RecSam *rs, GenomeSam *gs) {
+  const char *chNam = sam_hdr_tid2name(gs->hdr, rs->rec->core.tid);
+  if (chNam == NULL) {
+    /*
+     * This part of code was originally only "return 'unknown'". And that
+     * resulted in a bug. Because you cannot free a string that is pre-allocated
+     * by the compiler instead allocated dynamically.
+     */
+    static const int len = strlen("unknown)");
+    char *unknownNam = (char *)malloc(sizeof(char) * (len + 1));
+    strcpy(unknownNam, "(unknown)");
+    return unknownNam;
+  } else {
+    return strdup(chNam);
+  }
+}
 
 char *rsDataSeq(RecSam *rs) {
   uint32_t seqLength = rs->rec->core.l_qseq;
@@ -33,20 +53,20 @@ char *rsDataSeq(RecSam *rs) {
   return seq;
 }
 
-static RecSam *init_RecSam() {
+RecSam *init_RecSam() {
   RecSam *rs = (RecSam *)malloc(sizeof(RecSam));
   rs->rec = NULL;
   rs->next = NULL;
   return rs;
 }
 
-static void destroy_RecSam(RecSam *rs) {
+void destroy_RecSam(RecSam *rs) {
   if (rs == NULL) return;
   bam_destroy1(rs->rec);
   free(rs);
 }
 
-static ChromSam *init_ChromSam() {
+ChromSam *init_ChromSam() {
   ChromSam *cs = (ChromSam *)malloc(sizeof(ChromSam));
   cs->name = "";
   cs->recCnt = 0;
@@ -57,7 +77,7 @@ static ChromSam *init_ChromSam() {
   return cs;
 }
 
-static void destroy_ChromSam(ChromSam *cs) {
+void destroy_ChromSam(ChromSam *cs) {
   if (cs == NULL) return;
   RecSam *rs = cs->rss;
   RecSam *tmpRs = NULL;
@@ -247,23 +267,6 @@ RecSam *getRecFromChromSam(uint32_t idx, ChromSam *cs) {
     } else {
       tmpIdx++;
     }
-  }
-}
-
-char *getRecSam_chNam(RecSam *rs, GenomeSam *gs) {
-  const char *chNam = sam_hdr_tid2name(gs->hdr, rs->rec->core.tid);
-  if (chNam == NULL) {
-    /*
-     * This part of code was originally only "return 'unknown'". And that
-     * resulted in a bug. Because you cannot free a string that is pre-allocated
-     * by the compiler instead allocated dynamically.
-     */
-    static const int len = strlen("unknown)");
-    char *unknownNam = (char *)malloc(sizeof(char) * (len + 1));
-    strcpy(unknownNam, "(unknown)");
-    return unknownNam;
-  } else {
-    return strdup(chNam);
   }
 }
 
