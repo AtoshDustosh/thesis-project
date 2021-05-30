@@ -120,9 +120,10 @@ void genomeVcf_bplus_printRec(GenomeVcf_bplus *gv, RecVcf_bplus *rv);
  *           Basic Structures
  ************************************/
 
+// TODO synchronize and iteration are not compatible
 /**
  * @brief  Functions as an iterator for all vcf records.
- * @retval pointer to the next RecVcf_bplus object. If there exits records that
+ * @retval pointer to the next RecVcf_bplus object. If there exists records that
  * have the same POS, return these records. Otherwise, return records that have
  * next bigger POS.
  */

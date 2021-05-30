@@ -83,3 +83,6 @@ Test:
 
 Other commandlines for generating simulated data:
   art_illumina -p -sam -i test.fa -l 50 -f 20 -m 200 -s 10 -o test-paired_end // or use varsim to get simulated data
+
+Other commandlines for simple operations:
+  ./main --vcfFile data/merged.sorted.vcf --outputFile data/merged.sorted.vcf.statistics --sv_min_len 51 --statistics_vcf

@@ -11,16 +11,20 @@
 typedef struct ProfileFa ProfileFa;
 
 struct ProfileFa {
-  char *info;       // info field of the chromosome
-  uint32_t length;  // length of the chromosome / cnt of bases
-  ProfileFa *next;  // next chromosome's profile, if exists
+  char *info;                // info field of the chromosome
+  uint32_t length;           // length of the chromosome / cnt of bases
+  uint32_t absolute_offset;  // offset for absolute position of this chromosome
+  ProfileFa *next;           // next chromosome's profile, if exists
 };
+
+// *************************** Declarations **************************
 
 /**
  * @brief  Initialize profiles from an input reference genome file and return
- * * pointer to a linked list of ProfileFas without empty header.
+ * pointer to a linked list of ProfileFas without empty header.
  */
 ProfileFa *init_ProfileFa(const char *filePath);
+
 void print_ProfileFa(ProfileFa *profile);
 
 /**
@@ -28,6 +32,8 @@ void print_ProfileFa(ProfileFa *profile);
  * next chromosome.
  */
 ProfileFa *destroy_Profile(ProfileFa *profile);
+
+// ************************ Implementations **************************
 
 ProfileFa *init_ProfileFa(const char *filePath) {
   FILE *fp = fopen(filePath, "r");
@@ -37,7 +43,7 @@ ProfileFa *init_ProfileFa(const char *filePath) {
   }
 
   ProfileFa *profile = (ProfileFa *)calloc(1, sizeof(ProfileFa));
-  ProfileFa *tmp_profile = profile;
+  ProfileFa *tmp_profile = profile;  // the last created profile
   ProfileFa *new_profile = NULL;
 
   uint32_t pos_bp = 1;  // 1-based position within chromosome
@@ -52,6 +58,8 @@ ProfileFa *init_ProfileFa(const char *filePath) {
     if (tmpCh == '>') {
       if (pos_bp != 1) {
         new_profile->length = pos_bp - 1;
+        new_profile->absolute_offset =
+            tmp_profile->absolute_offset + tmp_profile->length;
         tmp_profile->next = new_profile;
         tmp_profile = new_profile;
       }
@@ -81,6 +89,8 @@ ProfileFa *init_ProfileFa(const char *filePath) {
   }
   if (pos_bp != 1) {
     new_profile->length = pos_bp - 1;
+    new_profile->absolute_offset =
+        tmp_profile->absolute_offset + tmp_profile->length;
     tmp_profile->next = new_profile;
     tmp_profile = new_profile;
   }
@@ -137,9 +147,10 @@ static uint64_t codeBpBuf(char *bpBuf) {
 
 // This is actually a linked-list with an empty header
 struct ChromFa {
-  uint64_t *codedBases;  // binary coded bases using uint64_t array
-  uint32_t length;       // length of chrom / number of bases (uncoded)
-  char *info;            // info of chrom
+  uint64_t *codedBases;      // binary coded bases using uint64_t array
+  uint32_t length;           // length of chrom / number of bases (uncoded)
+  uint32_t absolute_offset;  // offset for absolute position of this chromosome
+  char *info;                // info of chrom
   char *name;
   struct ChromFa *next;
 };
@@ -172,6 +183,42 @@ static ChromFa *init_ChromFa_info_length(const char *info,
   uint32_t length_info = strlen(info);
   cf->info = strdup(info);
   cf->length = length;
+  cf->codedBases =
+      (uint64_t *)calloc((length - 1) / BP_PER_UINT64 + 1, sizeof(uint64_t));
+
+  // Find "name" of the chromosome (">name other")
+  if (info[0] != '>') {
+    fprintf(stderr, "Error: info line of chromosome invalid - %s\n", info);
+    exit(EXIT_FAILURE);
+  }
+  char buf_name[MAX_INFO_LENGTH];
+  memset(buf_name, 0, MAX_INFO_LENGTH);
+  for (int i = 0; i < length_info; i++) {
+    char tmp_char = info[i + 1];
+    if (tmp_char == ' ' || tmp_char == '\t') {
+      break;
+    } else {
+      buf_name[i] = tmp_char;
+    }
+  }
+  cf->name = strdup(buf_name);
+  return cf;
+}
+
+static ChromFa *init_ChromFa_profile(ProfileFa *profile) {
+  ChromFa *cf = (ChromFa *)calloc(1, sizeof(ChromFa));
+  if (cf == NULL) {
+    fprintf(stderr, "Error: no enough memory for a new chrom.\n");
+    exit(EXIT_FAILURE);
+  }
+  const char *info = profile->info;
+  const int length_info = strlen(info);
+  const uint32_t length = profile->length;
+  const uint32_t absolute_offset = profile->absolute_offset;
+
+  cf->info = strdup(info);
+  cf->length = length;
+  cf->absolute_offset = absolute_offset;
   cf->codedBases =
       (uint64_t *)calloc((length - 1) / BP_PER_UINT64 + 1, sizeof(uint64_t));
 
@@ -270,7 +317,8 @@ inline const char *chromFa_name(ChromFa *cf) { return cf->name; }
 
 ChromFa *getChromFromGenomeFabyInfo(const char *info, GenomeFa *gf) {
   if (gf == NULL) {
-    assert(fprintf(stderr, "Error: null pointer occurred. \n"));
+    fprintf(stderr, "Error: null pointer occurred for GenomeFa\n");
+    assert(false);
   }
   ChromFa *tmpCf = gf->chroms;
   while (tmpCf != NULL) {
@@ -288,7 +336,8 @@ ChromFa *getChromFromGenomeFabyInfo(const char *info, GenomeFa *gf) {
 
 ChromFa *getChromFromGenomeFabyName(const char *name, GenomeFa *gf) {
   if (gf == NULL || name == NULL) {
-    assert(fprintf(stderr, "Error: null pointer occurred. \n"));
+    fprintf(stderr, "Error: null pointer occurred for GenomeFa\n");
+    assert(false);
   }
   ChromFa *tmpCf = gf->chroms;
   while (tmpCf != NULL) {
@@ -306,7 +355,7 @@ ChromFa *getChromFromGenomeFabyName(const char *name, GenomeFa *gf) {
 ChromFa *getChromFromGenomeFabyIndex(uint32_t idx, GenomeFa *gf) {
   if (gf == NULL) {
     fprintf(stderr, "Error: null pointer occurred for GenomeFa\n");
-    exit(EXIT_FAILURE);
+    assert(false);
   }
   ChromFa *tmpCf = gf->chroms;
   for (uint32_t i = 0; i < idx; i++) {
@@ -359,21 +408,16 @@ char *getSeqFromChromFa(int64_t start, int64_t end, ChromFa *cf) {
   return seq;
 }
 
-int64_t genomeFa_absolutePos(uint32_t id_chrom, int64_t pos, GenomeFa *gf) {
-  // TODO check and debug
-  int64_t pos_abs = pos;
-  ChromFa *tmp_cf = gf->chroms;
-  uint32_t tmp_id_chrom = 0;
-  while (tmp_cf != NULL) {
-    if (tmp_id_chrom == id_chrom) {
-      break;
-    } else {
-      pos_abs = pos_abs + tmp_cf->length;
-      tmp_cf = tmp_cf->next;
-      tmp_id_chrom++;
-    }
+int32_t genomeFa_absolutePos(uint32_t id_chrom, int32_t pos, GenomeFa *gf) {
+  if (gf == NULL) {
+    fprintf(stderr, "Error: null pointer occurred for GenomeFa\n");
+    assert(false);
   }
-  return pos_abs;
+  ChromFa *tmpCf = gf->chroms;
+  for (uint32_t i = 0; i < id_chrom; i++) {
+    tmpCf = tmpCf->next;
+  }
+  return pos + tmpCf->absolute_offset;
 }
 
 /*********************************************************************
@@ -384,15 +428,12 @@ GenomeFa *genomeFa_loadFile(char *filePath) {
   GenomeFa *gf = init_GenomeFa();
   // Initialie profiles of all chromosomes
 
-  ProfileFa *profile = init_ProfileFa(filePath);
-  // print_ProfileFa(profile);
-
   // Add chromosomes according to profiles of them and destroy profiles
-  ProfileFa *tmp_profile = profile;
+  ProfileFa *tmp_profile = init_ProfileFa(filePath);
   while (tmp_profile != NULL) {
-    ChromFa *tmp_cf =
-        init_ChromFa_info_length(tmp_profile->info, tmp_profile->length);
+    ChromFa *tmp_cf = init_ChromFa_profile(tmp_profile);
     addChromToGenome(tmp_cf, gf);
+    // printf("absolute offsets: %" PRIu32 "\n", tmp_profile->absolute_offset);
     tmp_profile = destroy_Profile(tmp_profile);
   }
 
@@ -741,6 +782,7 @@ void printGenomeFa(GenomeFa *gf) {
   while (tmpCf != NULL) {
     printf("info: %s\n", tmpCf->info);
     printf("length: %" PRIu32 "\n", tmpCf->length);
+    printf("absolute offset: %" PRIu32 "\n", tmpCf->absolute_offset);
 
     uint32_t baseCnt = tmpCf->length;
     int i = 0;

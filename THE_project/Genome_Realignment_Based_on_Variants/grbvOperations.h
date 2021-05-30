@@ -13,7 +13,6 @@
 #include "debug.h"
 #include "genomeFa.h"
 #include "genomeSam.h"
-#include "genomeVcf.h"
 #include "grbvOptions.h"
 
 /**
@@ -21,6 +20,12 @@
  * sam file and then output them into the previously set output file
  */
 void selectBadReads(Options *opts);
+
+/**
+ * @brief  Collect statistics from the input vcf file and print into the
+ * specified output file, or if not specified, to the console.
+ */
+void statistics_vcf(Options *opts);
 
 void _testSet_grbvOperations();
 

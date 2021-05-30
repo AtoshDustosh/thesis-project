@@ -607,6 +607,7 @@ static inline void integration_integrate(
                                        buf_merged_cigar, rsDataMapQ(rec_rs));
   // Add integrated variants' IDs of the lpart into the auxiliary fields
   int length_aux_data_lpart = 0;
+  // "str_id" is the ID field of a vcf record
   for (int i = 0; i < length_combi_lpart; i++) {
     RecVcf_bplus *rv = ervArray_lpart[ervCombi_lpart[i]]->rv;
     int64_t var_pos = rv_pos(rv);

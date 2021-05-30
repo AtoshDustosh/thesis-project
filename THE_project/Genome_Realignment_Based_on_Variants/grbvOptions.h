@@ -42,7 +42,7 @@ static char *default_outputFile = "defaultOutput.txt";
 #define OPT_SET_GAPOPEN 111
 #define OPT_SET_GAPEXTENSION 112
 
-static const int default_sv_min_len = 50;
+static const int default_sv_min_len = 51;
 static const int default_sv_max_len = 300;
 
 /*
@@ -51,6 +51,7 @@ static const int default_sv_max_len = 300;
 #define OPT_COUNTREC 201
 #define OPT_FIRSTLINES 202
 #define OPT_EXTRACTCHROM 203
+#define OPT_STATISTICS_VCF 204
 
 /*
  * GRBV operations.

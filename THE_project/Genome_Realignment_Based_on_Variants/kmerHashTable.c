@@ -7,6 +7,8 @@
 struct KmerHashCell {
   char *kmerString;
   int32_t kmerPos;
+  char inputChar;
+  char outputChar;
   KmerHashCell *next;  // pointer to the next cell who has the same hash value
 };
 
@@ -29,6 +31,14 @@ inline char *kmerHashCell_string(KmerHashCell *cell) {
 
 inline int32_t kmerHashCell_pos(KmerHashCell *cell) { return cell->kmerPos; }
 
+inline char kmerHashCell_inputChar(KmerHashCell *cell) {
+  return cell->inputChar;
+}
+
+inline char kmerHashCell_outputChar(KmerHashCell *cell) {
+  return cell->outputChar;
+}
+
 inline KmerHashCell *kmerHashCell_next(KmerHashCell *cell) {
   return cell->next;
 }
@@ -40,7 +50,8 @@ inline KmerHashCell *kmerHashCell_next(KmerHashCell *cell) {
 /**
  * @brief Generate a random kmer of specific length.
  */
-static char *randomKmer(int32_t length) {
+static char *randomKmer(int32_t length, char *ret_inputChar,
+                        char *ret_outputChar) {
   char *kmer = (char *)calloc(length + 1, sizeof(char));
   if (kmer == NULL) {
     printf("Error: System memory not enough. \n");
@@ -52,26 +63,35 @@ static char *randomKmer(int32_t length) {
     kmer[i] = randChar;
   }
   kmer[i] = '\0';
+  *ret_inputChar = rand() % 4 + 'a';
+  *ret_outputChar = rand() % 4 + 'a';
   return kmer;
 }
 
-static inline int32_t hashCode(char *kmer, int32_t pos, KmerHashTable *table) {
+static inline int32_t hashCode(char *kmer, int32_t pos, char inputChar,
+                               char outputChar, KmerHashTable *table) {
   // TODO try to improve its performance
   static const int32_t hashSeed = 131;
   int32_t value = 1;
   while (*kmer != '\0') {
     value = value * hashSeed + (*kmer);
+    value += inputChar;
     kmer++;
   }
   value = value + pos;
-  return value & (INT32_MAX - 1);
+  value = value + (value >> 16 + value << 16);
+  value += outputChar;
+  value = value & INT32_MAX;
+  return value >= 0 ? value : -value;
 }
 
-static int32_t hashIndex(char *kmer, int32_t pos, KmerHashTable *table) {
-  return hashCode(kmer, pos, table) % table->tableSize;
+static int32_t hashIndex(char *kmer, int32_t pos, char inputChar,
+                         char outputChar, KmerHashTable *table) {
+  return hashCode(kmer, pos, inputChar, outputChar, table) % table->tableSize;
 }
 
-static inline KmerHashCell *init_KmerHashCell(char *kmer, int32_t pos) {
+static inline KmerHashCell *init_KmerHashCell(char *kmer, int32_t pos,
+                                              char inputChar, char outputChar) {
   KmerHashCell *cell = (KmerHashCell *)malloc(sizeof(KmerHashCell));
   if (cell == NULL) {
     fprintf(stderr, "Error: no enough meory for a new hash cell.\n");
@@ -79,15 +99,20 @@ static inline KmerHashCell *init_KmerHashCell(char *kmer, int32_t pos) {
   }
   cell->kmerPos = pos;
   cell->kmerString = strdup(kmer);
+  cell->inputChar = inputChar;
+  cell->outputChar = outputChar;
   cell->next = NULL;
   return cell;
 }
 
 static inline bool kmerHashCell_equal(KmerHashCell *cell, char *kmer,
-                                      int32_t pos) {
+                                      int32_t pos, char inputChar,
+                                      char outputChar) {
   bool condition1 = strcmp(kmer, cell->kmerString) == 0 ? true : false;
   bool condition2 = pos == cell->kmerPos ? true : false;
-  return condition1 && condition2;
+  bool condition3 = inputChar == cell->inputChar ? true : false;
+  bool condition4 = outputChar == cell->outputChar ? true : false;
+  return (condition1 && condition2) && (condition3 && condition4);
 }
 
 /**
@@ -149,6 +174,44 @@ int32_t iterator_Kmerhash_pos(Iterator_Kmerhash *it) {
     }
   } else {
     return -1;
+  }
+}
+
+char iterator_KmerHash_inputChar(Iterator_Kmerhash *it) {
+  if (it->cellIdx < it->table->tableSize) {
+    KmerHashCell *cell = it->table->cellList[it->cellIdx];
+    int lineSize = it->table->lineSize[it->cellIdx];
+    if (it->lineIdx < lineSize) {
+      int lineIdx = 0;
+      while (lineIdx != it->lineIdx) {
+        cell = cell->next;
+        lineIdx++;
+      }
+      return cell->inputChar;
+    } else {
+      return '\0';
+    }
+  } else {
+    return '\0';
+  }
+}
+
+char iterator_KmerHash_outputChar(Iterator_Kmerhash *it) {
+  if (it->cellIdx < it->table->tableSize) {
+    KmerHashCell *cell = it->table->cellList[it->cellIdx];
+    int lineSize = it->table->lineSize[it->cellIdx];
+    if (it->lineIdx < lineSize) {
+      int lineIdx = 0;
+      while (lineIdx != it->lineIdx) {
+        cell = cell->next;
+        lineIdx++;
+      }
+      return cell->outputChar;
+    } else {
+      return '\0';
+    }
+  } else {
+    return '\0';
   }
 }
 
@@ -221,7 +284,8 @@ void destroy_kmerHashTable(KmerHashTable *table) {
   free(table);
 }
 
-bool kmerHashTable_add(char *kmer, int32_t pos, KmerHashTable *table) {
+bool kmerHashTable_add(char *kmer, int32_t pos, char inputChar, char outputChar,
+                       KmerHashTable *table) {
   if (strlen(kmer) != table->kmerLength) {
     fprintf(stderr,
             "Warning: incompatible length of kmer %ld. Should be %" PRId32
@@ -229,18 +293,20 @@ bool kmerHashTable_add(char *kmer, int32_t pos, KmerHashTable *table) {
             strlen(kmer), table->kmerLength);
     return false;
   }
-  int32_t index = hashIndex(kmer, pos, table);
+  int32_t index = hashIndex(kmer, pos, inputChar, outputChar, table);
   KmerHashCell *cell = table->cellList[index];
   if (cell == NULL) {  // If this hash line is empty
-    table->cellList[index] = init_KmerHashCell(kmer, pos);
+    table->cellList[index] =
+        init_KmerHashCell(kmer, pos, inputChar, outputChar);
   } else {  // If this hash line is not empty
     KmerHashCell *lastCell = NULL;
-    while (cell != NULL && kmerHashCell_equal(cell, kmer, pos) == false) {
+    while (cell != NULL && kmerHashCell_equal(cell, kmer, pos, inputChar,
+                                              outputChar) == false) {
       lastCell = cell;
       cell = cell->next;
     }
     if (cell == NULL) {  // No identical cell found
-      lastCell->next = init_KmerHashCell(kmer, pos);
+      lastCell->next = init_KmerHashCell(kmer, pos, inputChar, outputChar);
     } else {         // Found identical cell
       return false;  // Ignore this kmer - duplicated
     }
@@ -249,14 +315,16 @@ bool kmerHashTable_add(char *kmer, int32_t pos, KmerHashTable *table) {
   return true;
 }
 
-bool kmerHashTable_exist(char *kmer, int32_t pos, KmerHashTable *table) {
-  int32_t index = hashIndex(kmer, pos, table);
+bool kmerHashTable_exist(char *kmer, int32_t pos, char inputChar,
+                         char outputChar, KmerHashTable *table) {
+  int32_t index = hashIndex(kmer, pos, inputChar, outputChar, table);
   KmerHashCell *cell = table->cellList[index];
   if (cell == NULL) {  // If this hash line is empty
     return false;
   } else {  // If this hash line is not empty
     KmerHashCell *lastCell = NULL;
-    while (cell != NULL && kmerHashCell_equal(cell, kmer, pos) == false) {
+    while (cell != NULL && kmerHashCell_equal(cell, kmer, pos, inputChar,
+                                              outputChar) == false) {
       lastCell = cell;
       cell = cell->next;
     }
@@ -279,7 +347,8 @@ void print_kmerHashTable(KmerHashTable *table) {
     KmerHashCell *cell = table->cellList[i];
     printf("[%" PRId8 "]", table->lineSize[i]);
     while (cell != NULL) {
-      printf("-> (%s,%" PRId32 ")", cell->kmerString, cell->kmerPos);
+      printf("-> (%s,%" PRId32 ",%c,%c)", cell->kmerString, cell->kmerPos,
+             cell->inputChar, cell->outputChar);
       cell = cell->next;
     }
     printf("\n");
@@ -306,31 +375,38 @@ void statistics_kmerHashTable(KmerHashTable *table) {
 }
 
 int _testSet_hashTable() {
-  int32_t cnt_kmers = 200;
+  int32_t cnt_kmers = 1000000;
   int32_t kmerLength = 22;
   KmerHashTable *table = init_kmerHashTable(cnt_kmers, kmerLength);
 
   for (int32_t i = 0; i < cnt_kmers; i++) {
-    char *kmer = randomKmer(kmerLength);
+    char inputChar;
+    char outputChar;
+    char *kmer = randomKmer(kmerLength, &inputChar, &outputChar);
     int32_t pos = rand() & (INT32_MAX - 1);
-    printf("kmer: %s, pos: %" PRId32 ", hashCode: %" PRId32 "\n", kmer, pos,
-           hashCode(kmer, pos, table));
-    kmerHashTable_add(kmer, pos, table);
+    // printf("kmer: %s, pos: %" PRId32
+    //        ", input char: %c, outputchar: %c, hashCode: %" PRId32 "\n",
+    //        kmer, pos, inputChar, outputChar,
+    //        hashCode(kmer, pos, inputChar, outputChar, table));
+    kmerHashTable_add(kmer, pos, inputChar, outputChar, table);
     free(kmer);
   }
 
   Iterator_Kmerhash *it = init_iterator_Kmerhash(table);
 
-  while (iterator_Kmerhash_next(it) != false) {
-    printf("kmer: %s, pos: %d\n", iterator_Kermhash_string(it),
-           iterator_Kmerhash_pos(it));
-  }
+  // while (iterator_Kmerhash_next(it) != false) {
+  //   printf("kmer: %s, pos: %d, inputChar: %c, outputChar: %c\n",
+  //          iterator_Kermhash_string(it), iterator_Kmerhash_pos(it),
+  //          iterator_KmerHash_inputChar(it), iterator_KmerHash_outputChar(it));
+  // }
 
   destroy_iterator_Kmerhash(it);
 
-  print_kmerHashTable(table);
+  // print_kmerHashTable(table);
 
   statistics_kmerHashTable(table);
 
   destroy_kmerHashTable(table);
 }
+
+// TODO test in another project

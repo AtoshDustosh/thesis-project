@@ -558,7 +558,7 @@ void printGenomeSam_brief(GenomeSam *gs) {
   printSamHeader(gs->hdr);
   ChromSam *tmpCs = gs->css;
   while (tmpCs != NULL) {
-    printf("chrom: %s, recCnt: % " PRIu32 "\n", tmpCs->name, tmpCs->recCnt);
+    printf("chrom: %s, recCnt: %" PRIu32 "\n", tmpCs->name, tmpCs->recCnt);
     tmpCs = tmpCs->next;
   }
 }

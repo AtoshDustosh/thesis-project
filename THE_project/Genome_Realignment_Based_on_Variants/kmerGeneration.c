@@ -59,22 +59,7 @@ static inline int count_integrated_allele(RecVcf_bplus *rv, int32_t startPos,
   return cnt_integrated_allele;
 }
 
-/**
- * @brief  Generate kmers integrated with varaints and store in the hash table.
- * @param  *ervArray[]: array of varaints on this interval
- * @param  ervCombi[]: array of combination of selected variants
- * @param  alleleCombi[]: array of combinations of alleles on the selected vars
- * @param  length_combi: length of combinations
- * @param  lbound: 1-based lbound of the ref sequence (included)
- * @param  rbound: 1-based rbound of the ref sequence (included)
- * @param  pos_start: 1-based start position of the interval
- * @param  pos_end: 1-based end position of the interval
- * @param  *hashTable: kmers' hash table
- * @param  *cf: structure for a chromosome from reference genome
- * @param  *gv: structure for variants
- * @param  *fp_op: FILE pointer to output file
- */
-static inline void generateKmers_integrated(
+static inline void generateKmers_integrated_backup(
     Element_RecVcf *ervArray[], int ervCombi[], int alleleCombi[],
     int length_combi, int32_t lbound, int32_t rbound, int32_t pos_start,
     int32_t pos_end, KmerHashTable *hashTable, ChromFa *cf, GenomeVcf_bplus *gv,
@@ -89,10 +74,11 @@ static inline void generateKmers_integrated(
     int length_allele_ref = strlen(allele_ref);
     int length_allele_alt = strlen(allele_alt);
     // Some DEL may be long. We need to expand the reference. And at the same
-    // time, we need to prevent expanding out of the chrom's boundary.
-    int32_t pos_end_ref = rbound + length_allele_ref;
-    pos_end_ref = pos_end_ref <= length_chrom ? pos_end_ref : length_chrom;
-    char *seq_ref = getSeqFromChromFa(lbound, pos_end_ref, cf);
+    // time, we need to prevent expanding out of the chrom's boundary, or
+    // expanding to the edge the chrom
+    rbound = rbound + length_allele_ref;
+    rbound = rbound < length_chrom ? rbound : length_chrom - 1;
+    char *seq_ref = getSeqFromChromFa(lbound, rbound, cf);
     const int length_seq_ref = strlen(seq_ref);
     // Buffer for integrated sequence
     // Consists of [lpart,midpart,rpart]
@@ -166,6 +152,64 @@ static inline void generateKmers_integrated(
   //   destroy_iterator_Kmerhash(it);
   // }
 }
+
+/**
+ * @brief  Generate kmers integrated with varaints and store in the hash table.
+ * @param  *ervArray[]: array of varaints on this interval
+ * @param  ervCombi[]: array of combination of selected variants
+ * @param  alleleCombi[]: array of combinations of alleles on the selected vars
+ * @param  length_combi: length of combinations
+ * @param  lbound: 1-based expanded lbound of the ref sequence (included)
+ * @param  rbound: 1-based expanded rbound of the ref sequence (included)
+ * @param  pos_start: 1-based start position of the interval
+ * @param  pos_end: 1-based end position of the interval
+ * @param  *hashTable: kmers' hash table
+ * @param  *cf: structure for a chromosome from reference genome
+ * @param  *gv: structure for variants
+ * @param  *fp_op: FILE pointer to output file
+ */
+static inline void generateKmers_integrated(
+    Element_RecVcf *ervArray[], int ervCombi[], int alleleCombi[],
+    int length_combi, int32_t lbound, int32_t rbound, int32_t pos_start,
+    int32_t pos_end, KmerHashTable *hashTable, ChromFa *cf, GenomeVcf_bplus *gv,
+    FILE *fp_op) {
+  // Iterate combination of alleles and extract sequences. Then create new kmers
+  const int32_t length_chrom = chromFa_length(cf);
+  for (int i = 0; i < length_combi; i++) {
+    RecVcf_bplus *tmp_rv = ervArray[ervCombi[i]]->rv;
+    int32_t pos_allele = rv_pos(tmp_rv);
+    const char *allele_ref = rv_allele(tmp_rv, 0);
+    const char *allele_alt = rv_allele(tmp_rv, alleleCombi[i]);
+    int length_allele_ref = strlen(allele_ref);
+    int length_allele_alt = strlen(allele_alt);
+
+    // Some DELs may be long. We need to expand rbound. And at the same time, we
+    // need to prevent expanding out of the chrom's boundary, or expanding to
+    // the edge the chrom. 
+    rbound = rbound + length_allele_ref;
+    rbound = rbound < length_chrom ? rbound : length_chrom - 1;
+
+    // TODO should lbound be expanded? waiting for teacher's respond
+
+    char *seq_ref = getSeqFromChromFa(lbound, rbound, cf);
+    const int length_seq_ref = strlen(seq_ref);
+
+    // Buffer for integrated sequence
+    // Consists of [lpart,midpart,rpart]
+    // Any of the **part can be empty
+    char buf_integrated[length_allele_alt + kmerLength * 2];
+    memset(buf_integrated, 0, length_allele_alt + kmerLength * 2);
+
+    // The following xbound_xpart are all 0-based included
+    // "lpart": (kmerLength - 1) bases before pos_allele
+    // But maybe there are less than (kmerLength - 1) bases before pos_allele
+
+    // Copy the "midpart", which is the ALT field of the allele
+
+    // Generate integrated kmers and add into hash table
+  }
+}
+
 /**
  * @brief  Process and generate kmers for interval [pos_start, pos_end] on the
  * id_chrom-th chromosome. And then output the generated kmers into the
@@ -183,11 +227,37 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
   const char *name_chrom = chromFa_name(chrom);
   assert(length_chrom >= 0);
 
+  // Fix pos to handle kmers at the beginning or end of the chrom
+  pos_start = pos_start > 1 : pos_start : 2;
+  pos_end = pos_end < length_chrom : pos_end : length_chrom - 1;
+
+  // Expand interval (also ignore the kmers at the ends of the chrom)
   int32_t lbound = pos_start - (kmerLength - 1);
-  lbound = lbound >= 1 ? lbound : 1;
+  lbound = lbound > 1 ? lbound : 2;
   int32_t rbound = pos_end + (kmerLength - 1);
-  rbound = rbound <= length_chrom ? rbound : length_chrom;
+  rbound = rbound < length_chrom ? rbound : length_chrom - 1;
+
+  // ------------------------ Create hash table for kmers ----------------------
+  // Maybe a larger size of the table would be better, but this one can do
+  int32_t tableSize = (rbound - lbound);
+  KmerHashTable *hashTable = init_kmerHashTable(tableSize, kmerLength);
+
+  // -------------------- Save original kmers into hash table ------------------
   char *seq_ref = getSeqFromChromFa(lbound, rbound, chrom);
+  int32_t tmp_offset = 0;
+  while (lbound + tmp_offset <= pos_end) {
+    int32_t local_lbound = lbound + tmp_offset;
+    char inputChar = charOfBase(getBase(chrom, local_lbound - 1));
+    char outputChar = charOfBase(getBase(chrom, local_lbound + kmerLength));
+    char *kmer = subStr(seq_ref, tmp_offset, tmp_offset + kmerLength - 1);
+    if (check_kmer_valid(kmer)) {
+      kmerHashTable_add(kmer, lbound + tmp_offset, inputChar, outputChar,
+                        hashTable);
+      // printf("kmer: %s, pos: %d\n", kmer, (int)(pos_start + tmp_offset));
+    }
+    tmp_offset++;
+  }
+  free(seq_ref);
 
   // ---------- Get variants within the interval [pos_start, pos_end] ----------
   RecVcf_bplus *rv_tmp =
@@ -241,24 +311,6 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
     rv_tmp = next_RecVcf_bplus(rv_tmp);
   }
 
-  // ------------------------ Create hash table for kmers ----------------------
-  // Maybe a larger size of the table would be better, but this one can do
-  int32_t tableSize = (rbound - lbound);
-  KmerHashTable *hashTable = init_kmerHashTable(tableSize, kmerLength);
-
-  // -------------------- Save original kmers into hash table ------------------
-  int32_t tmp_offset = 0;
-  while (pos_start + kmerLength - 1 + tmp_offset <= pos_end) {
-    int tmp_lbound = pos_start + tmp_offset - lbound;
-    int tmp_rbound = tmp_lbound + kmerLength - 1;
-    char *kmer = subStr(seq_ref, tmp_lbound, tmp_rbound);
-    if (check_kmer_valid(kmer)) {
-      kmerHashTable_add(kmer, pos_start + tmp_offset, hashTable);
-      // printf("kmer: %s, pos: %d\n", kmer, (int)(pos_start + tmp_offset));
-    }
-    tmp_offset++;
-  }
-
   // ------------------- Save integrated kmers into hash table -----------------
   // Calculate combinations of variants
   int *ervIdxes = (int *)calloc(cnt_integrated_variants, sizeof(int));
@@ -297,8 +349,8 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
   Iterator_Kmerhash *it = init_iterator_Kmerhash(hashTable);
 
   while (iterator_Kmerhash_next(it) != false) {
-    fprintf(fp_op, "[%" PRId32 ",%s]\n", iterator_Kmerhash_pos(it),
-            iterator_Kermhash_string(it));
+    fprintf(fp_op, "[%" PRId32 ",%" PRId32 ",%s]\n", id_chrom,
+            iterator_Kmerhash_pos(it), iterator_Kermhash_string(it));
   }
 
   destroy_iterator_Kmerhash(it);
@@ -311,7 +363,6 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
   }
   free(ervArray);
   free(ervIdxes);
-  free(seq_ref);
 
   return;
 }
@@ -373,7 +424,6 @@ void generateKmers(Options *opts) {
     exit(EXIT_FAILURE);
   }
 
-  // TODO
   FILE *fp_aux = fopen(getAuxFile(opts), "r");
   if (fp_aux == NULL) {
     fprintf(stderr, "Error: failed to open file %s\n", getAuxFile(opts));

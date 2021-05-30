@@ -103,7 +103,7 @@ char *getSeqFromChromFa(int64_t start, int64_t end, ChromFa *cf);
  * @param  pos: 1-based position on current chromosome.
  * @retval absolute position on the whole genome
  */
-int64_t genomeFa_absolutePos(uint32_t id_chrom, int64_t pos, GenomeFa *gf);
+int32_t genomeFa_absolutePos(uint32_t id_chrom, int32_t pos, GenomeFa *gf);
 
 /*********************************************************************
  *                      Data Loading and Writing

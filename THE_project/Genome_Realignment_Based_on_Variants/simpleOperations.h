@@ -6,7 +6,7 @@
 #include "grbvOptions.h"
 
 /**
- * @brief Count the records in all designated files.
+ * @brief Count the records in all specified files.
  */
 void countRec(Options *opts);
 
@@ -17,7 +17,7 @@ void countRec(Options *opts);
 void firstLines(Options *opts);
 
 /**
- * @brief  Extract bases of the selected chromosome and write into designated
+ * @brief  Extract bases of the selected chromosome and write into specified
  * output file together with the chromosome's info field.
  */
 void extractChrom(Options *opts);

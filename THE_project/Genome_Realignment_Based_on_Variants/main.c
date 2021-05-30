@@ -15,7 +15,6 @@
 #include "auxiliaryMethods.h"
 #include "genomeFa.h"
 #include "genomeSam.h"
-#include "genomeVcf.h"
 #include "grbvOperations.h"
 #include "grbvOptions.h"
 #include "integrateVcfToSam.h"
@@ -43,6 +42,7 @@ static struct option optInitArray[] = {
     {"countRec", no_argument, NULL, OPT_COUNTREC},
     {"firstLines", required_argument, NULL, OPT_FIRSTLINES},
     {"extractChrom", required_argument, NULL, OPT_EXTRACTCHROM},
+    {"statistics_vcf", no_argument, NULL, OPT_STATISTICS_VCF},
 
     {"selectBadReads", required_argument, NULL, OPT_SELECTBADREADS},
     {"integrateVcfToSam", required_argument, NULL, OPT_INTEGRATEVCFTOSAM},
@@ -100,6 +100,11 @@ static void Usage() {
       "chromosome "
       "and write into designated output file together with the chromosome's "
       "info field\n");
+  printf(
+      "\tstatistics_vcf\tcollect statistics from a vcf file. Statistics "
+      "includes number of snp, small_ins, small_del, mnp, sv_ins, sv_del and "
+      "other types of variants. Variants using tags like <INV> will be "
+      "classified separately. \n");
   printf("\n");
 
   printf(" -- GRBV operations\n");
@@ -136,8 +141,8 @@ static int _testSet_full() {
   printf("... genomeFa test passed. \n");
   _testSet_genomeSam();
   printf("... genomeSam test passed. \n");
-  _testSet_genomeVcf();
-  printf("... genomeVcf test passed. \n");
+  _testSet_genomeVcf_bplus();
+  printf("... genomeVcf_bplus test passed. \n");
   _testSet_alignment();
   printf("... alignment test passed. \n");
   _testSet_grbvOperations();
@@ -214,7 +219,8 @@ int main(int argc, char *argv[]) {
         // clock_t time_start = clock();
         // loadGenomeSamFromFile(gs, optarg);
         // clock_t time_end = clock();
-        // printf("... genome data (%s) loaded successfully. Time: %fs\n", optarg,
+        // printf("... genome data (%s) loaded successfully. Time: %fs\n",
+        // optarg,
         //        time_convert_clock2second(time_start, time_end));
         // printGenomeSam_brief(gs);
         // destroy_GenomeSam(gs);
@@ -283,6 +289,13 @@ int main(int argc, char *argv[]) {
         printf("Extract bases of the #%s chromosome. \n", optarg);
         options.extractChrom = atoi(optarg);
         extractChrom(&options);
+        break;
+      }
+      case OPT_STATISTICS_VCF:{
+        optCheck_conflict(&options);
+        printf("Collecting statistics from vcf file.\n");
+        statistics_vcf(&options);
+        printf("... statistics collected.\n");
         break;
       }
       case OPT_SELECTBADREADS: {

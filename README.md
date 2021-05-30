@@ -188,12 +188,15 @@ Integrated variants will be output using optional fields of according to SAM for
 
 ### Input & Output
 
-Reference Genome will be partitioned first according to input data, which follows a format like: [id_chrom,pos_start,pos_end] no whitespace or tab allowed
+Reference Genome will be partitioned first according to input data, which follows a format like: [id_chrom,pos_start,pos_end] no whitespace or tab allowed.
     
     [1,123211242,123214242]
     [1,123224242,123227242]
     [1,123247242,123249242]
+    ...
     [5,444249242,444249242]
+
+id_chrom, pos_start and pos_end are all 1-based. And pos_start and pos_end indicate the positions on the chromosome instead of the absolute positions on the whole genome. (absolute position of a kmer = absolute offset of the chrom + kmer's position on the chrom)
 
 The program will load these intervals on the reference genome and then extract all variants WITHIN the interval. 
 
@@ -201,16 +204,32 @@ Kmers from the original ref sequence will be output first and kmers after integr
 
 And kmers containing bases 'N', 'M' or 'R' will be ignored.
 
-The format of output file follows: [pos,string_kmer] no whitespace or tab allowed
+The format of output file is as follows. no whitespace or tab allowed.
 
-    # [id_chrom,pos_start,pos_end]  (this is the comment line)
-    [123212421, ACGTATATACCCAATGA]
-    [241241321, GGACCAGGTATATAACA]
-    [532431111, AGCTAGATGATCGATGC]
+    # [id_chrom,pos_start,pos_end,char_input,char_output]  (this is the comment line)
+    [1,123212421,ACGTATATACCCAATGA,C,G]
+    [1,241241321,GGACCAGGTATATAACA,G,A]
+    ...
+    [2,532431111,AGCTAGATGATCGATGC,T,T]
 
-The program will try to fiter duplicated kmers from the same interval, but doesn't promise of identity of every kmer. And the program will not consider filtering duplicated kmers among different intervals.
+id_chrom, pos_start and pos_end are all 1-based like in the input file. But pos_start and poss_end indicate the absolute positions on the whole genome.
+
+The program will try to fiter duplicated kmers from the same interval, but doesn't promise of uniqueness of every kmer. And the program will not consider filtering duplicated kmers among different intervals.
+
+- About char_input and char_output: 
+
+      reference  ... AAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCGGGGGGGGGGGGG ...
+      kmer_i                          CCCCCCCCCCCCCCCCC
+      char_input(kmer_i) = A
+      char_input(kmer_i) = G
+
+  They are not the first and the last char of the kmer, but the first chars beside the kmer on the reference genome.
+
+  When we extract the char_input and char_output of a kmer, we cannot simply extract the (k+2)mer and select the first and last bases. That's not valid. Because when you do this, you need to expand the interval towards both sides by 1 base. Afte that, another variant might be integrated in the process, and results will be different. 
 
 ### Description of Process
+
+We suppose kmers at the end of the chromosome or at the beginning will be ignored.
 
 #### Extraction of Kmers from Original Sequence
 
@@ -219,30 +238,36 @@ Suppose length of kmers is 6.
                 |<------------- interval -------------->|
     seq:  AAAAA AAAAAAAAACCCCCCCCCCCCCGGGGGGGGGGGGGTTTTTT TTTTTT
     kmers:
+          AAAAA A
+              ...
+              A AAAAA
                 AAAAAA
-                 AAAAAA
                    ... ... ... ... ... ... ... ... ... 
-                                                  TTTTTT
                                                    TTTTTT
+                                                    TTTTT T
+                                                        ...
+                                                        T TTTTT
 
 Positions of kmers keep their positions on the original sequence
+char_input and char_output will be extracted as well.
 
 #### Extraction of Kmers after Integration
 
 Suppose length of kmers is 6.
 
-                |<------------- interval -------------->|
-    seq:  AAAAA AAAAAAAAACCCCCCCCCCCCCGGGGGGGGGGGGGTTTTTT TTTTTT
-    variants:   |    |   |   |  |      |      |   |
-                <---->   |   |  <------>      ^   |
-                  DEL   SNP SNP    DEL       INS SNP
+                    |<------------- interval -------------->|
+    seq:  AAAAAAAGG AAAAAAAAACCCCCCCCCCCCCGGGGGGGGGGGGGTTTTTT TTTTTT
+    variants:       |    |   |   |  |      |      |   |
+                 <- ----->   |   |  <------>      ^   |
+                     DEL    SNP SNP    DEL       INS SNP
     kmers after integration:
-                |    |   |   |  |      |      |   |
-          AAAAA ------A   ...            GGGGG|..
-           AAAA ------AA   ...         [kmers in INS]
-            AAA ------AAA   ...             ..|GGGGG
-             AA ------AAAA   ...
-              A ------AAAAA   ...
+                    |    |   |   |  |      |      |   |
+              AAAAA ------A   ...            GGGGG|..
+               AAAA ------AA   ...         [kmers in INS]
+                AAA ------AAA   ...             ..|GGGGG
+                 AA ------AAAA   ...
+                  A ------AAAAA   ...
+
 ##### Special cases
 
 ###### Long DEL
@@ -326,6 +351,10 @@ Directly expand (kmerLength - 1) towards both sides may result in an out of boun
       extractChrom [chrom_idx 1-based]	extract bases of the selected chromosome 
                                             and write into designated output file 
                                             together with the chromosome's info field
+      statistics_vcf  collect statistics from a vcf file. Statistics includes number 
+                      of snp, small_ins, small_del, mnp, sv_ins, sv_del and other types 
+                      of variants.  Variants using tags like <INV> will be  classified 
+                      separately
 
     -- GRBV operations
       threads [NUM_threads]	use multi-threads methods to run the program. This only 
@@ -340,5 +369,7 @@ Directly expand (kmerLength - 1) towards both sides may result in an out of boun
                                                     *.sam file with new created 
                                                     reference genome. It's actually 
                                                     the main purpose of the project. 
-                  [integration_strategy]: [1] SNP only; [2] SV only; [3] SNP and SV
+                        [integration_strategy]: [1] SNP and small indel only; 
+                                                [2] SV only; 
+                                                [3] SNP, small indel and SV
 

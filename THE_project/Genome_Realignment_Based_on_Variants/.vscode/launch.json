@@ -34,16 +34,16 @@
         // "--selectBadReads",
         // "20",
 
-        // "--thread",
-        // "4",
+        "--thread",
+        "4",
 
-        // "--integrateVcfToSam",
-        // "3",
+        "--integrateVcfToSam",
+        "3",
 
         // test other opterations
         
-        "--kmerGeneration",
-        "23",
+        // "--kmerGeneration",
+        // "23",
 
         // "--countRec",
         // "--firstLines 30",
