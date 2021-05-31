@@ -27,13 +27,13 @@ Required additional libraries and tools:
 
 - functions provided:
 
-    - load \*.fa/fna/fasta files into memory
-    - randomly access any base with specified position
-    - randomly access any sequence (length >= 0) with specified start pos and end pos.
+  - load \*.fa/fna/fasta files into memory
+  - randomly access any base with specified position
+  - randomly access any sequence (length >= 0) with specified start pos and end pos.
 
-- strategy: 
-    - use binary coding for compressed storage in memory
-    - use simple arrays of 64-bit to store coded bases
+- strategy:
+  - use binary coding for compressed storage in memory
+  - use simple arrays of 64-bit to store coded bases
 
 ### Alignment Results (*.sam/*.bam)
 
@@ -41,13 +41,13 @@ Required additional libraries and tools:
 
 - functions provided:
 
-    - load \*.sam/bam files into memory
-    - sequential access and traverse all sam records
-    - methods for accessing data fields of a sam record
-    - iterator for all records
+  - load \*.sam/bam files into memory
+  - sequential access and traverse all sam records
+  - methods for accessing data fields of a sam record
+  - iterator for all records
 
 - strategy:
-    - use singly linked list to store all records and traverse
+  - use singly linked list to store all records and traverse
 
 ### Variants (*.vcf/bcf)
 
@@ -61,8 +61,8 @@ Required additional libraries and tools:
     - methods for accessing data fields of a vcf record
 
 - strategy:
-    - (old version): use singly linked list to store records and traverse
-    - (updated version): use b+ tree to store, index and access records, which greatly improved performance. :)
+  - (old version): use singly linked list to store records and traverse
+  - (updated version): use b+ tree to store, index and access records, which greatly improved performance. :)
 
 ## Libraries Used
 
@@ -117,9 +117,9 @@ variants ("1.1------" indicates the 1st allele of the 1st variant. And "-----" i
                                           |4.2-
                                           |4.3-
 
-In the situation above, 1.1 and 2.1 cannot be integrated at the same time. Otherwise conflicts will occur. So does 3.2 and any of 4.1, 4.2, 4.3, 5.1, 6.1. Because when 3.2 is integrated, the bases at the position of 4.1 is deleted. 
+In the situation above, 1.1 and 2.1 cannot be integrated at the same time. Otherwise conflicts will occur. So does 3.2 and any of 4.1, 4.2, 4.3, 5.1, 6.1. Because when 3.2 is integrated, the bases at the position of 4.1 is deleted.
 
-In order to prevent the reference sequence becoming too short after integrating some DELs, we expand the "old_ref" towards both sides. 
+In order to prevent the reference sequence becoming too short after integrating some DELs, we expand the "old_ref" towards both sides.
 
 And in the situation above, if we select 2.1 and 3.2 for integration, the reference sequence after integration will look like
 
@@ -131,7 +131,7 @@ And in the situation above, if we select 2.1 and 3.2 for integration, the refere
     ref after interation: |       |                           |
                      ...AADAAAAAAABBBBBBBCCCCCCCCCCCCCCCCCCCCCCCCC...
 
-And now we have a reference sequence with variants integrated. 
+And now we have a reference sequence with variants integrated.
 
 But this is only one instance corresponding to one combination of variants. And  $ C_n^m = C_n^{n-m}$
 
@@ -145,7 +145,7 @@ There are 3 strategies - 1) SNP only; 2)SV only; 3) SNP and SV.
 
 This is implemented by filtering variants by their lengths when selecting them. And this step is done before calculating the combinations of variants.
 
-### Realignment 
+### Realignment
 
 After integration, suppose we have the following picture:
 
@@ -189,7 +189,7 @@ Integrated variants will be output using optional fields of according to SAM for
 ### Input & Output
 
 Reference Genome will be partitioned first according to input data, which follows a format like: [id_chrom,pos_start,pos_end] no whitespace or tab allowed.
-    
+
     [1,123211242,123214242]
     [1,123224242,123227242]
     [1,123247242,123249242]
@@ -198,25 +198,26 @@ Reference Genome will be partitioned first according to input data, which follow
 
 id_chrom, pos_start and pos_end are all 1-based. And pos_start and pos_end indicate the positions on the chromosome instead of the absolute positions on the whole genome. (absolute position of a kmer = absolute offset of the chrom + kmer's position on the chrom)
 
-The program will load these intervals on the reference genome and then extract all variants WITHIN the interval. 
+The program will load these intervals on the reference genome and then extract all variants WITHIN the interval.
 
-Kmers from the original ref sequence will be output first and kmers after integration with variants will be output later. 
+Kmers from the original ref sequence will be output first and kmers after integration with variants will be output later.
 
 And kmers containing bases 'N', 'M' or 'R' will be ignored.
 
-The format of output file is as follows. no whitespace or tab allowed.
+The format of output file is as follows. Whitespaces are used for "fscanf". This function doesn't recognize "," as a delimiter when there exists string input.
 
-    # [id_chrom,pos_start,pos_end,char_input,char_output]  (this is the comment line)
-    [1,123212421,ACGTATATACCCAATGA,C,G]
-    [1,241241321,GGACCAGGTATATAACA,G,A]
-    ...
-    [2,532431111,AGCTAGATGATCGATGC,T,T]
+    # [id_chrom pos_start pos_end char_input char_output ]  (this is the comment line)
+    [4 72 ACGTACGTAAGGGTCTAACCAA C G ]
+    [4 77 CGTAAGGGTCTAACCAAGTAAC C C ]
+    [4 88 AACCAAGTAACAAACAAAAAAA G T ]
+    [4 96 AACAAACAAAAAAACCCCCGGA A T ]
+    [4 102 CAAAAAAACCCCCGGATTTTAA C A ]
 
 id_chrom, pos_start and pos_end are all 1-based like in the input file. But pos_start and poss_end indicate the absolute positions on the whole genome.
 
 The program will try to fiter duplicated kmers from the same interval, but doesn't promise of uniqueness of every kmer. And the program will not consider filtering duplicated kmers among different intervals.
 
-- About char_input and char_output: 
+- About char_input and char_output:
 
       reference  ... AAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCGGGGGGGGGGGGG ...
       kmer_i                          CCCCCCCCCCCCCCCCC
@@ -225,7 +226,7 @@ The program will try to fiter duplicated kmers from the same interval, but doesn
 
   They are not the first and the last char of the kmer, but the first chars beside the kmer on the reference genome.
 
-  When we extract the char_input and char_output of a kmer, we cannot simply extract the (k+2)mer and select the first and last bases. That's not valid. Because when you do this, you need to expand the interval towards both sides by 1 base. Afte that, another variant might be integrated in the process, and results will be different. 
+  When we extract the char_input and char_output of a kmer, we cannot simply extract the (k+2)mer and select the first and last bases. That's not valid. Because when you do this, you need to expand the interval towards both sides by 1 base. Afte that, another variant might be integrated in the process, and results will be different.
 
 ### Description of Process
 
@@ -250,6 +251,8 @@ Suppose length of kmers is 6.
 
 Positions of kmers keep their positions on the original sequence
 char_input and char_output will be extracted as well.
+
+// TODO
 
 #### Extraction of Kmers after Integration
 
@@ -302,7 +305,6 @@ For example, when length of kmers is 22.
 
 Directly expand (kmerLength - 1) towards both sides may result in an out of boundary error. And in such cases, we need to check the expanded boundaries of the reference sequence.
 
-                         
 ##### Calculation of positions for kmers
 
 - Positions of kmers near a DEL
@@ -319,36 +321,36 @@ Directly expand (kmerLength - 1) towards both sides may result in an out of boun
 
 ---
 
-## Usage 
+## Usage
 
     Usage: ./main [commands] [arguments]
     Run one task at a time. Some commands conflict with each other.
 
     Commands:
     -- Set files. Do this first!
-      outputFile [filepath]	set output file
-      faFile [filepath]	set reference genome file
-      fastqFile [filepath]	set fastq file
-      samFile [filepath]	set sam file
-      vcfFile [filepath]	set vcf file
-      sv_min_len [length]	set minimal length for a SV. Designed for integration.
-      sv_max_len [length]	set maximal length for a SV. Designed for integration. 
+      outputFile [filepath] set output file
+      faFile [filepath] set reference genome file
+      fastqFile [filepath] set fastq file
+      samFile [filepath] set sam file
+      vcfFile [filepath] set vcf file
+      sv_min_len [length] set minimal length for a SV. Designed for integration.
+      sv_max_len [length] set maximal length for a SV. Designed for integration. 
                             Do not set this parameter too big. That may cause the
                             program running for decades! (combinations of too many 
                             variants generated) Recommended value: 300
-      match [score]	set score for match
-      mismatch [score]	set score for mismatch
-      gapOpen [score]	set score for gapOpen
-      gapExtension [score]	set score for gapExtension
+      match [score] set score for match
+      mismatch [score] set score for mismatch
+      gapOpen [score] set score for gapOpen
+      gapExtension [score] set score for gapExtension
 
     -- Program infos
-      verbose	verbose mode. Private usage only. Do no choose this.
+      verbose verbose mode. Private usage only. Do no choose this.
 
     -- Simple operations
-      countRec	count records for all input files. Execute successfully only when 
+      countRec count records for all input files. Execute successfully only when 
                     the files' formats are correct
-      firstLines [number]	print the first [number] lines for all files to console
-      extractChrom [chrom_idx 1-based]	extract bases of the selected chromosome 
+      firstLines [number] print the first [number] lines for all files to console
+      extractChrom [chrom_idx 1-based] extract bases of the selected chromosome 
                                             and write into designated output file 
                                             together with the chromosome's info field
       statistics_vcf  collect statistics from a vcf file. Statistics includes number 
@@ -357,13 +359,13 @@ Directly expand (kmerLength - 1) towards both sides may result in an out of boun
                       separately
 
     -- GRBV operations
-      threads [NUM_threads]	use multi-threads methods to run the program. This only 
+      threads [NUM_threads] use multi-threads methods to run the program. This only 
                             works for integrateVcfToSam.
-      selectBadReads [MAPQ_threshold]	select reads with MAPQ lower than 
+      selectBadReads [MAPQ_threshold] select reads with MAPQ lower than 
                                             MAPQ_threshold from previously set sam 
                                             file and then output them into the 
                                             previously specified output file
-      integrateVcfToSam [integration_strategy]	integrate variants from *.vcf file 
+      integrateVcfToSam [integration_strategy] integrate variants from *.vcf file 
                                                     with *.sam file. This will perform 
                                                     realignment for all reads in the 
                                                     *.sam file with new created 
@@ -372,4 +374,3 @@ Directly expand (kmerLength - 1) towards both sides may result in an out of boun
                         [integration_strategy]: [1] SNP and small indel only; 
                                                 [2] SV only; 
                                                 [3] SNP, small indel and SV
-

@@ -185,7 +185,7 @@ static inline void generateKmers_integrated(
 
     // Some DELs may be long. We need to expand rbound. And at the same time, we
     // need to prevent expanding out of the chrom's boundary, or expanding to
-    // the edge the chrom. 
+    // the edge the chrom.
     rbound = rbound + length_allele_ref;
     rbound = rbound < length_chrom ? rbound : length_chrom - 1;
 
