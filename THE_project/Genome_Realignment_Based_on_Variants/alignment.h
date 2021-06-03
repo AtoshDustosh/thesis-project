@@ -27,6 +27,8 @@
 #define KSW2_DEFAULT_BANDWIDTH -1
 #define KSW2_DEFAULT_ZDROP -1
 #define KSW2_DEFAULT_FLAG 0
+#define KSW2_FLAG_RIGHTONLY KSW_EZ_RIGHT  // right-align gaps
+#define KSW2_FLAG_EXTENSION KSW_EZ_EXTZ_ONLY  // only perform extension
 
 typedef struct _define_AlignResult {
   int64_t pos;

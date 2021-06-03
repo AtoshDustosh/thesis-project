@@ -17,7 +17,7 @@ Required additional libraries and tools:
 - for data process, samtools & bcftools
 - for simulation: varsim, art_illumina
 
----
+***
 
 ## Data Load & In-memory Index
 
@@ -70,7 +70,7 @@ Required additional libraries and tools:
 - edlib from GitHub. (c++, incompatible with this project)
 - Complete-Striped-Smith-Waterman from GitHub. (tried, but doesn't satisfy the requirements of the project)
 
----
+***
 
 ## Integration of Variants (mapped reads)
 
@@ -133,11 +133,11 @@ And in the situation above, if we select 2.1 and 3.2 for integration, the refere
 
 And now we have a reference sequence with variants integrated.
 
-But this is only one instance corresponding to one combination of variants. And  $ C_n^m = C_n^{n-m}$
+But this is only one instance corresponding to one combination of variants. And  $C_n^m = C_n^{n-m}$
 
 Actually if there are N variants that intersect with the interval, we need to filter and process cases of more than this number:
 
-$ \sum_{i=1}^N{ C_N^i } $
+$\sum_{i=1}^N{ C_N^i }$
 
 ### Strategy of Integration
 
@@ -182,7 +182,7 @@ Integrated variants will be output using optional fields of according to SAM for
       As whitespaces and semicolons are not allowed in the ID of a vcf
       record, we use whitespace and semicolon to separate information. 
 
----
+***
 
 ## Integration and Kmer Generation (unmapped reads)
 
@@ -252,24 +252,76 @@ Suppose length of kmers is 6.
 Positions of kmers keep their positions on the original sequence
 char_input and char_output will be extracted as well.
 
-// TODO
-
 #### Extraction of Kmers after Integration
 
 Suppose length of kmers is 6.
 
                     |<------------- interval -------------->|
-    seq:  AAAAAAAGG AAAAAAAAACCCCCCCCCCCCCGGGGGGGGGGGGGTTTTTT TTTTTT
-    variants:       |    |   |   |  |      |      |   |
-                 <- ----->   |   |  <------>      ^   |
-                     DEL    SNP SNP    DEL       INS SNP
+    seq:  AAAAAAAGG AAAAAAACCCCCAACCCCCCCCCCCCCGGGGGGGGGGGGGTTTTTT TTTTTT
+    variants:       |    |        |   |  |      |      |   |
+                 <- ----->        |   |  <------>      ^   |
+                     DEL         SNP SNP    DEL       INS SNP
+                                 [T] [T]                  [C]
     kmers after integration:
-                    |    |   |   |  |      |      |   |
-              AAAAA ------A   ...            GGGGG|..
-               AAAA ------AA   ...         [kmers in INS]
-                AAA ------AAA   ...             ..|GGGGG
-                 AA ------AAAA   ...
-                  A ------AAAAA   ...
+                    |    |        |   |  |      |      |   |
+              AAAGG ------A       |   |    ...    GGGGG|..
+               AAGG ------AA      |   |    ...   [kmers in INS]
+                AGG ------AAA     |   |    ...       ..|GGGGG
+                 GG ------AAAA    |   |    ...
+                  G ------AAAAA   |   |    ...
+                             CCCAAT   |   
+                                ...   |
+                                  TCCCCC
+                                  |   |
+                                 AACCCT
+                                  | ...
+                                  |   TCCCCC
+                                 ATCCCT   [combinations of 2 SNP]
+                                  TCCCTC   [combinations of 2 SNP]
+                                  ... [other combinations]
+
+Consider the 1st DEL in this case. Only part of the DEL within the interval is integrated. Left part of the DEL which is outside the interval is ignored and un-integrated.
+
+##### Process of integrating Combinations of Variants
+
+We need to make some details clear first:
+
+1. When executing integration for an unmapped read, we need to expand the interval by 1 base towards both sides in order to extract the input char and output char.
+2. When integrating a DEL that is partially within the interval, we only integrate the bases within the interval and ignore other bases outside the interval.
+
+We can use the same process for unmapped reads as we do for mapped reads. But when handling unmapped reads and their integration with variants, we don't need to get the sequence after integration. All we need is only kmers. And thus we need to make some adjustments to the process. Besides, the integrated sequence actually contains less information than (interval, variants) data set. We cannot get the correct POS for kmers simply from the integrated sequences.
+
+Procedure is as follows (suppose length of kmers is 6):
+
+    For a combination of 4 alleles.
+                    |<------------- interval -------------->|
+    seq:  AAAAAAAGGCAAAAAAACCCCCAACCCCCCCCCCCCCGGGACGTACGTGGGTTTTTTTTTTTTT
+    vars:              C  G        C-------      G123456     
+                      SNPSNP           DEL         INS
+    kmers:          AAACAA     CCCCC-------C     
+                     AACAAG        ...              
+                       ...         C-------CCCCG   
+                       CAAGCC           ...         
+                        ...                  CCGGG1
+                          GCCCCC                  ...
+                                                       6ACGTA
+
+If we do the same to the reference sequence as we do for the mapped reads, hundreds, or even thousands of new sequences will probably be generated and iterated. That's a very unpractical strategy considering the number of intervals, and unecessary as those generated sequences contains tons of duplicated kmers.
+
+So we just go along the combination of variants. Luckily, we did some sorting for them before this step. And thus we can just iterate our variants' array.
+
+We classify the iteration into 2 cases:
+
+1. connected varaints. See the 1st variant, get its 1st kmer and start looking for rest kmers. During the process, we might encounter another variant like the picture above, 2 SNPs, whose distance to each other is smaller than kmerLength. And when this happens, handle the encountered varaint as well and continue looking for rest kmers until reaching the end of the reference sequence.
+2. disconnected / separate varaints. For example, DEL and INS in the picture above. They don't share any common kmer. And in such cases, we only need to handle them separately one by one, until reaching the end of the reference sequence.
+
+##### Calculation of positions for kmers
+
+- Positions of kmers near a SNP or a DEL
+  Same as their positions on the original sequence
+
+- Positions of kmers near a INS
+  From the pos where INS is, every kmer that intersect with the inserted sequence will have a ascending offset on the position.
 
 ##### Special cases
 
@@ -281,16 +333,16 @@ When expanding, we need to be careful not making the rbound_ref out of the chrom
 
 Suppose length of kmers is 5.
 
-                                                "expanded"
-                     |<--- |<----interval---->| -- ->|------------>|
-    ref seq: AAAACCCCAAGCC CCCCC CGGGGGGGGGGGTT TT TTTTTTTAAAAAAACCCCCCCCGGGGGGG
-    variant:                     |<-----DEL----->|     |
-    kmers             AGCC C     |               |     |
-                       ... ...   |               |     |
-                           CCCCC |               |     |
-                             ... |               |     |
-                              CC |               | TTT |
-                               C |               | TTTT 
+                   "expanded"                 "expanded"
+                     |<--- |<----interval---->| --->|------------------>|
+    ref seq: AAAACCCCAAGCC CCCCC CGGGGGGGGGGGTT TTTTTTTTTTAAAAAAACCCCCCCC
+    vars:                        |<-------DEL-- ----->|     |
+    kmers             AGCC C     |                    |     |
+                       ... ...   |                    |     |
+                           CCCCC |                    |     |
+                             ... |                    |     |
+                              CC |                    | TTA |
+                               C |                    | TTAA
 
 ###### Intervals at both ends
 
@@ -300,26 +352,14 @@ For example, when length of kmers is 22.
       NNNNNNN ... NNNNNNNN ... ... NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN ... NNNNNN
     intervals:
          |<--interval1-->|                              |<--interval2-->|
-      ----1st kmer----
-       ----2nd kmer----
+       ---1st kmer----
+        ---2nd kmer----
 
 Directly expand (kmerLength - 1) towards both sides may result in an out of boundary error. And in such cases, we need to check the expanded boundaries of the reference sequence.
 
-##### Calculation of positions for kmers
+Kmers that don't have input char or output char will be ignored.
 
-- Positions of kmers near a DEL
-
-  Keep the position of the kmer's input char as its position
-
-- Positions of kmers near a INS
-
-  From the pos where INS is, every kmer that intersect with the inserted sequence will have a ascending offset on the position.
-
-- Positions of kmers near a SNP
-
-  Same as the position on the original sequence
-
----
+***
 
 ## Usage
 

@@ -1,0 +1,28 @@
+
+("expanded"指向左右两侧延伸 kmerLength - 1 的区间)
+
+Long DEL near the beginning of interval:
+Suppose length of kmers is 5.
+
+                   "expanded"                 "expanded"
+                      |<-- |<----interval---->| -->|
+    ref seq: AAAACCCCAAGCC CCCCCGCGGGGGGGGGGGTT TTTTTTTTTAAAAAAACCCCCCCC
+    vars:          |<-|----|DEL-------->|     |    |    
+    kmers                                GGGGT     |
+                                             ...   |
+                                              T TTTT  
+
+Short DEL near the beginning of the interval:
+Suppose length of kmers is 8.
+
+                   "expanded"                 "expanded"
+                  |<----- |<----interval---->| ----->|
+    ref seq: AAAACCCCAAGCC CCCCCGCGGGGGGGGGGGTT TTTTTTTTTAAAAAAACCCCCCCC
+    vars:            |<---DEL--->|         
+    kmers         CCCAAGCC
+                   CCAAGCC -------G
+                    CAAGCC -------GG
+                            ...
+                         C -------GGGGGGG 
+
+DEL只有interval内的部分会被整合，expanded内的不被整合.

@@ -200,13 +200,13 @@ void align_ssw(const char *tseq, const int tlen, const char *qseq,
 /****************************************************************/
 
 static int _test_ksw2Alignment(const char *tseq, const char *qseq) {
-  // printf(" - ksw2 align\n");
-  // printf("tseq: %s\nqseq: %s\n", tseq, qseq);
+  printf(" - ksw2 align\n");
+  printf("tseq: %s\nqseq: %s\n", tseq, qseq);
   AlignResult *ar = init_AlignResult();
   const int tlen = strlen(tseq);
   const int qlen = strlen(qseq);
   align_ksw2(tseq, tlen, qseq, qlen, ar);
-  // print_AlignResult(ar);
+  print_AlignResult(ar);
   destroy_AlignResult(ar);
   return 1;
 }
@@ -225,16 +225,16 @@ static int _test_sswAlignment(const char *tseq, const char *qseq) {
 
 void _testSet_alignment() {
   // default parameters for genome sequence alignment
-  static int32_t match = 2, mismatch = -4;
-  static int32_t gapOpen = -3, gapExtension = 1;
+  static int32_t match = 2, mismatch = -2;
+  static int32_t gapOpen = -6, gapExtension = -1;
   alignInitialize(match, mismatch, gapOpen, gapExtension);
   alignInitialize_ksw2(KSW2_DEFAULT_BANDWIDTH, KSW2_DEFAULT_ZDROP,
-                       KSW2_DEFAULT_FLAG);
+                       KSW2_FLAG_EXTENSION);
 
   // test cases
-  // printf("testing alignment ...\n");
-  static const char *tseq = "AAAAAAAAACGTACGTACGTAAAAACCCCCGTAAACCCCC";
-  static const char *qseq = "TTTTACGTACGTACCCCCGTAAA";
+  printf("testing alignment ...\n");
+  static const char *tseq = "ACTCTAGACGTAATGATTATATAATAAAAAACAAGCTTA";
+  static const char *qseq = "ACTCTACCCCGACGTAA";
 
   assert(_test_ksw2Alignment(tseq, qseq));
   assert(_test_sswAlignment(tseq, qseq));

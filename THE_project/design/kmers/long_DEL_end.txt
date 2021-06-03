@@ -1,0 +1,28 @@
+
+Suppose length of kmers is 5.
+
+
+                   "expanded"                 "expanded"
+                      |<-- |<----interval---->| -->|------------------->|
+    ref seq: AAAACCCCAAGCC CCCCC CGGGGGGGGGGGTT TTTTTTTTTAAAAAAACCCCCCCC
+    vars:                        |<-------DEL-- ----->|    |
+    kmers             AGCC C     |                 |  |    |
+                       ... ...   |                 |  |    |
+                           CCCCC |                 |  |    |
+                             ... |                 |  |    |
+                              CC |                 |  |TTA |
+                               C |                 |  |TTAA
+All kmers:              
+                                 |                 |
+1. kmers from unmodified reference sequence:       |  |    |
+                      AGCC C     |                 |
+                       GCC CC    |                 |
+                          ... ...|... ... ... ...  |  |    |
+                                 |           TT TTT|  
+                                 |            T TTTT
+                                 |                    |    |
+2. kmers from sequence after integration:
+                                 |                 |  |
+                            CCCC ---------deleted------T
+                                      ...                  |
+                               C ---------deleted------TTAA       

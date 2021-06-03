@@ -1,0 +1,32 @@
+
+对ksw2的一些测试
+比分设置：match：mismatch：gapOpen：gapExtension = 4:-4:-6:1
+(only perform extension flag, right-align gaps flag, default flag)
+
+1. 参考序列的首尾有一段相同的序列
+	ref: 
+	ACGATCGAT ATTAAATAGGCTCCCCCCTT ACGATCGAT
+
+	read1: 直接把那段重复的挑出来
+	ACGATCGAT
+	结果：29D9M （三个flag设置结果相同）
+	（理想情况下应该是9M29D）
+
+	read2: 提取开头的一段，完全覆盖重复的序列，但是加了一些不重复的
+	ACGATCGAT AT
+	结果：9M27D2M （三个flag设置结果相同）
+	（理想情况下应该是11M27D)
+
+2. 参考序列的首尾没有相同的序列
+	ref: 
+	ACTGCTAGCTAGTACGTAATGATTATATAATAAAAAACAAGCTTA
+
+	read1: 提取开头的一小段
+	ACTCTAGACGTAA
+	结果：12M26D1M （三个flag设置结果相同）
+	（理想情况下应该是13M26D)
+
+	read2: 提取开头的一小段并插入一小段其他序列（ref里没有一长串的CCCC，所以插这个）
+	ACTCTACCCCGACGTAA
+	结果：6M4I6M26D1M （三个flag设置结果相同）
+	（理想情况下应该是6M4I7M26D）
