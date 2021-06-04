@@ -63,8 +63,8 @@ void alignInitialize_ksw2(int bandWidth, int zdrop, int flag) {
 
 void align_ksw2(const char *tseq, const int tlen, const char *qseq,
                 const int qlen, AlignResult *ar) {
-  // printf("target seq(%d): %s\n", tlen, tseq);
-  // printf("query seq(%d): %s\n", qlen, qseq);
+  printf("target seq(%d): %s\n", tlen, tseq);
+  printf("query seq(%d): %s\n", qlen, qseq);
   if (ar == NULL) {
     fprintf(stderr, "Error: null pointer for AlignResult. \n");
     exit(EXIT_FAILURE);
@@ -83,10 +83,10 @@ void align_ksw2(const char *tseq, const int tlen, const char *qseq,
   void *km = 0;
 
   // Align
-  // ksw_extz(km, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
-  //          score_gapExtension, ksw2_bandWidth, ksw2_zdrop, 0, &ez);
+  ksw_extz(km, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
+           score_gapExtension, ksw2_bandWidth, ksw2_zdrop, ksw2_flag, &ez);
   ksw_extz2_sse(km, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
-                score_gapExtension, ksw2_bandWidth, ksw2_zdrop, ksw2_flag, 0,
+                score_gapExtension, ksw2_bandWidth, ksw2_zdrop, 0, ksw2_flag,
                 &ez);
   // This one gets different result with other methods. Don't use this
   // ez.score = ksw_gg2_sse(km, qlen, (uint8_t *)qseq, tlen, (uint8_t *)tseq, 5,
@@ -229,12 +229,12 @@ void _testSet_alignment() {
   static int32_t gapOpen = -6, gapExtension = -1;
   alignInitialize(match, mismatch, gapOpen, gapExtension);
   alignInitialize_ksw2(KSW2_DEFAULT_BANDWIDTH, KSW2_DEFAULT_ZDROP,
-                       KSW2_FLAG_EXTENSION);
+                       KSW2_FLAG_RIGHTONLY);
 
   // test cases
   printf("testing alignment ...\n");
-  static const char *tseq = "ACTCTAGACGTAATGATTATATAATAAAAAACAAGCTTA";
-  static const char *qseq = "ACTCTACCCCGACGTAA";
+  static const char *tseq = "ACGCTAGAAGAAATCCTCAGATAAGCCAAAGCTGGTGATGACCTG";
+  static const char *qseq = "ACGAAGAAATCC";
 
   assert(_test_ksw2Alignment(tseq, qseq));
   assert(_test_sswAlignment(tseq, qseq));

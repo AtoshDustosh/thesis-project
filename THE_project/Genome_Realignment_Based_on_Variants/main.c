@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
   while (1) {
     switch (optRet) {
       case OPT_VERBOSE: {
-        options.verbose = 1;
+        options.verbose = OPT_VERBOSE;
         assert(_testSet_full());
         break;
       }

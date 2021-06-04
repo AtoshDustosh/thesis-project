@@ -118,6 +118,7 @@ static inline void optCheck_conflict(Options *opts) {
 /*
  * Methods for accessing data from a "Options *".
  */
+static inline int getVerbose(Options *opts) { return opts->verbose; }
 static inline char *getFaFile(Options *opts) { return opts->faFile; }
 static inline char *getFastqFile(Options *opts) { return opts->fastqFile; }
 static inline char *getSamFile(Options *opts) { return opts->samFile; }

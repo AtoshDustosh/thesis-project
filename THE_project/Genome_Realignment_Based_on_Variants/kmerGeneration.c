@@ -128,6 +128,7 @@ static inline void generateKmers_integrated(
   int pos_kmer_ref = 0; // 1-based, pos on the reference sequence
   int pos_kmer_offset = 0;  // for handling kmers within an INS only
   
+  // TODO waiting for teacher's responds
 
 }
 

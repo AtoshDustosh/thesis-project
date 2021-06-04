@@ -1,32 +1,54 @@
-
 对ksw2的一些测试
-比分设置：match：mismatch：gapOpen：gapExtension = 4:-4:-6:1
-(only perform extension flag, right-align gaps flag, default flag)
+比分设置：match：mismatch：gapOpen：gapExtension = 4:-4:6:1
+score for gaps: -(gapOpen + x * gapExtension)
 
 1. 参考序列的首尾有一段相同的序列
-	ref: 
-	ACGATCGAT ATTAAATAGGCTCCCCCCTT ACGATCGAT
+	ref: （首尾重复的部分已标出）
+	|.......|                    |.......|
+	ACGATCGATATTAAATAGGCTCCCCCCTTACGATCGAT
 
 	read1: 直接把那段重复的挑出来
 	ACGATCGAT
-	结果：29D9M （三个flag设置结果相同）
+	结果：
+		29D9M（default flag）
+		9M（extension-only）
+		9M29D（right-only）
 	（理想情况下应该是9M29D）
 
-	read2: 提取开头的一段，完全覆盖重复的序列，但是加了一些不重复的
-	ACGATCGAT AT
-	结果：9M27D2M （三个flag设置结果相同）
-	（理想情况下应该是11M27D)
+	read2: 提取开头的一段，完全覆盖重复的序列，但是加了一些不重复的（这里加了个ATT）
+	ACGATCGATATT
+	结果：
+		12M26D（right-only）
+		12M（extension-only）
+		11M26D1M（default flag）
+	（理想情况下应该是12M26D)
 
 2. 参考序列的首尾没有相同的序列
 	ref: 
 	ACTGCTAGCTAGTACGTAATGATTATATAATAAAAAACAAGCTTA
 
 	read1: 提取开头的一小段
-	ACTCTAGACGTAA
-	结果：12M26D1M （三个flag设置结果相同）
-	（理想情况下应该是13M26D)
+	ACTGCTAGCTAGT
+	结果：
+		12M31D2M（default flag）
+		14M31D（right-only）
+		14M（extension-only）
+	（理想情况下应该是14M31D)
 
 	read2: 提取开头的一小段并插入一小段其他序列（ref里没有一长串的CCCC，所以插这个）
-	ACTCTACCCCGACGTAA
-	结果：6M4I6M26D1M （三个flag设置结果相同）
+	ACTGCTCCCCAGCTAGT
+	结果：
+		6M4I7M（extension-only）
+		6M4I7M32D（righ-only）
+		6M4I7M32D（default flag）
 	（理想情况下应该是6M4I7M26D）
+
+	ref:
+	ACGCTAGAAGAAATCCTCAGATAAGCCAAAGCTGGTGATGACCTG
+
+	read1:ACGAAGAAATCC
+	结果：2M4D10M29D（三个flag设置结果相同）
+		2M4D10M（extension-only）
+		3M4D9M29D（right-only）
+		2M4D10M29D（default flag）
+	（理想情况下应该是3M4D9M29D，不过ref是乱写的，read是按照这个挑的，上面extension的结果也是合理的）

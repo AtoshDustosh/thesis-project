@@ -121,7 +121,7 @@ In the situation above, 1.1 and 2.1 cannot be integrated at the same time. Other
 
 In order to prevent the reference sequence becoming too short after integrating some DELs, we expand the "old_ref" towards both sides.
 
-And in the situation above, if we select 2.1 and 3.2 for integration, the reference sequence after integration will look like
+And in the situation above, if we select 2.1 and 3.2 for integration, the reference sequence after expanding and integration will look like
 
     old_ref:         ...AAAAAAAAAAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXBBBBBBBCCCCC...
     variants:             |       |                           |
@@ -135,7 +135,7 @@ And now we have a reference sequence with variants integrated.
 
 But this is only one instance corresponding to one combination of variants. And  $C_n^m = C_n^{n-m}$
 
-Actually if there are N variants that intersect with the interval, we need to filter and process cases of more than this number:
+Actually if there are N variants that intersect with the interval, we need to filter and process variants' combinations of more than this number:
 
 $\sum_{i=1}^N{ C_N^i }$
 
@@ -162,6 +162,8 @@ When aligning part1, sequences should be reversed. This is because we need to ma
 As ksw2 is based on global alignment, we need to cut off the 'D's at the end of cigar in the alignment result and create an alignment result similar to local alignment.
 
 Then merge the alignment result of part1 and part2, together with the M_area.
+
+It's pointed out that we use the right-only flag for ksw2 alignment here because we only need to alignment in one direction.
 
 ### Output
 
@@ -230,7 +232,7 @@ The program will try to fiter duplicated kmers from the same interval, but doesn
 
 ### Description of Process
 
-We suppose kmers at the end of the chromosome or at the beginning will be ignored.
+We suppose kmers at the end of the chromosome or at the beginning will be ignored, because they don't have input char or output char.
 
 #### Extraction of Kmers from Original Sequence
 
@@ -255,20 +257,22 @@ char_input and char_output will be extracted as well.
 #### Extraction of Kmers after Integration
 
 Suppose length of kmers is 6.
+(note that most "|" are just marks used for better reading)
 
-                    |<------------- interval -------------->|
-    seq:  AAAAAAAGG AAAAAAACCCCCAACCCCCCCCCCCCCGGGGGGGGGGGGGTTTTTT TTTTTT
-    variants:       |    |        |   |  |      |      |   |
-                 <- ----->        |   |  <------>      ^   |
-                     DEL         SNP SNP    DEL       INS SNP
-                                 [T] [T]                  [C]
+            "expanded"                                    "expanded"
+              |<--- |<------------- interval -------------->| --->|
+    seq:  AAAAAAAGG AAAAAAACCCCCAACCCCCCCCCCCCCGGGGGGGGGGGGGT TTTTT TTTTTT
+    variants: |  |  |    |        |   |  |      |      |   |
+              |  <- ----->        |   |  <------>      ^   |
+              |      DEL         SNP SNP    DEL       INS SNP
+              |                  [T] [T]                  [C]
     kmers after integration:
                     |    |        |   |  |      |      |   |
               AAAGG ------A       |   |    ...    GGGGG|..
-               AAGG ------AA      |   |    ...   [kmers in INS]
-                AGG ------AAA     |   |    ...       ..|GGGGG
-                 GG ------AAAA    |   |    ...
-                  G ------AAAAA   |   |    ...
+               AAGG ------AC      |   |    ...   [kmers in INS]
+                AGG ------ACC     |   |    ...       ..|GGGGG
+                 GG ------ACCC    |   |    ...
+                  G ------ACCCC   |   |    ...
                              CCCAAT   |   
                                 ...   |
                                   TCCCCC
@@ -289,12 +293,16 @@ We need to make some details clear first:
 1. When executing integration for an unmapped read, we need to expand the interval by 1 base towards both sides in order to extract the input char and output char.
 2. When integrating a DEL that is partially within the interval, we only integrate the bases within the interval and ignore other bases outside the interval.
 
-We can use the same process for unmapped reads as we do for mapped reads. But when handling unmapped reads and their integration with variants, we don't need to get the sequence after integration. All we need is only kmers. And thus we need to make some adjustments to the process. Besides, the integrated sequence actually contains less information than (interval, variants) data set. We cannot get the correct POS for kmers simply from the integrated sequences.
+// TODO following plans might change according to your teacher's responds
+
+When calculating combinations of variants, we can use the same process for unmapped reads as we do for mapped reads. But when handling unmapped reads and their integration with variants, we don't need to get the sequence after integration. All we need is only kmers. And thus we need to make some adjustments to the process. Besides, the integrated sequence actually contains less information than (interval, variants) data set. We cannot get the correct POS for kmers simply from the integrated sequences.
 
 Procedure is as follows (suppose length of kmers is 6):
 
     For a combination of 4 alleles.
-                    |<------------- interval -------------->|
+             "expanded"                                  "expanded"
+                                                                "extended"
+               |<---|<------------- interval -------------->|--->|----->|
     seq:  AAAAAAAGGCAAAAAAACCCCCAACCCCCCCCCCCCCGGGACGTACGTGGGTTTTTTTTTTTTT
     vars:              C  G        C-------      G123456     
                       SNPSNP           DEL         INS
@@ -343,21 +351,6 @@ Suppose length of kmers is 5.
                              ... |                    |     |
                               CC |                    | TTA |
                                C |                    | TTAA
-
-###### Intervals at both ends
-
-For example, when length of kmers is 22.
-
-    chromosome:
-      NNNNNNN ... NNNNNNNN ... ... NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN ... NNNNNN
-    intervals:
-         |<--interval1-->|                              |<--interval2-->|
-       ---1st kmer----
-        ---2nd kmer----
-
-Directly expand (kmerLength - 1) towards both sides may result in an out of boundary error. And in such cases, we need to check the expanded boundaries of the reference sequence.
-
-Kmers that don't have input char or output char will be ignored.
 
 ***
 

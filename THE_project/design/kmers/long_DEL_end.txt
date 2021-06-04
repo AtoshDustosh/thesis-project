@@ -2,7 +2,7 @@
 Suppose length of kmers is 5.
 
 
-                   "expanded"                 "expanded"
+                   "expanded"               "expanded"
                       |<-- |<----interval---->| -->|------------------->|
     ref seq: AAAACCCCAAGCC CCCCC CGGGGGGGGGGGTT TTTTTTTTTAAAAAAACCCCCCCC
     vars:                        |<-------DEL-- ----->|    |

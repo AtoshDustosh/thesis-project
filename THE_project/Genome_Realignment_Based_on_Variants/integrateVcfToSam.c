@@ -4,8 +4,8 @@ static char aux_appended_type = 'Z';
 static char aux_appended_tag[3] = {'X', 'V', '\0'};
 
 // Extract #(extension_Xpart) more bases when extracting ref sequence
-static const int extension_lpart = 0;
-static const int extension_rpart = 0;
+static const int extension_lpart = 10;
+static const int extension_rpart = 10;
 
 static int integration_sv_min_len = 0;  // minimal length for a SV
 static int integration_sv_max_len = 0;  // maximal length for a SV
@@ -565,43 +565,43 @@ static inline void integration_integrate(
   }
 
   // Print information collected for this integration task
-  // printf("lbound var: %" PRId64 ", rbound var: %" PRId64 "\n", lbound_var,
-  //        rbound_var);
-  // printf("lbound_M: %" PRId64 ", rbound_M: %" PRId64 "\n", lbound_M,
-  // rbound_M); printf("length combi lpart: %d, combi rpart: %d\n",
-  // length_combi_lpart,
-  //        length_combi_rpart);
-  // printf("ervArray (L): \n");
-  // for (int i = 0; i < length_ervArray_lpart; i++) {
-  //   genomeVcf_bplus_printRec(gv, ervArray_lpart[i]->rv);
-  // }
-  // printf("\n");
-  // printf("(rv, allele) selected (L): \n");
-  // for (int i = 0; i < length_combi_lpart; i++) {
-  //   printf("(%d,%d) ", ervCombi_lpart[i], alleleCombi_lpart[i]);
-  // }
-  // printf("\n");
-  // printf("ervArray (R): \n");
-  // for (int i = 0; i < length_ervArray_rpart; i++) {
-  //   genomeVcf_bplus_printRec(gv, ervArray_rpart[i]->rv);
-  // }
-  // printf("\n");
-  // printf("(rv, allele) selected (R): \n");
-  // for (int i = 0; i < length_combi_rpart; i++) {
-  //   printf("(%d,%d) ", ervCombi_rpart[i], alleleCombi_rpart[i]);
-  // }
-  // printf("\n");
-  // printf("*****************************************************\n");
+  printf("lbound var: %" PRId64 ", rbound var: %" PRId64 "\n", lbound_var,
+         rbound_var);
+  printf("lbound_M: %" PRId64 ", rbound_M: %" PRId64 "\n", lbound_M,
+  rbound_M); printf("length combi lpart: %d, combi rpart: %d\n",
+  length_combi_lpart,
+         length_combi_rpart);
+  printf("ervArray (L): \n");
+  for (int i = 0; i < length_ervArray_lpart; i++) {
+    genomeVcf_bplus_printRec(gv, ervArray_lpart[i]->rv);
+  }
+  printf("\n");
+  printf("(rv, allele) selected (L): \n");
+  for (int i = 0; i < length_combi_lpart; i++) {
+    printf("(%d,%d) ", ervCombi_lpart[i], alleleCombi_lpart[i]);
+  }
+  printf("\n");
+  printf("ervArray (R): \n");
+  for (int i = 0; i < length_ervArray_rpart; i++) {
+    genomeVcf_bplus_printRec(gv, ervArray_rpart[i]->rv);
+  }
+  printf("\n");
+  printf("(rv, allele) selected (R): \n");
+  for (int i = 0; i < length_combi_rpart; i++) {
+    printf("(%d,%d) ", ervCombi_rpart[i], alleleCombi_rpart[i]);
+  }
+  printf("\n");
+  printf("*****************************************************\n");
 
-  // printf("lpart align");
-  // print_AlignResult(ar_lpart);
-  // printf("rpart align");
-  // print_AlignResult(ar_rpart);
+  printf("lpart align");
+  print_AlignResult(ar_lpart);
+  printf("rpart align");
+  print_AlignResult(ar_rpart);
 
   // Write result into file
   // printSamRecord_brief(gs, rsData(rec_rs));
-  // printf("merged cigar: %s\n", buf_merged_cigar);
-  // printf("fixed POS: %" PRId64 "\n", new_pos);
+  printf("merged cigar: %s\n", buf_merged_cigar);
+  printf("fixed POS: %" PRId64 "\n", new_pos);
   bam1_t *new_rec = bamSetPosCigarMapq(rsData(rec_rs), new_pos, 0,
                                        rsDataSeqLength(rec_rs) - 1,
                                        buf_merged_cigar, rsDataMapQ(rec_rs));
@@ -951,6 +951,8 @@ void *integration_threads(void *args) {
   int64_t id_rec_start = args_thread->id_sam_start;  // included
   int64_t id_rec_end = args_thread->id_sam_end;      // included
   while (rs_tmp != NULL) {
+    printSamRecord_brief(gs, rsData(rs_tmp));
+    printf("*****************************************************\n");
     // -------- only handle records within [id_start, id_end] --------
     if (id_rec < id_rec_start) {
       rs_tmp = gsItNextRec(gsIt);
@@ -1075,8 +1077,6 @@ void *integration_threads(void *args) {
       free(ervArray_rpart[i]);
     }
     free(ervArray_rpart);
-    // printSamRecord_brief(gs, rsData(rs_tmp));
-    // printf("*****************************************************\n");
 
     // --------------------- keep on iterating -----------------------
     rs_tmp = gsItNextRec(gsIt);
@@ -1130,7 +1130,7 @@ void integration(Options *opts) {
                   getGapextension(opts));
   // Init paramters for ksw2 specially
   alignInitialize_ksw2(KSW2_DEFAULT_BANDWIDTH, KSW2_DEFAULT_ZDROP,
-                       KSW2_DEFAULT_FLAG);
+                       KSW2_FLAG_RIGHTONLY);
   integration_strategy = opt_integration_strategy(opts);
   integration_sv_min_len = getSVminLen(opts);
   integration_sv_max_len = getSVmaxLen(opts);
