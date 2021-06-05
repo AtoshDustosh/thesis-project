@@ -11,21 +11,21 @@
       "request": "launch",
       "program": "${fileDirname}/main",
       "args": [
-        "--verbose",
+        // "--verbose",
 
         "--faFile",
         "data/test.fa",
         // "data/hs37d5_21.fa",
         // "--fastqFile",
         // "data/test.fastq",
-        "--samFile",
-        "data/test.sorted.sam",
+        // "--samFile",
+        // "data/test.sorted.sam",
         // "data/simu.filtered.sorted.sam",
         "--vcfFile",
         "data/test.vcf",
         // "data/merged.sorted.vcf",
-        // "--auxFile",
-        // "data/kmerIntervals.aux",
+        "--auxFile",
+        "data/kmerIntervals.aux",
 
         // "--outputFile",
         // "data/grbvOut.sam",
@@ -34,16 +34,16 @@
         // "--selectBadReads",
         // "20",
 
-        "--thread",
-        "1",
+        // "--thread",
+        // "4",
 
-        "--integrateVcfToSam",
-        "3",
+        // "--integrateVcfToSam",
+        // "3",
 
         // test other opterations
         
-        // "--kmerGeneration",
-        // "23",
+        "--kmerGeneration",
+        "23",
 
         // "--countRec",
         // "--firstLines 30",

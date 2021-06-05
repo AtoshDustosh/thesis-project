@@ -29,6 +29,16 @@ void _testSet() {
 }
 
 int main() {
-  _testSet();
+  // _testSet();
+
+  char buf[10];
+  memset(buf, 0, 10);
+
+  strcat(buf, "Abc");
+  printf("buf: %s\n", buf);
+
+  // strcat(buf, NULL); // doesn't work
+  printf("buf: %s\n", buf);
+
   return 0;
 }

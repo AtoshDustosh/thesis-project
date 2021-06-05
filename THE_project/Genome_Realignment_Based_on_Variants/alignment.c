@@ -63,8 +63,8 @@ void alignInitialize_ksw2(int bandWidth, int zdrop, int flag) {
 
 void align_ksw2(const char *tseq, const int tlen, const char *qseq,
                 const int qlen, AlignResult *ar) {
-  printf("target seq(%d): %s\n", tlen, tseq);
-  printf("query seq(%d): %s\n", qlen, qseq);
+  // printf("target seq(%d): %s\n", tlen, tseq);
+  // printf("query seq(%d): %s\n", qlen, qseq);
   if (ar == NULL) {
     fprintf(stderr, "Error: null pointer for AlignResult. \n");
     exit(EXIT_FAILURE);

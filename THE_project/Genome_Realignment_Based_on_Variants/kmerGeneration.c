@@ -35,103 +35,6 @@ static inline bool ifCanIntegrateAllele(RecVcf_bplus *rv, int alleleIdx,
   }
 }
 
-static inline int count_integrated_allele(RecVcf_bplus *rv, int32_t startPos,
-                                          int32_t endPos) {
-  int varStartPos = rv_pos(rv);
-  int cnt_integrated_allele = 0;
-  for (int i = 0; i < rv_alleleCnt(rv); i++) {
-    switch (bcf_get_variant_type(rv_object(rv), i)) {
-      case VCF_REF: {
-        break;
-      }
-      default: {
-        const char *var_ref = rv_allele(rv, 0);
-        const char *var_alt = rv_allele(rv, i);
-        int length_ref = strlen(var_ref);
-        int length_alt = strlen(var_alt);
-        int32_t varEndPos = varStartPos + length_ref - 1;
-        if (varEndPos >= startPos && varStartPos <= endPos)
-          cnt_integrated_allele++;
-        break;
-      }
-    }  // end of swich
-  }    // end of for
-  return cnt_integrated_allele;
-}
-
-/**
- * @brief  Generate kmers integrated with varaints and store in the hash table.
- * @param  *ervArray[]: array of varaints on this interval
- * @param  ervCombi[]: array of combination of selected variants
- * @param  alleleCombi[]: array of combinations of alleles on the selected vars
- * @param  length_combi: length of combinations
- * @param  lbound: 1-based expanded lbound of the ref sequence (included)
- * @param  rbound: 1-based expanded rbound of the ref sequence (included)
- * @param  pos_start: 1-based start position of the interval
- * @param  pos_end: 1-based end position of the interval
- * @param  *hashTable: kmers' hash table
- * @param  *cf: structure for a chromosome from reference genome
- * @param  *gv: structure for variants
- * @param  *fp_op: FILE pointer to output file
- */
-static inline void generateKmers_integrated(
-    Element_RecVcf *ervArray[], int ervCombi[], int alleleCombi[],
-    int length_combi, int32_t lbound, int32_t rbound, int32_t pos_start,
-    int32_t pos_end, KmerHashTable *hashTable, ChromFa *cf, GenomeVcf_bplus *gv,
-    FILE *fp_op) {
-  // -------------- set bounds of ref sequence and update bounds ---------------
-  const int32_t length_chrom = chromFa_length(cf);
-  // expand by 1 base in order to get input char and output char
-  int lbound_ref = pos_start - (kmerLength - 1) - 1;  // 1-based
-  int rbound_ref = pos_end + (kmerLength - 1) + 1;    // 1-based
-  lbound_ref = lbound_ref > 0 ? lbound_ref : 1;
-
-  int length_seq_ref = 0;
-  for (int i = 0; i < length_combi; i++) {
-    RecVcf_bplus *tmp_rv = ervArray[ervCombi[i]]->rv;
-    const char *allele_ref = rv_allele(tmp_rv, 0);
-    const char *allele_alt = rv_allele(tmp_rv, alleleCombi[i]);
-    int length_allele_ref = strlen(allele_ref);
-    int length_allele_alt = strlen(allele_alt);
-    printf("allele_ref[%d]: %s, allele_alt[%d]: %s\n", i, allele_ref, i,
-           allele_alt);
-    // genomeVcf_bplus_printRec(gv,tmp_rv);
-
-    if (length_allele_ref == length_allele_alt) {
-      if (length_allele_ref == 1) {  // SNP
-        continue;
-      } else {  // MNP, but length_alt == length_ref
-        length_seq_ref += length_allele_ref;
-      }
-    } else if (length_allele_alt > length_allele_ref) {  // INS
-      length_seq_ref += (length_allele_alt - length_allele_ref);
-    } else {  // others
-      rbound_ref += (length_allele_ref - length_allele_alt);
-    }
-  }
-  rbound_ref = rbound_ref <= length_chrom ? rbound_ref : length_chrom;
-  length_seq_ref += rbound_ref - lbound_ref + 1;
-  if (length_seq_ref <= 0) {
-    // Do nothing - actually this case should not happen
-    fprintf(stderr,
-            "Warning: unexpected case happened - length_seq_ref <= 0.\n");
-    return;
-  }
-
-  // Get original ref sequence
-  const char *original_seq_ref = getSeqFromChromFa(lbound_ref, rbound_ref, cf);
-
-  // ------------- extract kmer, input char, output char, and pos --------------
-  char buf_kmer[kmerLength + 1];  // buffer for constructing a kmer
-  memset(buf_kmer, 0, kmerLength + 1);
-  int idx_allele = 0; // index for the allele being handled
-  int pos_kmer_ref = 0; // 1-based, pos on the reference sequence
-  int pos_kmer_offset = 0;  // for handling kmers within an INS only
-  
-  // TODO waiting for teacher's responds
-
-}
-
 /**
  * @brief  Process and generate kmers for interval [pos_start, pos_end] on the
  * id_chrom-th chromosome. And then output the generated kmers into the
@@ -154,7 +57,7 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
   pos_start = pos_start > 1 ? pos_start : 2;
   pos_end = pos_end < length_chrom ? pos_end : length_chrom - 1;
 
-  // Expand interval (also ignore the kmers at the ends of the chrom)
+  // Expanded interval (also ignore the kmers at the ends of the chrom)
   int32_t lbound = pos_start - (kmerLength - 1);
   lbound = lbound > 1 ? lbound : 2;
   int32_t rbound = pos_end + (kmerLength - 1);
@@ -162,7 +65,7 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
 
   // ------------------------ Create hash table for kmers ----------------------
   // Maybe a larger size of the table would be better, but this one can do
-  int32_t tableSize = (rbound - lbound);
+  int32_t tableSize = (rbound - lbound) * 2;
   KmerHashTable *hashTable = init_kmerHashTable(tableSize, kmerLength);
 
   // -------------------- Save original kmers into hash table ------------------
@@ -174,96 +77,104 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
     char outputChar = charOfBase(getBase(chrom, local_lbound + kmerLength));
     char *kmer = subStr(seq_ref, tmp_offset, tmp_offset + kmerLength - 1);
     if (check_kmer_valid(kmer)) {
-      kmerHashTable_add(kmer, lbound + tmp_offset, inputChar, outputChar,
-                        hashTable);
+      kmerHashTable_add(kmer,
+                        genomeFa_absolutePos(id_chrom, lbound + tmp_offset, gf),
+                        inputChar, outputChar, hashTable);
       // printf("kmer: %s, pos: %d\n", kmer, (int)(pos_start + tmp_offset));
     }
     tmp_offset++;
   }
   free(seq_ref);
 
-  // ---------- Get variants within the interval [pos_start, pos_end] ----------
+  // ------------- Find all inter-variant kmers within the interval ------------
+
   RecVcf_bplus *rv_tmp =
       genomeVcf_bplus_getRecAfterPos(gv, name_chrom, pos_start);
-  RecVcf_bplus *first_rv = rv_tmp;
-
-  // 1st loop - calculate number of vcf records that needs integration
-  int cnt_integrated_variants = 0;
   while (rv_tmp != NULL) {
-    if (count_integrated_allele(rv_tmp, pos_start, pos_end) > 0) {
-      cnt_integrated_variants++;
-    } else {
-      if (rv_pos(rv_tmp) > pos_end) {
-        break;
-      }
-    }
-    rv_tmp = next_RecVcf_bplus(rv_tmp);
-  }
-  // 2nd loop - save pointers to vcf records that needs integration and
-  // calculate number of alleles of each vcf record that needs integration.
-  int cnt_integrated_alleles = 0;
-  Element_RecVcf **ervArray = (Element_RecVcf **)calloc(
-      cnt_integrated_variants, sizeof(Element_RecVcf *));
-  rv_tmp = first_rv;
-  int idx_integrated_variants = 0;
-  while (rv_tmp != NULL) {
-    int tmp_cnt_integrated_allele =
-        count_integrated_allele(rv_tmp, pos_start, pos_end);
-    if (tmp_cnt_integrated_allele > 0) {
-      // Find all alleles that needs integration on this vcf record
-      ervArray[idx_integrated_variants] =
-          (Element_RecVcf *)malloc(sizeof(Element_RecVcf));
-      ervArray[idx_integrated_variants]->rv = rv_tmp;
-      ervArray[idx_integrated_variants]->alleleIdx =
-          (int *)calloc(tmp_cnt_integrated_allele, sizeof(int));
-      ervArray[idx_integrated_variants]->alleleCnt = tmp_cnt_integrated_allele;
+    int cnt_integrated_allele = 0;
+    // Check the varaint and find its inter-variant kmers
+    for (int i = 0; i < rv_alleleCnt(rv_tmp); i++) {
+      if (ifCanIntegrateAllele(rv_tmp, i, pos_start, pos_end) == true) {
+        // genomeVcf_bplus_printRec(gv, rv_tmp);
+        int32_t pos_var = rv_pos(rv_tmp);
+        const char *allele_ref = rv_allele(rv_tmp, 0);
+        const char *allele_alt = rv_allele(rv_tmp, i);
+        const int length_ref = strlen(allele_ref);
+        const int length_alt = strlen(allele_alt);
 
-      int tmp_idx_allele = 0;
-      for (int i = 0; i < rv_alleleCnt(rv_tmp); i++) {
-        if (ifCanIntegrateAllele(rv_tmp, i, pos_start, pos_end) == true) {
-          ervArray[idx_integrated_variants]->alleleIdx[tmp_idx_allele++] = i;
+        // Divide the (l, m, r) parts and find all kmers within the interval
+        // Extract (k+2) mer instead of kmer
+        int32_t pos_kmer = pos_var - (kmerLength + 2 - 1);
+        pos_kmer = pos_kmer >= 1 ? pos_kmer : 1;
+        int32_t local_pos_alt = 0;  // 0-based pos in ALT
+        while (pos_kmer != pos_var || local_pos_alt < length_alt) {
+          char inputChar = 'N';
+          char outputChar = 'N';
+          char buf_kmer[kmerLength + 3];
+          memset(buf_kmer, 0, kmerLength + 3);
+          int idx_buf = 0;
+          // Construct a single kmer that has an lpart
+          // ----------------- lpart
+          char *lpart = getSeqFromChromFa(pos_kmer, pos_var - 1, chrom);
+          idx_buf = idx_buf + pos_var - pos_kmer;
+          if (lpart != NULL) {  // lpart exists
+            strcat(buf_kmer, lpart);
+          }
+          // ----------------- midpart
+          int32_t pos_ref = 0;  // position of base on the reference sequence
+          int idx_alt = 0;
+          // Extract bases within ALT
+          while (idx_buf < kmerLength + 2 &&
+                 idx_alt + local_pos_alt < length_alt) {
+            buf_kmer[idx_buf++] = allele_alt[idx_alt + local_pos_alt];
+            idx_alt++;
+          }
+          // Pass bases on the reference
+          pos_ref = pos_var + length_ref;  // position of next base after REF
+
+          // ----------------- rpart
+          // Extract bases after REF
+          while (idx_buf < kmerLength + 2 && pos_ref <= length_chrom) {
+            buf_kmer[idx_buf++] = charOfBase(getBase(chrom, pos_ref++));
+          }
+
+          // Add kmer into hash table
+          // printf("kmer: %s, input char: %c, output char: %c, pos: %d\n",
+          //        buf_kmer, inputChar, outputChar, pos_kmer);
+          // Extract original kmer from (k+2) mer.
+          char *kmer = subStr(buf_kmer, 1, (kmerLength + 2) - 1 - 1);
+          inputChar = buf_kmer[0];
+          outputChar = buf_kmer[kmerLength + 2 - 1];
+          int32_t pos_abs = genomeFa_absolutePos(id_chrom, pos_kmer + 1, gf);
+          // printf("fixed - kmer: %s, input char: %c, output char: %c, pos:
+          // %d\n",
+          //        kmer, inputChar, outputChar, pos_abs);
+          kmerHashTable_add(kmer, pos_abs, inputChar, outputChar, hashTable);
+
+          free(kmer);
+
+          if (pos_kmer == pos_var) {
+            local_pos_alt++;
+          }
+          if (lpart != NULL) {
+            pos_kmer++;
+          }
+
+          free(lpart);
         }
+        cnt_integrated_allele++;
       }
-      cnt_integrated_alleles += tmp_cnt_integrated_allele;
-      idx_integrated_variants++;
+    }  // end of for(;;)
+
+    // Continue iteration of variants
+    if (cnt_integrated_allele == 0) {
+      break;
     } else {
       if (rv_pos(rv_tmp) > pos_end) {
         break;
       }
     }
     rv_tmp = next_RecVcf_bplus(rv_tmp);
-  }
-
-  // ------------------- Save integrated kmers into hash table -----------------
-  // Calculate combinations of variants
-  int *ervIdxes = (int *)calloc(cnt_integrated_variants, sizeof(int));
-  for (int i = 0; i < cnt_integrated_variants; i++) ervIdxes[i] = i;
-  for (int i = 1; i < cnt_integrated_variants + 1; i++) {
-    Combinations *cbs =
-        calculate_combinations(ervIdxes, cnt_integrated_variants, i);
-    // Calculate combinations of alleles in a combination of variants
-    for (int j = 0; j < cbs->cnt; j++) {
-      Combinations_alleles *acbs = calculate_combinations_alleles(
-          ervArray, cnt_integrated_alleles, cbs->combis[j], i);
-
-      // Iterate all combinations of alleles in a combination of variants
-      for (int k = 0; k < acbs->cnt; k++) {
-        generateKmers_integrated(
-            ervArray, acbs->combi_rv, acbs->combis_allele[k], acbs->length,
-            lbound, rbound, pos_start, pos_end, hashTable, chrom, gv, fp_op);
-      }
-
-      for (int j = 0; j < acbs->cnt; j++) {
-        free(acbs->combis_allele[j]);
-      }
-      free(acbs->combis_allele);
-      destroy_combinations_alleles(acbs);
-    }
-    for (int j = 0; j < cbs->cnt; j++) {
-      free(cbs->combis[j]);
-    }
-    free(cbs->combis);
-    destroy_combinations(cbs);
   }
 
   // statistics_kmerHashTable(hashTable);
@@ -272,20 +183,15 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
   Iterator_Kmerhash *it = init_iterator_Kmerhash(hashTable);
 
   while (iterator_Kmerhash_next(it) != false) {
-    fprintf(fp_op, "[%" PRId32 ",%" PRId32 ",%s]\n", id_chrom,
-            iterator_Kmerhash_pos(it), iterator_Kermhash_string(it));
+    fprintf(fp_op, "[%" PRId32 " %" PRId32 " %s %c %c ]\n", id_chrom,
+            iterator_Kmerhash_pos(it), iterator_Kmerhash_string(it),
+            iterator_KmerHash_inputChar(it), iterator_KmerHash_outputChar(it));
   }
 
   destroy_iterator_Kmerhash(it);
 
   // ----------------------------- free structures -----------------------------
   destroy_kmerHashTable(hashTable);
-  for (int i = 0; i < cnt_integrated_variants; i++) {
-    free(ervArray[i]->alleleIdx);
-    free(ervArray[i]);
-  }
-  free(ervArray);
-  free(ervIdxes);
 
   return;
 }
@@ -358,8 +264,8 @@ void generateKmers(Options *opts) {
   uint32_t pos_end = 0;
   while (fscanf(fp_aux, "[%" PRIu32 ",%" PRIu32 ",%" PRIu32 "]\n", &id_chrom,
                 &pos_start, &pos_end) == 3) {
-    printf("aux record: [%" PRIu32 ",%" PRIu32 ",%" PRIu32 "]\n", id_chrom,
-           pos_start, pos_end);
+    printf("processing aux record: [%" PRIu32 ",%" PRIu32 ",%" PRIu32 "]\n",
+           id_chrom, pos_start, pos_end);
     fprintf(fp_op, "# [%" PRIu32 ",%" PRIu32 ",%" PRIu32 "]\n", id_chrom,
             pos_start, pos_end);
     generateKmers_process(id_chrom, pos_start, pos_end, gf, gv, fp_op);

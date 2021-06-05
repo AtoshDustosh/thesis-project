@@ -37,7 +37,7 @@ Iterator_Kmerhash *init_iterator_Kmerhash(KmerHashTable *table);
 /**
  * @brief  Get a copy of temporary string (kmer).
  */
-char *iterator_Kermhash_string(Iterator_Kmerhash *it);
+char *iterator_Kmerhash_string(Iterator_Kmerhash *it);
 
 /**
  * @brief  Get temporary position of the kmer
@@ -67,8 +67,10 @@ KmerHashTable *init_kmerHashTable(int32_t tableSize, int32_t kmerLength);
 void destroy_kmerHashTable(KmerHashTable *table);
 
 /**
- * @brief  Add a data unit (kmerString, kmerPos) into the hash table
- * @param  *kmer: string of the kmer (char array ended with '\0')
+ * @brief  Add a data unit (kmerString, kmerPos) into the hash table. Feel free
+ * to free the input kmer. This method will create a copy when adding a new
+ * kmer.
+ * @param  *kmer: string of the kmer (char array ended with \0).
  * @param  pos: 1-based position of the kmer
  * @param  inputChar: input char of the kmer
  * @param  outputChar: output char of the kmer

@@ -175,11 +175,11 @@ Integrated variants will be output using optional fields of according to SAM for
       
       Suppose 3 varaints are selected.
       Their IDs are (v1, v2, v3). 
-      Their cnt_alleles are (2, 4, 1)
+      Their cnt_alleles are (2, 4, 1) (REF not included)
       Their POSs are (p1, p2, p3)
-      Integrated alleles are (v1.1, v2.3, v3.0). (0-based index)
+      Integrated alleles are (v1.2, v2.4, v3.1). (1-based index)
 
-      The optional fields will be "XV:Z:v1;p1;1 v2;p2;3 v3;p3;0"
+      The optional fields will be "XV:Z:v1;p1;2 v2;p2;4 v3;p3;1"
 
       As whitespaces and semicolons are not allowed in the ID of a vcf
       record, we use whitespace and semicolon to separate information. 
@@ -259,7 +259,6 @@ char_input and char_output will be extracted as well.
 Suppose length of kmers is 6.
 (note that most "|" are just marks used for better reading)
 
-            "expanded"                                    "expanded"
               |<--- |<------------- interval -------------->| --->|
     seq:  AAAAAAAGG AAAAAAACCCCCAACCCCCCCCCCCCCGGGGGGGGGGGGGT TTTTT TTTTTT
     variants: |  |  |    |        |   |  |      |      |   |
@@ -268,11 +267,9 @@ Suppose length of kmers is 6.
               |                  [T] [T]                  [C]
     kmers after integration:
                     |    |        |   |  |      |      |   |
-              AAAGG ------A       |   |    ...    GGGGG|..
-               AAGG ------AC      |   |    ...   [kmers in INS]
-                AGG ------ACC     |   |    ...       ..|GGGGG
-                 GG ------ACCC    |   |    ...
-                  G ------ACCCC   |   |    ...
+              AAAGG ------ACC     |   |    ...    GGGGG|..
+               AAGG ------ACCC    |   |    ...   [kmers in INS]
+                AGG ------ACCCC   |   |    ...       ..|GGGGG
                              CCCAAT   |   
                                 ...   |
                                   TCCCCC
@@ -280,77 +277,113 @@ Suppose length of kmers is 6.
                                  AACCCT
                                   | ...
                                   |   TCCCCC
-                                 ATCCCT   [combinations of 2 SNP]
-                                  TCCCTC   [combinations of 2 SNP]
-                                  ... [other combinations]
 
-Consider the 1st DEL in this case. Only part of the DEL within the interval is integrated. Left part of the DEL which is outside the interval is ignored and un-integrated.
+We don't need to consider combinations of variants for unmapped reads.
 
-##### Process of integrating Combinations of Variants
-
-We need to make some details clear first:
-
-1. When executing integration for an unmapped read, we need to expand the interval by 1 base towards both sides in order to extract the input char and output char.
-2. When integrating a DEL that is partially within the interval, we only integrate the bases within the interval and ignore other bases outside the interval.
-
-// TODO following plans might change according to your teacher's responds
-
-When calculating combinations of variants, we can use the same process for unmapped reads as we do for mapped reads. But when handling unmapped reads and their integration with variants, we don't need to get the sequence after integration. All we need is only kmers. And thus we need to make some adjustments to the process. Besides, the integrated sequence actually contains less information than (interval, variants) data set. We cannot get the correct POS for kmers simply from the integrated sequences.
-
-Procedure is as follows (suppose length of kmers is 6):
-
-    For a combination of 4 alleles.
-             "expanded"                                  "expanded"
-                                                                "extended"
-               |<---|<------------- interval -------------->|--->|----->|
-    seq:  AAAAAAAGGCAAAAAAACCCCCAACCCCCCCCCCCCCGGGACGTACGTGGGTTTTTTTTTTTTT
-    vars:              C  G        C-------      G123456     
-                      SNPSNP           DEL         INS
-    kmers:          AAACAA     CCCCC-------C     
-                     AACAAG        ...              
-                       ...         C-------CCCCG   
-                       CAAGCC           ...         
-                        ...                  CCGGG1
-                          GCCCCC                  ...
-                                                       6ACGTA
-
-If we do the same to the reference sequence as we do for the mapped reads, hundreds, or even thousands of new sequences will probably be generated and iterated. That's a very unpractical strategy considering the number of intervals, and unecessary as those generated sequences contains tons of duplicated kmers.
-
-So we just go along the combination of variants. Luckily, we did some sorting for them before this step. And thus we can just iterate our variants' array.
-
-We classify the iteration into 2 cases:
-
-1. connected varaints. See the 1st variant, get its 1st kmer and start looking for rest kmers. During the process, we might encounter another variant like the picture above, 2 SNPs, whose distance to each other is smaller than kmerLength. And when this happens, handle the encountered varaint as well and continue looking for rest kmers until reaching the end of the reference sequence.
-2. disconnected / separate varaints. For example, DEL and INS in the picture above. They don't share any common kmer. And in such cases, we only need to handle them separately one by one, until reaching the end of the reference sequence.
-
-##### Calculation of positions for kmers
-
-- Positions of kmers near a SNP or a DEL
-  Same as their positions on the original sequence
-
-- Positions of kmers near a INS
-  From the pos where INS is, every kmer that intersect with the inserted sequence will have a ascending offset on the position.
-
-##### Special cases
-
-###### Long DEL
-
-There may exist some long DEL in the interval, and in such cases, it is very likely we need to expand the reference sequences to the right. Not by (kmerLength - 1), but some other calculated value. And for simplification in implementation, we just make the expanded rbound_ref = rbound_interval + kmerLength - 1 + length_DEL_REF (length of the long DEL's REF field).
-
-When expanding, we need to be careful not making the rbound_ref out of the chromosome's boundary.
+##### Different types of varaints
 
 Suppose length of kmers is 5.
 
-                   "expanded"                 "expanded"
-                     |<--- |<----interval---->| --->|------------------>|
-    ref seq: AAAACCCCAAGCC CCCCC CGGGGGGGGGGGTT TTTTTTTTTTAAAAAAACCCCCCCC
-    vars:                        |<-------DEL-- ----->|     |
-    kmers             AGCC C     |                    |     |
-                       ... ...   |                    |     |
-                           CCCCC |                    |     |
-                             ... |                    |     |
-                              CC |                    | TTA |
-                               C |                    | TTAA
+1. SNP
+
+        seq:     AGCGCCTTCGATATAGTAGCTCGCTAA
+        var:                 T
+        kmers:           CGATT       [ref pos]
+                            ...      [ref pos]
+                             TTAGT   [ref pos]
+        Kmers hold the same POS on the reference sequence.
+
+2. INS
+
+        seq:     AGCGCCTTCGATATAGTAGCTCGCTAA
+        var:                 A+GTGTCC|
+        kmers:            GATA+G        [ref pos]
+                            ...         [ref pos]
+                             A+GTGT     [ref pos]
+                              ...       [INS pos]
+                                TGTCC|  [INS pos]
+                                ...     [INS pos]
+                            C|TAGT      [INS pos]
+        Kmer whose start base is within the INS has the same POS as the INS' 
+        first base. Other kmers hold the same POS on the reference sequence.
+
+3. DEL
+
+        seq:     AGCGCCTTCGATATAGTAGCTCGCTAA
+        var:                 A------       
+        kmers:            GATA------C       [ref pos]
+                           ATA------CT      [ref pos]
+                            TA------CTC     [ref pos]
+                             A------CTCG    [ref pos]
+        Kmers hold the same POS on the reference sequence.
+
+4. MNP (same length)
+
+        seq:     AGCGCCTTCGATATAGTAGCTCGCTAA
+        var:                 TCCA
+        kmers:           CGATT          [ref pos]
+                             ...        [ref pos]
+                                ATAGC   [ref pos] 
+        Kmers hold the same POS on the reference sequence.
+
+5. MNP (longer length)
+
+        seq:     AGCGCCTTCGATATAGTAGCTCGCTAA
+        var:                 TCC+AC| 
+        kmers:           CGATT             [ref pos]
+                             ...           [ref pos]
+                            TTCC+A         [ref pos]
+                             TCC+AC|       [ref pos]
+                               ...         [ref pos]
+                               C+AC|GT     [ref pos]
+                                 AC|GTA    [INS pos]
+                                  C|GTAG   [INS pos]
+        Similar as the INS.
+
+6. MNP (shorter length)
+
+        seq:     AGCGCCTTCGATATAGTAGCTCGCTAA
+        var:                 TCC---
+        kmers:           CGATT              [ref pos]
+                             ...            [ref pos]
+                            TTCC---G        [ref pos]
+                                ...         [ref pos]
+                               C---GCTC     [ref pos] 
+        Similar as the DEL.
+
+##### Process of constructing kmers
+
+Use MNP as an example, actually all varaints can be regarded as MNPs:
+
+        seq:     AGCGCCTTCGATATAGTAGCTCGCTAA
+        var:                 TCC+ACGATA| 
+        kmers:
+                         |--l--|+|--m--|-r-|
+                         CGATT  +      |
+                          GATTC +      |
+                           ATTCC+      |
+                            TTCC+A     |
+                             TCC+AC    |
+                               ...
+                                  CGATA|
+                                   GATA|G
+                                    ATA|GT
+                                     TA|GTA
+                                      A|GTAG                 
+      
+        Bases near the variant's position are divided into 3 parts (l, m, r). 
+        When extracting kmers, extract these 3 part and construct a kmer.
+        l: bases before the variant's position
+        m: bases within the varaint (include the base at the var's POS)
+        r: bases after the variant
+
+We don't have to process variants according to their types. We just need to extract (l,m,r) and concat them.
+
+As for the input char and output char, we can do as follows:
+
+1. extract (2+k) mer instead of kmer
+2. every (2+k) mer extracted will have (pos_kmer - 1)
+3. input char and output char will be the first and the last chars
 
 ***
 

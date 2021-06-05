@@ -345,6 +345,7 @@ int main(int argc, char *argv[]) {
       case OPT_KMERGENERATION: {
         optCheck_conflict(&options);
         printf("Specified length for generated kmer: %s\n", optarg);
+        options.kmerGeneration = atoi(optarg);
         generateKmers(&options);
         break;
       }

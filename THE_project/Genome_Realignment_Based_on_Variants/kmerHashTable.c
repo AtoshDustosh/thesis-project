@@ -139,7 +139,7 @@ Iterator_Kmerhash *init_iterator_Kmerhash(KmerHashTable *table) {
   return it;
 }
 
-char *iterator_Kermhash_string(Iterator_Kmerhash *it) {
+char *iterator_Kmerhash_string(Iterator_Kmerhash *it) {
   if (it->cellIdx < it->table->tableSize && it->cellIdx >= 0) {
     KmerHashCell *cell = it->table->cellList[it->cellIdx];
     int lineSize = it->table->lineSize[it->cellIdx];
@@ -287,10 +287,10 @@ void destroy_kmerHashTable(KmerHashTable *table) {
 bool kmerHashTable_add(char *kmer, int32_t pos, char inputChar, char outputChar,
                        KmerHashTable *table) {
   if (strlen(kmer) != table->kmerLength) {
-    fprintf(stderr,
-            "Warning: incompatible length of kmer %ld. Should be %" PRId32
-            ". \n",
-            strlen(kmer), table->kmerLength);
+    // fprintf(stderr,
+    //         "Warning: incompatible length of kmer %ld. Should be %" PRId32
+    //         ". \n",
+    //         strlen(kmer), table->kmerLength);
     return false;
   }
   int32_t index = hashIndex(kmer, pos, inputChar, outputChar, table);
@@ -396,8 +396,9 @@ int _testSet_hashTable() {
 
   // while (iterator_Kmerhash_next(it) != false) {
   //   printf("kmer: %s, pos: %d, inputChar: %c, outputChar: %c\n",
-  //          iterator_Kermhash_string(it), iterator_Kmerhash_pos(it),
-  //          iterator_KmerHash_inputChar(it), iterator_KmerHash_outputChar(it));
+  //          iterator_Kmerhash_string(it), iterator_Kmerhash_pos(it),
+  //          iterator_KmerHash_inputChar(it),
+  //          iterator_KmerHash_outputChar(it));
   // }
 
   destroy_iterator_Kmerhash(it);

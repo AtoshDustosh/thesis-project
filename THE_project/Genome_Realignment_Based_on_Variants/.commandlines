@@ -81,6 +81,12 @@ Test:
   // Perform integration
   ./main --faFile hs37d5_21.fa --samFile simu.filtered.sorted.sam --vcfFile merged.sorted.vcf --sv_min_len 50 --sv_max_len 300 --match 1 --mismatch 4 --gapOpen 6 --gapExtension 1 --threads 4 --integrateVcfToSam 1
 
+  // Merge re-alginment results
+  samtools merge grbvOut.merged.sam grbvOut.sam.thread0 grbvOut.sam.thread1 grbvOut.sam.thread2 grbvOut.sam.thread3 -OSAM
+
+  // Sort the merged results
+  samtools sort grbvOut.merged.sam -OSAM -o grbvOut.merged.sorted.sam
+
 Other commandlines for generating simulated data:
   art_illumina -p -sam -i test.fa -l 50 -f 20 -m 200 -s 10 -o test-paired_end // or use varsim to get simulated data
 
