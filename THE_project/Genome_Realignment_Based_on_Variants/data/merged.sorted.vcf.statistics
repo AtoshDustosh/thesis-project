@@ -1,7 +1,8 @@
-(snp): 564
-(small_ins): 486
-(mnp): 333
-(small_del): 378
-(sv_del): 272
+(snp): 5550
+(small_ins): 3239
+(small_del): 2361
+(mnp): 354
+(sv_del): 537
 (<DUP:TANDEM>): 174
-(<INV>): 15
+(<INV>): 14
+(sv_ins): 1

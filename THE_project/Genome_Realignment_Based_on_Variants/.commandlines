@@ -2,6 +2,7 @@
 
 Note:
   If you find the commandlines too redundant, maybe a shell script will work well.
+  But be aware that varsim needs to run under root.
 
 Supposed directory structure:
   ../varsim:
@@ -23,9 +24,9 @@ Simulation of data:
   // Simulation (suppose you're under .../varsim):
   ./varsim.py --vc_in_vcf data-files/21_5_10Mb.vcf --sv_insert_seq data-files/insert_seq_21.txt \
 --sv_dgv data-files/GRCh37_hg19_supportingvariants_21.txt --filter \
---reference data-files/hs37d5_21.fa --id simu --read_length 100 --vc_num_snp 1500 --vc_num_ins 1400 \
---vc_num_del 1400 --vc_num_mnp 500 --vc_num_complex 500 --sv_num_ins 500 \
---sv_num_del 500 --sv_num_dup 300 --sv_num_inv 300 --sv_percent_novel 0.01 \
+--reference data-files/hs37d5_21.fa --id simu --read_length 100 --vc_num_snp 5000 --vc_num_ins 3000 \
+--vc_num_del 3000 --vc_num_mnp 1500 --vc_num_complex 1500 --sv_num_ins 1500 \
+--sv_num_del 1500 --sv_num_dup 1000 --sv_num_inv 1000 --sv_percent_novel 0.01 \
 --vc_percent_novel 0.01 --mean_fragment_size 350 --sd_fragment_size 50 \
 --vc_min_length_lim 0 --vc_max_length_lim 49 --sv_min_length_lim 50 \
 --sv_max_length_lim 50000 --nlanes 1 --total_coverage 2 \
@@ -57,7 +58,7 @@ Simulation of data:
 
   // Copy the generated header file to the directory of simulated data
 
-  // Use "bcftools sort" to check contig. Add "##<contig=ID ...>" manually if bcftools tells you it is not defined ... I didn't find other practical solutions
+  // Use "bcftools sort" to check contig. Add "##contig=<ID= ...>" manually if bcftools tells you it is not defined ... I didn't find other practical solutions
   bcftools sort simu.truth.vcf
 
   // Convert the format of files

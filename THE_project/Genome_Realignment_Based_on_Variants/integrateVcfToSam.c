@@ -1,5 +1,8 @@
 #include "integrateVcfToSam.h"
 
+// Max number of variants that are integrated at the same time
+static const int max_var_integrated = 6;
+
 static char aux_appended_type = 'Z';
 static char aux_appended_tag[3] = {'X', 'V', '\0'};
 
@@ -763,8 +766,10 @@ static inline void integration_select_and_integrate(
   if (length_ervArray_lpart == 0) {
     // ------------------------ Process right part -----------------------
     int *ervIdxes_rpart = (int *)calloc(length_ervArray_rpart, sizeof(int));
-    for (int l = 0; l < length_ervArray_rpart; l++) ervIdxes_rpart[l] = l;
-    for (int l = 1; l < length_ervArray_rpart + 1; l++) {
+    for (int l = 0; l < length_ervArray_rpart && l < max_var_integrated; l++)
+      ervIdxes_rpart[l] = l;
+    for (int l = 1; l < (length_ervArray_rpart + 1) && l < max_var_integrated;
+         l++) {
       Combinations *cbs_rpart =
           calculate_combinations(ervIdxes_rpart, length_ervArray_rpart, l);
       // printf("erv combi rpart (size: %d) cnt: %d\n", l, cbs_rpart->cnt);
@@ -804,8 +809,10 @@ static inline void integration_select_and_integrate(
   } else {
     // --------------------------- Process left part ---------------------------
     int *ervIdxes_lpart = (int *)calloc(length_ervArray_lpart, sizeof(int));
-    for (int i = 0; i < length_ervArray_lpart; i++) ervIdxes_lpart[i] = i;
-    for (int i = 1; i < length_ervArray_lpart + 1; i++) {
+    for (int i = 0; i < length_ervArray_lpart && i < max_var_integrated; i++)
+      ervIdxes_lpart[i] = i;
+    for (int i = 1; i < (length_ervArray_lpart + 1) && i < max_var_integrated;
+         i++) {
       Combinations *cbs_lpart =
           calculate_combinations(ervIdxes_lpart, length_ervArray_lpart, i);
       // printf("erv combi lpart (size: %d) cnt: %d\n", i, cbs_lpart->cnt);
@@ -834,9 +841,12 @@ static inline void integration_select_and_integrate(
             // ----------------------- Process right part ----------------------
             int *ervIdxes_rpart =
                 (int *)calloc(length_ervArray_rpart, sizeof(int));
-            for (int l = 0; l < length_ervArray_rpart; l++)
+            for (int l = 0; l < length_ervArray_rpart && l < max_var_integrated;
+                 l++)
               ervIdxes_rpart[l] = l;
-            for (int l = 1; l < length_ervArray_rpart + 1; l++) {
+            for (int l = 1;
+                 (l < length_ervArray_rpart + 1) && l < max_var_integrated;
+                 l++) {
               Combinations *cbs_rpart = calculate_combinations(
                   ervIdxes_rpart, length_ervArray_rpart, l);
               // printf("erv combi rpart (size: %d) cnt: %d\n", l,
@@ -909,10 +919,10 @@ typedef struct _define_ThreadArgs {
 void *integration_threads(void *args) {
   ThreadArgs *args_thread = (ThreadArgs *)args;
 
-  // printf("thread (%" PRId64 ") process sam rec from %" PRId64 " to %" PRId64
-  //        "\n",
-  //        args_thread->id, args_thread->id_sam_start,
-  //        args_thread->id_sam_end);
+  printf("thread (%" PRId64 ") process sam rec from %" PRId64 " to %" PRId64
+         "\n",
+         args_thread->id, args_thread->id_sam_start,
+         args_thread->id_sam_end);
   // Execute integrations process
 
   char path_outputFile[strlen(getOutputFile(args_thread->opts)) + 64];

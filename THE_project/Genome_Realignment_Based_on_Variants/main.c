@@ -121,7 +121,8 @@ static void Usage() {
       "in the *.sam file with new created reference genome. It's actually one "
       "of the main purposes of the project. \n");
   printf(
-      "\t\t\t[integration_strategy]: [%d] SNP only; [%d] SV only; [%d] SNP and "
+      "\t\t\t[integration_strategy]: [%d] SNP and small INDEL only; [%d] SV "
+      "only; [%d] SNP and "
       "SV\n",
       _OPT_INTEGRATION_SNPONLY, _OPT_INTEGRATION_SVONLY, _OPT_INTEGRATION_ALL);
   printf(
@@ -291,7 +292,7 @@ int main(int argc, char *argv[]) {
         extractChrom(&options);
         break;
       }
-      case OPT_STATISTICS_VCF:{
+      case OPT_STATISTICS_VCF: {
         optCheck_conflict(&options);
         printf("Collecting statistics from vcf file.\n");
         statistics_vcf(&options);

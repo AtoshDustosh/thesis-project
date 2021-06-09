@@ -266,8 +266,8 @@ void generateKmers(Options *opts) {
                 &pos_start, &pos_end) == 3) {
     printf("processing aux record: [%" PRIu32 ",%" PRIu32 ",%" PRIu32 "]\n",
            id_chrom, pos_start, pos_end);
-    fprintf(fp_op, "# [%" PRIu32 ",%" PRIu32 ",%" PRIu32 "]\n", id_chrom,
-            pos_start, pos_end);
+    // fprintf(fp_op, "# [%" PRIu32 ",%" PRIu32 ",%" PRIu32 "]\n", id_chrom,
+    //         pos_start, pos_end);
     generateKmers_process(id_chrom, pos_start, pos_end, gf, gv, fp_op);
   }
 
