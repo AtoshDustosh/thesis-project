@@ -427,10 +427,9 @@ As for the input char and output char, we can do as follows:
     -- GRBV operations
       threads [NUM_threads] use multi-threads methods to run the program. This only 
                             works for integrateVcfToSam.
-      selectBadReads [MAPQ_threshold] select reads with MAPQ lower than 
-                                            MAPQ_threshold from previously set sam 
-                                            file and then output them into the 
-                                            previously specified output file
+      selectBadReads [MAPQ_threshold] select mapped reads only with MAPQ lower than
+                                      MAPQ_threshold from input sam file and then 
+                                      output them into specified output file
       integrateVcfToSam [integration_strategy] integrate variants from *.vcf file 
                                                     with *.sam file. This will perform 
                                                     realignment for all reads in the 

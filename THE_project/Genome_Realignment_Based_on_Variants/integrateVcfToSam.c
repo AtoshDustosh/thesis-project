@@ -1,7 +1,7 @@
 #include "integrateVcfToSam.h"
 
-// Max number of variants that are integrated at the same time
-static const int max_var_integrated = 6;
+// Limit the number of variant's combinations
+static int limit_cnt_combi_var = 1024;
 
 static char aux_appended_type = 'Z';
 static char aux_appended_tag[3] = {'X', 'V', '\0'};
@@ -13,6 +13,37 @@ static const int extension_rpart = 10;
 static int integration_sv_min_len = 0;  // minimal length for a SV
 static int integration_sv_max_len = 0;  // maximal length for a SV
 static int integration_strategy = 0;
+
+/**
+ * @brief  A method used to limit the time of the program in case that the
+ * program produces too many combinations.
+ * @param  cnt_all: count of all varaints that can be integrated
+ * @param  cnt_selected: count of selected varaints for integration
+ * @retval true if allowed to continue; false otherwise
+ */
+static bool ifContinueIntegration(int cnt_all, int cnt_selected) {
+  const int limit_all_1 = 8;
+  const int limit_all_2 = 13;
+  const int limit_selected_1 = 3;
+  const int limit_selected_2 = 1;
+  if (0 <= cnt_all && cnt_all <= limit_all_1) {
+    return true;
+  } else if (limit_all_1 < cnt_all && cnt_all <= limit_all_2) {
+    if (0 <= cnt_selected && cnt_selected <= limit_selected_1) {
+      return true;
+    } else {
+      return false;
+    }
+  } else if (limit_all_2 < cnt_all) {
+    if (0 <= cnt_selected && cnt_selected <= limit_selected_2) {
+      return true;
+    } else {
+      return false;
+    }
+  } else {
+    return false;
+  }
+}
 
 static inline int ifCanIntegrateAllele(RecVcf_bplus *rv, int alleleIdx,
                                        int startPos, int endPos) {
@@ -121,6 +152,8 @@ static inline int count_integrated_allele(RecVcf_bplus *rv, int64_t startPos,
       }
     }
   }
+  // if (cnt_integrated_allele >= 4)
+  //   printf("count integrated allele: %d\n", cnt_integrated_allele);
   return cnt_integrated_allele;
 }
 
@@ -766,37 +799,41 @@ static inline void integration_select_and_integrate(
   if (length_ervArray_lpart == 0) {
     // ------------------------ Process right part -----------------------
     int *ervIdxes_rpart = (int *)calloc(length_ervArray_rpart, sizeof(int));
-    for (int l = 0; l < length_ervArray_rpart && l < max_var_integrated; l++)
-      ervIdxes_rpart[l] = l;
-    for (int l = 1; l < (length_ervArray_rpart + 1) && l < max_var_integrated;
-         l++) {
+    for (int l = 0; l < length_ervArray_rpart; l++) ervIdxes_rpart[l] = l;
+    for (int l = 1; l < (length_ervArray_rpart + 1); l++) {
+      if (ifContinueIntegration(length_ervArray_rpart, l) == false) {
+        continue;
+      }
       Combinations *cbs_rpart =
           calculate_combinations(ervIdxes_rpart, length_ervArray_rpart, l);
       // printf("erv combi rpart (size: %d) cnt: %d\n", l, cbs_rpart->cnt);
-      for (int m = 0; m < cbs_rpart->cnt; m++) {
-        // printf("erv combi rpart [%d]: ", m);
-        // for (int n = 0; n < cbs_rpart->cnt; n++) {
-        //   printf("%d ", cbs_rpart->combis[m][n]);
-        // }
-        // printf("\n");
-        Combinations_alleles *acbs_rpart = calculate_combinations_alleles(
-            ervArray_rpart, length_ervArray_rpart, cbs_rpart->combis[m],
-            cbs_rpart->length);
-        // printf("allele combi cnt rpart: %d\n", acbs_rpart->cnt);
-        // print_combinations_alleles(acbs_rpart);
-        for (int n = 0; n < acbs_rpart->cnt; n++) {
-          // ------------- Do realignment with left part unmodified ------------
-          integration_integrate(
-              NULL, NULL, NULL, 0, 0, ervArray_rpart, acbs_rpart->combi_rv,
-              acbs_rpart->combis_allele[n], acbs_rpart->length,
-              length_ervArray_rpart, lbound_var, rbound_var, lbound_M, rbound_M,
-              rec_rs, id_rec, gf, gs, gv, file_output);
+      if (cbs_rpart->cnt <= limit_cnt_combi_var) {
+        for (int m = 0; m < cbs_rpart->cnt; m++) {
+          // printf("erv combi rpart [%d]: ", m);
+          // for (int n = 0; n < cbs_rpart->cnt; n++) {
+          //   printf("%d ", cbs_rpart->combis[m][n]);
+          // }
+          // printf("\n");
+          Combinations_alleles *acbs_rpart = calculate_combinations_alleles(
+              ervArray_rpart, length_ervArray_rpart, cbs_rpart->combis[m],
+              cbs_rpart->length);
+          // printf("allele combi cnt rpart: %d\n", acbs_rpart->cnt);
+          // print_combinations_alleles(acbs_rpart);
+          for (int n = 0; n < acbs_rpart->cnt; n++) {
+            // ------------- Do realignment with left part unmodified
+            // ------------
+            integration_integrate(
+                NULL, NULL, NULL, 0, 0, ervArray_rpart, acbs_rpart->combi_rv,
+                acbs_rpart->combis_allele[n], acbs_rpart->length,
+                length_ervArray_rpart, lbound_var, rbound_var, lbound_M,
+                rbound_M, rec_rs, id_rec, gf, gs, gv, file_output);
+          }
+          for (int n = 0; n < acbs_rpart->cnt; n++) {
+            free(acbs_rpart->combis_allele[n]);
+          }
+          free(acbs_rpart->combis_allele);
+          destroy_combinations_alleles(acbs_rpart);
         }
-        for (int n = 0; n < acbs_rpart->cnt; n++) {
-          free(acbs_rpart->combis_allele[n]);
-        }
-        free(acbs_rpart->combis_allele);
-        destroy_combinations_alleles(acbs_rpart);
       }
       for (int m = 0; m < cbs_rpart->cnt; m++) {
         free(cbs_rpart->combis[m]);
@@ -809,91 +846,98 @@ static inline void integration_select_and_integrate(
   } else {
     // --------------------------- Process left part ---------------------------
     int *ervIdxes_lpart = (int *)calloc(length_ervArray_lpart, sizeof(int));
-    for (int i = 0; i < length_ervArray_lpart && i < max_var_integrated; i++)
-      ervIdxes_lpart[i] = i;
-    for (int i = 1; i < (length_ervArray_lpart + 1) && i < max_var_integrated;
-         i++) {
+    for (int i = 0; i < length_ervArray_lpart; i++) ervIdxes_lpart[i] = i;
+    for (int i = 1; i < (length_ervArray_lpart + 1); i++) {
+      if (ifContinueIntegration(length_ervArray_lpart, i) == false) {
+        continue;
+      }
       Combinations *cbs_lpart =
           calculate_combinations(ervIdxes_lpart, length_ervArray_lpart, i);
       // printf("erv combi lpart (size: %d) cnt: %d\n", i, cbs_lpart->cnt);
-      for (int j = 0; j < cbs_lpart->cnt; j++) {
-        // printf("erv combi lpart [%d]: ", j);
-        // for (int k = 0; k < cbs_lpart->length; k++) {
-        //   printf("%d ", cbs_lpart->combis[j][k]);
-        // }
-        // printf("\n");
-        Combinations_alleles *acbs_lpart = calculate_combinations_alleles(
-            ervArray_lpart, length_ervArray_lpart, cbs_lpart->combis[j],
-            cbs_lpart->length);
-        // printf("allele combi cnt lpart: %d\n", acbs_lpart->cnt);
-        // print_combinations_alleles(acbs_lpart);
+      if (cbs_lpart->cnt <= limit_cnt_combi_var) {
+        for (int j = 0; j < cbs_lpart->cnt; j++) {
+          // printf("erv combi lpart [%d]: ", j);
+          // for (int k = 0; k < cbs_lpart->length; k++) {
+          //   printf("%d ", cbs_lpart->combis[j][k]);
+          // }
+          // printf("\n");
+          Combinations_alleles *acbs_lpart = calculate_combinations_alleles(
+              ervArray_lpart, length_ervArray_lpart, cbs_lpart->combis[j],
+              cbs_lpart->length);
+          // printf("allele combi cnt lpart: %d\n", acbs_lpart->cnt);
+          // print_combinations_alleles(acbs_lpart);
 
-        for (int k = 0; k < acbs_lpart->cnt; k++) {
-          if (length_ervArray_rpart == 0) {
-            // ----------- Do realignment with right part unmodified -----------
-            integration_integrate(ervArray_lpart, acbs_lpart->combi_rv,
-                                  acbs_lpart->combis_allele[k],
-                                  acbs_lpart->length, length_ervArray_lpart,
-                                  NULL, NULL, NULL, 0, 0, lbound_var,
-                                  rbound_var, lbound_M, rbound_M, rec_rs,
-                                  id_rec, gf, gs, gv, file_output);
-          } else {
-            // ----------------------- Process right part ----------------------
-            int *ervIdxes_rpart =
-                (int *)calloc(length_ervArray_rpart, sizeof(int));
-            for (int l = 0; l < length_ervArray_rpart && l < max_var_integrated;
-                 l++)
-              ervIdxes_rpart[l] = l;
-            for (int l = 1;
-                 (l < length_ervArray_rpart + 1) && l < max_var_integrated;
-                 l++) {
-              Combinations *cbs_rpart = calculate_combinations(
-                  ervIdxes_rpart, length_ervArray_rpart, l);
-              // printf("erv combi rpart (size: %d) cnt: %d\n", l,
-              // cbs_rpart->cnt);
-              for (int m = 0; m < cbs_rpart->cnt; m++) {
-                // printf("erv combi rpart [%d]: ", m);
-                // for (int n = 0; n < cbs_rpart->cnt; n++) {
-                //   printf("%d ", cbs_rpart->combis[m][n]);
-                // }
-                // printf("\n");
-                Combinations_alleles *acbs_rpart =
-                    calculate_combinations_alleles(
-                        ervArray_rpart, length_ervArray_rpart,
-                        cbs_rpart->combis[m], cbs_rpart->length);
-                // printf("allele combi cnt rpart: %d\n", acbs_rpart->cnt);
-                // print_combinations_alleles(acbs_rpart);
-                for (int n = 0; n < acbs_rpart->cnt; n++) {
-                  // Do realignment
-                  integration_integrate(
-                      ervArray_lpart, acbs_lpart->combi_rv,
-                      acbs_lpart->combis_allele[k], acbs_lpart->length,
-                      length_ervArray_lpart, ervArray_rpart,
-                      acbs_rpart->combi_rv, acbs_rpart->combis_allele[n],
-                      acbs_rpart->length, length_ervArray_rpart, lbound_var,
-                      rbound_var, lbound_M, rbound_M, rec_rs, id_rec, gf, gs,
-                      gv, file_output);
+          for (int k = 0; k < acbs_lpart->cnt; k++) {
+            if (length_ervArray_rpart == 0) {
+              // ----------- Do realignment with right part unmodified
+              // -----------
+              integration_integrate(ervArray_lpart, acbs_lpart->combi_rv,
+                                    acbs_lpart->combis_allele[k],
+                                    acbs_lpart->length, length_ervArray_lpart,
+                                    NULL, NULL, NULL, 0, 0, lbound_var,
+                                    rbound_var, lbound_M, rbound_M, rec_rs,
+                                    id_rec, gf, gs, gv, file_output);
+            } else {
+              // ----------------------- Process right part
+              // ----------------------
+              int *ervIdxes_rpart =
+                  (int *)calloc(length_ervArray_rpart, sizeof(int));
+              for (int l = 0; l < length_ervArray_rpart; l++)
+                ervIdxes_rpart[l] = l;
+              for (int l = 1; (l < length_ervArray_rpart + 1); l++) {
+                if (ifContinueIntegration(length_ervArray_rpart, l) == false) {
+                  continue;
                 }
-                for (int n = 0; n < acbs_rpart->cnt; n++) {
-                  free(acbs_rpart->combis_allele[n]);
+                Combinations *cbs_rpart = calculate_combinations(
+                    ervIdxes_rpart, length_ervArray_rpart, l);
+                // printf("erv combi rpart (size: %d) cnt: %d\n", l,
+                // cbs_rpart->cnt);
+                if (cbs_rpart->cnt * cbs_lpart->cnt <= limit_cnt_combi_var) {
+                  for (int m = 0; m < cbs_rpart->cnt; m++) {
+                    // printf("erv combi rpart [%d]: ", m);
+                    // for (int n = 0; n < cbs_rpart->cnt; n++) {
+                    //   printf("%d ", cbs_rpart->combis[m][n]);
+                    // }
+                    // printf("\n");
+                    Combinations_alleles *acbs_rpart =
+                        calculate_combinations_alleles(
+                            ervArray_rpart, length_ervArray_rpart,
+                            cbs_rpart->combis[m], cbs_rpart->length);
+                    // printf("allele combi cnt rpart: %d\n", acbs_rpart->cnt);
+                    // print_combinations_alleles(acbs_rpart);
+                    for (int n = 0; n < acbs_rpart->cnt; n++) {
+                      // Do realignment
+                      integration_integrate(
+                          ervArray_lpart, acbs_lpart->combi_rv,
+                          acbs_lpart->combis_allele[k], acbs_lpart->length,
+                          length_ervArray_lpart, ervArray_rpart,
+                          acbs_rpart->combi_rv, acbs_rpart->combis_allele[n],
+                          acbs_rpart->length, length_ervArray_rpart, lbound_var,
+                          rbound_var, lbound_M, rbound_M, rec_rs, id_rec, gf,
+                          gs, gv, file_output);
+                    }
+                    for (int n = 0; n < acbs_rpart->cnt; n++) {
+                      free(acbs_rpart->combis_allele[n]);
+                    }
+                    free(acbs_rpart->combis_allele);
+                    destroy_combinations_alleles(acbs_rpart);
+                  }
                 }
-                free(acbs_rpart->combis_allele);
-                destroy_combinations_alleles(acbs_rpart);
+                for (int m = 0; m < cbs_rpart->cnt; m++) {
+                  free(cbs_rpart->combis[m]);
+                }
+                free(cbs_rpart->combis);
+                destroy_combinations(cbs_rpart);
               }
-              for (int m = 0; m < cbs_rpart->cnt; m++) {
-                free(cbs_rpart->combis[m]);
-              }
-              free(cbs_rpart->combis);
-              destroy_combinations(cbs_rpart);
+              free(ervIdxes_rpart);
             }
-            free(ervIdxes_rpart);
           }
+          for (int k = 0; k < acbs_lpart->cnt; k++) {
+            free(acbs_lpart->combis_allele[k]);
+          }
+          free(acbs_lpart->combis_allele);
+          destroy_combinations_alleles(acbs_lpart);
         }
-        for (int k = 0; k < acbs_lpart->cnt; k++) {
-          free(acbs_lpart->combis_allele[k]);
-        }
-        free(acbs_lpart->combis_allele);
-        destroy_combinations_alleles(acbs_lpart);
       }
       for (int j = 0; j < cbs_lpart->cnt; j++) {
         free(cbs_lpart->combis[j]);
@@ -921,8 +965,7 @@ void *integration_threads(void *args) {
 
   printf("thread (%" PRId64 ") process sam rec from %" PRId64 " to %" PRId64
          "\n",
-         args_thread->id, args_thread->id_sam_start,
-         args_thread->id_sam_end);
+         args_thread->id, args_thread->id_sam_start, args_thread->id_sam_end);
   // Execute integrations process
 
   char path_outputFile[strlen(getOutputFile(args_thread->opts)) + 64];
@@ -961,8 +1004,8 @@ void *integration_threads(void *args) {
   int64_t id_rec_start = args_thread->id_sam_start;  // included
   int64_t id_rec_end = args_thread->id_sam_end;      // included
   while (rs_tmp != NULL) {
-    // printSamRecord_brief(gs, rsData(rs_tmp));
     // printf("*****************************************************\n");
+    // printSamRecord_brief(gs, rsData(rs_tmp));
     // -------- only handle records within [id_start, id_end] --------
     if (id_rec < id_rec_start) {
       rs_tmp = gsItNextRec(gsIt);
@@ -1031,6 +1074,8 @@ void *integration_threads(void *args) {
       }
       continue;
     }
+    // printf("*****************************************************\n");
+    // printSamRecord_brief(gs, rsData(rs_tmp));
 
     // -------- get boundaries of area for selecting variants --------
     int64_t lbound_variant = 0;            // 1-based, included
@@ -1069,6 +1114,8 @@ void *integration_threads(void *args) {
     integration_generate_ervArray(rbound_M_ref, rbound_variant, rname_read, gv,
                                   &ervArray_rpart,
                                   &cnt_integrated_variants_rpart);
+    // printf("erv(L): %d, erv(R): %d\n", cnt_integrated_variants_lpart,
+    //        cnt_integrated_variants_rpart);
 
     // ---------------- select alleles and integrate -----------------
     integration_select_and_integrate(

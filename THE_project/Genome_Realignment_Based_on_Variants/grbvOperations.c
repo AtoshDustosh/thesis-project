@@ -207,11 +207,19 @@ void selectBadReads(Options *opts) {
   const int threshold = MAPQ_threshold(opts);
   for (int ret = sam_read1(samFile, samHeader, record); ret >= 0;
        ret = sam_read1(samFile, samHeader, record)) {
+    // Ignore unmapped reads
+    const char *rname = sam_hdr_tid2name(samHeader, record->core.tid);
+    const int cnt_cigar = record->core.n_cigar;
+    if (rname == NULL || cnt_cigar == 0) {
+      continue;
+    }
     // I did not find any method or macros to access "qual", so I directly
     // access using pointers and structures ...
     uint8_t quality = record->core.qual;
     if (quality < threshold)
-      if (sam_write1(outputFile, samHeader, record) < 0) exit(EXIT_FAILURE);
+      if (sam_write1(outputFile, samHeader, record) < 0) {
+        exit(EXIT_FAILURE);
+      }
   }
 
   bam_destroy1(record);

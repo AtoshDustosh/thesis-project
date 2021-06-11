@@ -112,9 +112,10 @@ static void Usage() {
       "\tthreads [NUM_threads]\tuse multi-threads methods to run the program. "
       "This only works for integrateVcfToSam.\n");
   printf(
-      "\tselectBadReads [MAPQ_threshold]\tselect reads with MAPQ lower than "
-      "MAPQ_threshold from previously set sam file and then output them into "
-      "the previously set output file\n");
+      "\tselectBadReads [MAPQ_threshold]\tselect mapped reads only with MAPQ "
+      "lower than "
+      "MAPQ_threshold from input sam file and then output them into "
+      "specified output file.\n");
   printf(
       "\tintegrateVcfToSam [integration_strategy]\tintegrate variants from "
       "*.vcf file with *.sam file. This will perform realignment for all reads "
