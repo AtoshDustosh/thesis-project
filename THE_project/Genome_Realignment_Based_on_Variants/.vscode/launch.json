@@ -14,16 +14,16 @@
         // "--verbose",
 
         "--faFile",
-        // "data/test.fa",
-        "data/hs37d5_21.fa",
+        "data/test.fa",
+        // "data/hs37d5_21.fa",
         // "--fastqFile",
         // "data/test.fastq",
-        "--samFile",
+        // "--samFile",
         // "data/test.sorted.sam",
-        "data/simu.filtered.sorted.sam",
+        // "data/simu.filtered.sorted.sam",
         "--vcfFile",
-        // "data/test.vcf",
-        "data/merged.sorted.vcf",
+        "data/test.vcf",
+        // "data/merged.sorted.vcf",
         "--auxFile",
         "data/kmerIntervals.aux",
 
@@ -36,23 +36,23 @@
         "--gapExtension",
         "1",
 
-        "--outputFile",
-        "data/grbvOut_1.sam",
+        // "--outputFile",
+        // "data/grbvOut_1.sam",
 
         // test grbv operations
         // "--selectBadReads",
         // "20",
 
-        "--thread",
-        "4",
+        // "--thread",
+        // "4",
 
-        "--integrateVcfToSam",
-        "1",
+        // "--integrateVcfToSam",
+        // "1",
 
         // test other opterations
         
-        // "--kmerGeneration",
-        // "23",
+        "--kmerGeneration",
+        "23",
 
         // "--countRec",
         // "--firstLines 30",

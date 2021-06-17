@@ -267,9 +267,9 @@ Suppose length of kmers is 6.
               |                  [T] [T]                  [C]
     kmers after integration:
                     |    |        |   |  |      |      |   |
-              AAAGG ------ACC     |   |    ...    GGGGG|..
-               AAGG ------ACCC    |   |    ...   [kmers in INS]
-                AGG ------ACCCC   |   |    ...       ..|GGGGG
+              AAAGG ------A       |   |    ...    GGGGG|..
+               AAGG ------AC      |   |    ...   [kmers in INS]
+                AGG ------ACC     |   |    ...       ..|GGGGG
                              CCCAAT   |   
                                 ...   |
                                   TCCCCC

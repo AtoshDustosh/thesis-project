@@ -76,7 +76,7 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
     char inputChar = charOfBase(getBase(chrom, local_lbound - 1));
     char outputChar = charOfBase(getBase(chrom, local_lbound + kmerLength));
     char *kmer = subStr(seq_ref, tmp_offset, tmp_offset + kmerLength - 1);
-    if (check_kmer_valid(kmer)) {
+    if (check_kmer_valid(kmer) && inputChar != '\0' && outputChar != '\0') {
       kmerHashTable_add(kmer,
                         genomeFa_absolutePos(id_chrom, lbound + tmp_offset, gf),
                         inputChar, outputChar, hashTable);
@@ -146,10 +146,13 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
           inputChar = buf_kmer[0];
           outputChar = buf_kmer[kmerLength + 2 - 1];
           int32_t pos_abs = genomeFa_absolutePos(id_chrom, pos_kmer + 1, gf);
-          // printf("fixed - kmer: %s, input char: %c, output char: %c, pos:
-          // %d\n",
-          //        kmer, inputChar, outputChar, pos_abs);
-          kmerHashTable_add(kmer, pos_abs, inputChar, outputChar, hashTable);
+          if (check_kmer_valid(kmer) && inputChar != '\0' &&
+              outputChar != '\0') {
+            // printf(
+            //     "fixed - kmer: %s, input char: %c, output char: %c, pos:
+            //     %d\n", kmer, inputChar, outputChar, pos_abs);
+            kmerHashTable_add(kmer, pos_abs, inputChar, outputChar, hashTable);
+          }
 
           free(kmer);
 
