@@ -389,6 +389,8 @@ As for the input char and output char, we can do as follows:
 
 ## Usage
 
+Documents are as follows. If you want to see examples, please check the file "THE_Project/Genome_Realignment_Based_on_Variants/.commandlines"
+
     Usage: ./main [commands] [arguments]
     Run one task at a time. Some commands conflict with each other.
 

@@ -83,8 +83,8 @@ void align_ksw2(const char *tseq, const int tlen, const char *qseq,
   void *km = 0;
 
   // Align
-  ksw_extz(km, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
-           score_gapExtension, ksw2_bandWidth, ksw2_zdrop, ksw2_flag, &ez);
+  // ksw_extz(km, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
+  //          score_gapExtension, ksw2_bandWidth, ksw2_zdrop, ksw2_flag, &ez);
   ksw_extz2_sse(km, qlen, numQseq, tlen, numTseq, 5, scoreMat, score_gapOpen,
                 score_gapExtension, ksw2_bandWidth, ksw2_zdrop, 0, ksw2_flag,
                 &ez);

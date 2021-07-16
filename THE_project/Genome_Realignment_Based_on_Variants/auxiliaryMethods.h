@@ -17,12 +17,13 @@ void _testSet_auxiliaryMethods();
  * @brief  Reverse a string.
  * @param  *original: original string
  * @param  length: length of the original string
- * @retval reversed string or NULL if failed. Note that the successfully returned string must be freed later manually. 
+ * @retval reversed string or NULL if failed. Note that the successfully
+ * returned string must be freed later manually.
  */
-char* revStr(const char *original, const int length);
+char *revStr(const char *original, const int length);
 
 /**
- * @brief  Extract a substring of a string.
+ * * @brief  Extract a substring of a string.
  * @param  *original: original string
  * @param  begin: 0-based, included. Beginning position for extraction
  * @param  end: 0-based, included. Ending position for extraction
@@ -30,6 +31,14 @@ char* revStr(const char *original, const int length);
  * string must be freed later manually.
  */
 char *subStr(const char *original, const int begin, const int end);
+
+/**
+ * @brief  Another version of "subStr". Given the length original string, the
+ * process will be accelerated.
+ * @param  len_original: length of original string
+ */
+char *subStr_fast(const char *original, const int len_original, const int begin,
+                  const int end);
 
 /**
  * @brief Insert a string into the specific position of another string.

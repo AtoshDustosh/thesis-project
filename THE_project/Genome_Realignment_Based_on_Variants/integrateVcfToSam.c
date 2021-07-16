@@ -1,7 +1,7 @@
 #include "integrateVcfToSam.h"
 
 // Limit the number of variant's combinations
-static int limit_cnt_combi_var = 1024;
+static int limit_cnt_combi_var = 8192;
 
 static char aux_appended_type = 'Z';
 static char aux_appended_tag[3] = {'X', 'V', '\0'};
@@ -23,7 +23,7 @@ static int integration_strategy = 0;
  */
 static bool ifContinueIntegration(int cnt_all, int cnt_selected) {
   const int limit_all_1 = 8;
-  const int limit_all_2 = 13;
+  const int limit_all_2 = 14;
   const int limit_selected_1 = 3;
   const int limit_selected_2 = 1;
   if (0 <= cnt_all && cnt_all <= limit_all_1) {
@@ -807,7 +807,7 @@ static inline void integration_select_and_integrate(
       Combinations *cbs_rpart =
           calculate_combinations(ervIdxes_rpart, length_ervArray_rpart, l);
       // printf("erv combi rpart (size: %d) cnt: %d\n", l, cbs_rpart->cnt);
-      if (cbs_rpart->cnt <= limit_cnt_combi_var) {
+      if (cbs_rpart->cnt <= limit_cnt_combi_var)
         for (int m = 0; m < cbs_rpart->cnt; m++) {
           // printf("erv combi rpart [%d]: ", m);
           // for (int n = 0; n < cbs_rpart->cnt; n++) {
@@ -834,7 +834,7 @@ static inline void integration_select_and_integrate(
           free(acbs_rpart->combis_allele);
           destroy_combinations_alleles(acbs_rpart);
         }
-      }
+
       for (int m = 0; m < cbs_rpart->cnt; m++) {
         free(cbs_rpart->combis[m]);
       }
@@ -854,7 +854,7 @@ static inline void integration_select_and_integrate(
       Combinations *cbs_lpart =
           calculate_combinations(ervIdxes_lpart, length_ervArray_lpart, i);
       // printf("erv combi lpart (size: %d) cnt: %d\n", i, cbs_lpart->cnt);
-      if (cbs_lpart->cnt <= limit_cnt_combi_var) {
+      if (cbs_lpart->cnt <= limit_cnt_combi_var)
         for (int j = 0; j < cbs_lpart->cnt; j++) {
           // printf("erv combi lpart [%d]: ", j);
           // for (int k = 0; k < cbs_lpart->length; k++) {
@@ -892,7 +892,7 @@ static inline void integration_select_and_integrate(
                     ervIdxes_rpart, length_ervArray_rpart, l);
                 // printf("erv combi rpart (size: %d) cnt: %d\n", l,
                 // cbs_rpart->cnt);
-                if (cbs_rpart->cnt * cbs_lpart->cnt <= limit_cnt_combi_var) {
+                if (cbs_rpart->cnt * cbs_lpart->cnt <= limit_cnt_combi_var)
                   for (int m = 0; m < cbs_rpart->cnt; m++) {
                     // printf("erv combi rpart [%d]: ", m);
                     // for (int n = 0; n < cbs_rpart->cnt; n++) {
@@ -922,7 +922,7 @@ static inline void integration_select_and_integrate(
                     free(acbs_rpart->combis_allele);
                     destroy_combinations_alleles(acbs_rpart);
                   }
-                }
+
                 for (int m = 0; m < cbs_rpart->cnt; m++) {
                   free(cbs_rpart->combis[m]);
                 }
@@ -938,7 +938,7 @@ static inline void integration_select_and_integrate(
           free(acbs_lpart->combis_allele);
           destroy_combinations_alleles(acbs_lpart);
         }
-      }
+
       for (int j = 0; j < cbs_lpart->cnt; j++) {
         free(cbs_lpart->combis[j]);
       }
@@ -1043,11 +1043,12 @@ void *integration_threads(void *args) {
         tmp_lbound += tmp_length;
       } else if (cigar_opChar == 'I') {
         // rbound_read will not move on the reference in such case
-      } else if (cigar_opChar == 'P' || cigar_opChar == 'N') {
+      } else if (cigar_opChar == 'P' || cigar_opChar == 'N' ||
+                 cigar_opChar == 'H') {
+        // Ignore records containing 'P' and 'N'
         length_M_area = 0;
         break;
-        // Ignore records containing 'P' and 'N'
-      } else {  // For cigarOp 'MX=SH', move lbound_M_ref on the reference
+      } else {  // For cigarOp 'MX=S', move lbound_M_ref on the reference
         rbound_read += tmp_length;
         tmp_lbound += tmp_length;
       }

@@ -39,7 +39,7 @@ static inline bool ifCanIntegrateAllele(RecVcf_bplus *rv, int alleleIdx,
  * @brief  Process and generate kmers for interval [pos_start, pos_end] on the
  * id_chrom-th chromosome. And then output the generated kmers into the
  * specified output file.
- * @param  id_chrom: index of the chromosome
+ * @param  id_chrom: 1-based index of the chromosome
  * @param  pos_start: 1-based start position of interval. included
  * @param  pos_end: 1-based end position of interval. included
  */
@@ -48,6 +48,9 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
                                          GenomeVcf_bplus *gv, FILE *fp_op) {
   // -------- Expand the interval towards both sides by (kmerLength - 1) -------
   // Fixed interval will ignore kmers that don't have input char or output char
+  clock_t time_start = 0;
+  clock_t time_end = 0;
+  if (id_chrom < 1) return;
   ChromFa *chrom = getChromFromGenomeFabyIndex(id_chrom, gf);
   int32_t length_chrom = chromFa_length(chrom);
   const char *name_chrom = chromFa_name(chrom);
@@ -66,16 +69,29 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
   // ------------------------ Create hash table for kmers ----------------------
   // Maybe a larger size of the table would be better, but this one can do
   int32_t tableSize = (rbound - lbound) * 2;
+  // printf("length chrom: %" PRId32 "\n", length_chrom);
+  // printf("lbound: %" PRId32 ", rbound: %" PRId32 "\n", lbound, rbound);
+  // printf("hash table size: %" PRId32 "\n", tableSize);
   KmerHashTable *hashTable = init_kmerHashTable(tableSize, kmerLength);
 
   // -------------------- Save original kmers into hash table ------------------
+  // time_start = clock();
   char *seq_ref = getSeqFromChromFa(lbound, rbound, chrom);
+  int len_seq_ref = rbound - lbound + 1;
+  // time_end = clock();
+  // printf("extract sequence time: %fs\n",
+  //        time_convert_clock2second(time_start, time_end));
+
+  // time_start = clock();
   int32_t tmp_offset = 0;
   while (lbound + tmp_offset <= pos_end) {
     int32_t local_lbound = lbound + tmp_offset;
     char inputChar = charOfBase(getBase(chrom, local_lbound - 1));
     char outputChar = charOfBase(getBase(chrom, local_lbound + kmerLength));
-    char *kmer = subStr(seq_ref, tmp_offset, tmp_offset + kmerLength - 1);
+    char *kmer = subStr_fast(seq_ref, len_seq_ref, tmp_offset,
+                             tmp_offset + kmerLength - 1);
+    // printf("kmer: %s, pos: %d\n", kmer, (int)(pos_start + tmp_offset));
+
     if (check_kmer_valid(kmer) && inputChar != '\0' && outputChar != '\0') {
       kmerHashTable_add(kmer,
                         genomeFa_absolutePos(id_chrom, lbound + tmp_offset, gf),
@@ -85,6 +101,9 @@ static inline void generateKmers_process(int32_t id_chrom, int32_t pos_start,
     tmp_offset++;
   }
   free(seq_ref);
+  // time_end = clock();
+  // printf("extract original kmers time: %fs\n",
+  //        time_convert_clock2second(time_start, time_end));
 
   // ------------- Find all inter-variant kmers within the interval ------------
 

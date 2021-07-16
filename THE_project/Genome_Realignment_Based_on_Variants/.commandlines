@@ -93,3 +93,6 @@ Other commandlines for generating simulated data:
 
 Other commandlines for simple operations:
   ./main --vcfFile data/merged.sorted.vcf --outputFile data/merged.sorted.vcf.statistics --sv_min_len 51 --statistics_vcf
+
+Kmer generation:
+  ./main --faFile data/hs37d5_21.fa --vcfFile data/merged.sorted.vcf --auxFile data/kmers_tests.aux --outputFile data/generated.kmers --kmerGeneration 23
